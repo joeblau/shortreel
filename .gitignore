@@ -16,3 +16,7 @@ Package.resolved
 
 # macOS
 .DS_Store
+
+# Bun / local build output
+node_modules/
+.build/

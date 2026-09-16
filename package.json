@@ -1,0 +1,8 @@
+{
+  "name": "engage",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "engage": "bun run scripts/engage.ts"
+  }
+}
