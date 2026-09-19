@@ -12,7 +12,6 @@
 		07E8623C76203FB94EC79C2B /* DeviceControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = D786512C10AF9B1CD42FE18F /* DeviceControlling.swift */; };
 		0B7EC575615925AF2994386F /* SimulatedDeviceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F72ED0B08B7E9D51CBB7242 /* SimulatedDeviceController.swift */; };
 		0D9176BF54DC8244578D8F12 /* HIDControlSession.m in Sources */ = {isa = PBXBuildFile; fileRef = 9CA70D82245585A3B68D8F2A /* HIDControlSession.m */; };
-		12411E7337058582163154B4 /* AccountListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 112C543C4F4A82D561EEDB6B /* AccountListView.swift */; };
 		15FB827C40A69C8A7014DF33 /* OnDevicePromptPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D78EB632038DBAAC3A3AA4C /* OnDevicePromptPlanner.swift */; };
 		16CFDE08EE3AE9BDDC04D6F0 /* HIDServiceRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = D72BB996945ADABB0A348C2B /* HIDServiceRecord.swift */; };
 		1A0DD82E7D3C3F2CFBCC8C1E /* Farm.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B9F9B11539F5CD47FFCFA8 /* Farm.swift */; };
@@ -20,31 +19,25 @@
 		1A94298EB7AD49F6C98F65AF /* DevicePromptExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E746318EAF9E27AE09E8673D /* DevicePromptExecutor.swift */; };
 		1E0E113A31DB1339E4FDAFBC /* Vision.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBCA529E1558823B04411D10 /* Vision.framework */; };
 		255B71F6514BC9376BEEF7F1 /* BluetoothDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14A5FC378EEB5A64EF4B363A /* BluetoothDiscovery.swift */; };
-		28D789E8EF6F20A6B1FB0041 /* NarrativeHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75622BFB30FB9655109FF6BA /* NarrativeHeaderView.swift */; };
 		2B8F9749D95E36E51BED7A0D /* USBPhoneBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = DC240D89D8AA4B7D311E8776 /* USBPhoneBridge.m */; };
 		2D42C7FCCA70FD1601FA3B46 /* CBHIDBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 00DBDEC5B47D5F780C43220D /* CBHIDBridge.m */; };
 		2DDDEFDE740F48C4C84D322B /* PhoneScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC75CFDBF497B370A2487B50 /* PhoneScreenCaptureService.swift */; };
 		36298C0D414A8A73AB9F812F /* CBClassicDiscovery.m in Sources */ = {isa = PBXBuildFile; fileRef = 1AED36D2FE1068896F3CAE72 /* CBClassicDiscovery.m */; };
 		44E8C59ED96B97C5A4A9EC3A /* DevicePromptSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9E7091BEFE15778B1F7D50 /* DevicePromptSession.swift */; };
-		4843839B32AE599ACC13F2A2 /* DeviceInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DCA0C2C76A6C58EDDAB54FC /* DeviceInspectorView.swift */; };
 		4C1F0730AE4E3FF2DEC47881 /* PhoneVisionTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C4C867582A66B1699096BD /* PhoneVisionTypes.swift */; };
 		4C747511A72F5F35C9388C4A /* DeviceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CCE706AB92F64CA0B3C31B /* DeviceHost.swift */; };
-		52DAE01461B6A81DD5C94478 /* TimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEDCC9F872679965EC9FBFC3 /* TimelineView.swift */; };
-		53EC1817BC2694DE5A3D0F05 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8389A9BA0C831A615A0514B9 /* InspectorView.swift */; };
 		59BE468C9249DF830784E1A3 /* PhoneScreenFrameEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB3BD60B05A649DD18352F50 /* PhoneScreenFrameEncoder.swift */; };
 		5DA7512E3A88C131E74DA156 /* BluetoothHIDHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A2A068FA1C1E168E2EC690E /* BluetoothHIDHost.swift */; };
 		5DB8598C01D6BC22FC2CEA0D /* CoreMediaIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9CE65DBA70C8DF036D5D3321 /* CoreMediaIO.framework */; };
 		6661ED82AB03BE5BEF64C261 /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACD9538404BA99C2C37E979A /* Account.swift */; };
 		6AADFA23E9B815E9A8316B21 /* GrokPhonePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CC43FE179B172CD344F30E /* GrokPhonePlanner.swift */; };
 		7220952A5A6801449F20E824 /* PhonePlannerProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A69CE7F09709617F2C3F30A /* PhonePlannerProcess.swift */; };
-		780AC02E5BC3D6BE580D450A /* DeviceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D16F8DD3EACB025FB767DD49 /* DeviceListView.swift */; };
 		796F41D573C1882556A635B3 /* PhoneHomeNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06B7CA2EB5ED31001E0EA9DD /* PhoneHomeNavigator.swift */; };
 		7B0C160689061791C18F65BA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5E9AA251BD0C01F7006B100 /* ContentView.swift */; };
 		7E84B828201884A72EF4515A /* PhoneVisualRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70CD7A63765E5B1F9E02A0C3 /* PhoneVisualRunner.swift */; };
 		82C15156CB2CBE1EE33FB01C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8F9D17B1E23AE149DA481298 /* AVFoundation.framework */; };
 		8451F24AE3C4EAEF503209FA /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5392515B443A64A2145BDB2C /* CoreBluetooth.framework */; };
 		8AC0AEE27C12E457FDD650C6 /* DevicePromptPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F0846537B96DF26FF9F688 /* DevicePromptPlan.swift */; };
-		A231091B4558D2E495F11051 /* TimelineEventRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF045DECA1AA958F61B44372 /* TimelineEventRow.swift */; };
 		A7FAD700237DC53E32252E0E /* DeviceGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEDBE3E92D900F0A970377D9 /* DeviceGalleryView.swift */; };
 		A87595764A28F1B87DE1323E /* SocialLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF197E500257D5081B014D9A /* SocialLink.swift */; };
 		AC1A7B6F044BB026C4BF0B90 /* PhoneVisionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 399A52CD1FE15865901DB711 /* PhoneVisionClient.swift */; };
@@ -69,7 +62,6 @@
 		06B7CA2EB5ED31001E0EA9DD /* PhoneHomeNavigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneHomeNavigator.swift; sourceTree = "<group>"; };
 		0D734D644036D054B305A982 /* TimelineEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineEvent.swift; sourceTree = "<group>"; };
 		0F72ED0B08B7E9D51CBB7242 /* SimulatedDeviceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedDeviceController.swift; sourceTree = "<group>"; };
-		112C543C4F4A82D561EEDB6B /* AccountListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountListView.swift; sourceTree = "<group>"; };
 		14A5FC378EEB5A64EF4B363A /* BluetoothDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothDiscovery.swift; sourceTree = "<group>"; };
 		1858E168352352BB12C19916 /* PhoneVisionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneVisionProvider.swift; sourceTree = "<group>"; };
 		1A69CE7F09709617F2C3F30A /* PhonePlannerProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePlannerProcess.swift; sourceTree = "<group>"; };
@@ -88,12 +80,9 @@
 		5392515B443A64A2145BDB2C /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
 		709224EAB1DF11CE31C00D85 /* CBHIDBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CBHIDBridge.h; sourceTree = "<group>"; };
 		70CD7A63765E5B1F9E02A0C3 /* PhoneVisualRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneVisualRunner.swift; sourceTree = "<group>"; };
-		75622BFB30FB9655109FF6BA /* NarrativeHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrativeHeaderView.swift; sourceTree = "<group>"; };
 		78719F58EDEC0BD3806DAEE5 /* CBHIDSocket.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CBHIDSocket.h; sourceTree = "<group>"; };
 		78E9B0DFCB355E2CFEE12727 /* WarmUpAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpAgent.swift; sourceTree = "<group>"; };
-		7DCA0C2C76A6C58EDDAB54FC /* DeviceInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInspectorView.swift; sourceTree = "<group>"; };
 		8383273757C8897157EF8F9E /* ShortReelApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortReelApp.swift; sourceTree = "<group>"; };
-		8389A9BA0C831A615A0514B9 /* InspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorView.swift; sourceTree = "<group>"; };
 		8A2A068FA1C1E168E2EC690E /* BluetoothHIDHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothHIDHost.swift; sourceTree = "<group>"; };
 		8F9D17B1E23AE149DA481298 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		969D1AE2B0E6527F1642C17F /* ShortReel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShortReel.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -104,7 +93,6 @@
 		9EC3AD27C56EE36B44C0FD22 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
 		AC75CFDBF497B370A2487B50 /* PhoneScreenCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenCaptureService.swift; sourceTree = "<group>"; };
 		ACD9538404BA99C2C37E979A /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
-		AEDCC9F872679965EC9FBFC3 /* TimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineView.swift; sourceTree = "<group>"; };
 		B27CEE80EA70FFB83D8C4E2A /* DevicePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptView.swift; sourceTree = "<group>"; };
 		BE8D9A24DCC0503C7516A145 /* USBPhoneSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = USBPhoneSetup.swift; sourceTree = "<group>"; };
 		C0CCE706AB92F64CA0B3C31B /* DeviceHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceHost.swift; sourceTree = "<group>"; };
@@ -114,8 +102,6 @@
 		C4CC43FE179B172CD344F30E /* GrokPhonePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokPhonePlanner.swift; sourceTree = "<group>"; };
 		CB3BD60B05A649DD18352F50 /* PhoneScreenFrameEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenFrameEncoder.swift; sourceTree = "<group>"; };
 		CB68921DCC496EE5EF807DC3 /* DeviceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDetailView.swift; sourceTree = "<group>"; };
-		CF045DECA1AA958F61B44372 /* TimelineEventRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineEventRow.swift; sourceTree = "<group>"; };
-		D16F8DD3EACB025FB767DD49 /* DeviceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceListView.swift; sourceTree = "<group>"; };
 		D2317D5A658EBB9BE247789F /* DeviceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManager.swift; sourceTree = "<group>"; };
 		D72BB996945ADABB0A348C2B /* HIDServiceRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDServiceRecord.swift; sourceTree = "<group>"; };
 		D786512C10AF9B1CD42FE18F /* DeviceControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceControlling.swift; sourceTree = "<group>"; };
@@ -278,19 +264,12 @@
 		FCA0EB29F607775D80357BE7 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				112C543C4F4A82D561EEDB6B /* AccountListView.swift */,
 				2D748206D2366B27A440EAD2 /* AddDeviceView.swift */,
 				E5E9AA251BD0C01F7006B100 /* ContentView.swift */,
 				CB68921DCC496EE5EF807DC3 /* DeviceDetailView.swift */,
 				DEDBE3E92D900F0A970377D9 /* DeviceGalleryView.swift */,
-				7DCA0C2C76A6C58EDDAB54FC /* DeviceInspectorView.swift */,
-				D16F8DD3EACB025FB767DD49 /* DeviceListView.swift */,
 				B27CEE80EA70FFB83D8C4E2A /* DevicePromptView.swift */,
-				8389A9BA0C831A615A0514B9 /* InspectorView.swift */,
-				75622BFB30FB9655109FF6BA /* NarrativeHeaderView.swift */,
 				52749801244FE485B01392EB /* PhoneScreenView.swift */,
-				CF045DECA1AA958F61B44372 /* TimelineEventRow.swift */,
-				AEDCC9F872679965EC9FBFC3 /* TimelineView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -352,7 +331,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				6661ED82AB03BE5BEF64C261 /* Account.swift in Sources */,
-				12411E7337058582163154B4 /* AccountListView.swift in Sources */,
 				C98A797041F4E614FF380BB2 /* AddDeviceView.swift in Sources */,
 				255B71F6514BC9376BEEF7F1 /* BluetoothDiscovery.swift in Sources */,
 				5DA7512E3A88C131E74DA156 /* BluetoothHIDHost.swift in Sources */,
@@ -365,8 +343,6 @@
 				C77B4780713035662425C0F1 /* DeviceDetailView.swift in Sources */,
 				A7FAD700237DC53E32252E0E /* DeviceGalleryView.swift in Sources */,
 				4C747511A72F5F35C9388C4A /* DeviceHost.swift in Sources */,
-				4843839B32AE599ACC13F2A2 /* DeviceInspectorView.swift in Sources */,
-				780AC02E5BC3D6BE580D450A /* DeviceListView.swift in Sources */,
 				B55EF687A66D7DDC4466C87C /* DeviceManager.swift in Sources */,
 				1A94298EB7AD49F6C98F65AF /* DevicePromptExecutor.swift in Sources */,
 				8AC0AEE27C12E457FDD650C6 /* DevicePromptPlan.swift in Sources */,
@@ -377,8 +353,6 @@
 				6AADFA23E9B815E9A8316B21 /* GrokPhonePlanner.swift in Sources */,
 				0D9176BF54DC8244578D8F12 /* HIDControlSession.m in Sources */,
 				16CFDE08EE3AE9BDDC04D6F0 /* HIDServiceRecord.swift in Sources */,
-				53EC1817BC2694DE5A3D0F05 /* InspectorView.swift in Sources */,
-				28D789E8EF6F20A6B1FB0041 /* NarrativeHeaderView.swift in Sources */,
 				15FB827C40A69C8A7014DF33 /* OnDevicePromptPlanner.swift in Sources */,
 				B47989288B7C62003867E8EF /* PersistentModel+Live.swift in Sources */,
 				796F41D573C1882556A635B3 /* PhoneHomeNavigator.swift in Sources */,
@@ -396,8 +370,6 @@
 				0B7EC575615925AF2994386F /* SimulatedDeviceController.swift in Sources */,
 				A87595764A28F1B87DE1323E /* SocialLink.swift in Sources */,
 				F1DEED3E5390FA4809111FA8 /* TimelineEvent.swift in Sources */,
-				A231091B4558D2E495F11051 /* TimelineEventRow.swift in Sources */,
-				52DAE01461B6A81DD5C94478 /* TimelineView.swift in Sources */,
 				2B8F9749D95E36E51BED7A0D /* USBPhoneBridge.m in Sources */,
 				1A7C7D0709C787A52CBAA137 /* USBPhoneSetup.swift in Sources */,
 				C4C7C2EA22E18A7907AF9BF6 /* WarmUpAgent.swift in Sources */,

@@ -2,21 +2,22 @@ import AVFoundation
 import SwiftData
 import SwiftUI
 
-/// Selection belongs to the inspector; every registered phone keeps its place
-/// in the gallery and uses the capture session owned by DeviceManager.
+/// The whole app is this wall of phones. Tap a phone to give it instructions;
+/// every registered phone keeps its place in the gallery and uses the capture
+/// session owned by DeviceManager.
 struct DeviceGalleryView: View {
-    @Binding var selection: PersistentIdentifier?
     var onAddDevice: () -> Void
 
     @Query(sort: \Device.createdAt) private var devices: [Device]
     @Environment(DeviceManager.self) private var deviceManager
     @Environment(\.scenePhase) private var scenePhase
+    @State private var promptDevice: Device?
     @State private var settingsDevice: Device?
     @State private var refreshRevision = 0
     @State private var refreshing = false
 
     private var liveDevices: [Device] { devices.filter(\.isLive) }
-    private let columns = [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 24, alignment: .top)]
+    private let columns = [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)]
 
     private struct RefreshID: Equatable {
         let devices: [PersistentIdentifier]
@@ -27,7 +28,7 @@ struct DeviceGalleryView: View {
         Group {
             if liveDevices.isEmpty {
                 ContentUnavailableView {
-                    Label("No Devices", systemImage: "iphone")
+                    Label("No Phones", systemImage: "iphone")
                 } description: {
                     Text("Connect an iPhone to see its screen and give it instructions.")
                 } actions: {
@@ -35,45 +36,35 @@ struct DeviceGalleryView: View {
                 }
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        HStack(alignment: .center) {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text("Devices")
-                                    .font(.title2.bold())
-                                Text("Select a screen to give that iPhone instructions.")
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 16)
-                            if refreshing {
-                                ProgressView().controlSize(.small)
-                            }
-                            Button {
-                                refreshRevision += 1
-                            } label: {
-                                Label("Refresh Screens", systemImage: "arrow.clockwise")
-                            }
-                            .disabled(refreshing)
-                        }
-
-                        LazyVGrid(columns: columns, alignment: .leading, spacing: 28) {
-                            ForEach(liveDevices, id: \.persistentModelID) { device in
-                                if device.isLive {
-                                    DeviceScreenCard(
-                                        device: device,
-                                        isSelected: selection == device.persistentModelID,
-                                        onSelect: { selection = device.persistentModelID },
-                                        onSettings: {
-                                            selection = device.persistentModelID
-                                            settingsDevice = device
-                                        }
-                                    )
-                                }
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 28) {
+                        ForEach(liveDevices, id: \.persistentModelID) { device in
+                            if device.isLive {
+                                DeviceScreenCard(
+                                    device: device,
+                                    onPrompt: { promptDevice = device },
+                                    onSettings: { settingsDevice = device }
+                                )
                             }
                         }
                     }
                     .padding(24)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            }
+        }
+        .navigationTitle("ShortReel")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    refreshRevision += 1
+                } label: {
+                    Label("Refresh Screens", systemImage: "arrow.clockwise")
+                }
+                .disabled(refreshing)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: onAddDevice) {
+                    Label("Connect iPhone", systemImage: "plus")
                 }
             }
         }
@@ -91,6 +82,9 @@ struct DeviceGalleryView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { refreshRevision += 1 }
         }
+        .sheet(item: $promptDevice) { device in
+            DevicePromptSheet(device: device)
+        }
         .sheet(item: $settingsDevice, onDismiss: { refreshRevision += 1 }) { device in
             DeviceSettingsSheet(device: device)
         }
@@ -99,8 +93,7 @@ struct DeviceGalleryView: View {
 
 private struct DeviceScreenCard: View {
     let device: Device
-    let isSelected: Bool
-    let onSelect: () -> Void
+    let onPrompt: () -> Void
     let onSettings: () -> Void
 
     @Environment(DeviceManager.self) private var deviceManager
@@ -110,25 +103,21 @@ private struct DeviceScreenCard: View {
             let capture = deviceManager.screenCapture(for: device)
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 8) {
-                    Button(action: onSelect) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(device.name)
-                                .font(.headline)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(device.name)
+                            .font(.headline)
+                            .lineLimit(1)
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(device.connectionState.color)
+                                .frame(width: 6, height: 6)
+                            Text("\(device.transport.displayName) · \(device.connectionState.displayName)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                                 .lineLimit(1)
-                            HStack(spacing: 6) {
-                                Circle()
-                                    .fill(device.connectionState.color)
-                                    .frame(width: 6, height: 6)
-                                Text("\(device.transport.displayName) · \(device.connectionState.displayName)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     Menu {
                         Button("Device Settings…", action: onSettings)
@@ -154,7 +143,7 @@ private struct DeviceScreenCard: View {
                     .accessibilityLabel("Options for \(device.name)")
                 }
 
-                Button(action: onSelect) {
+                Button(action: onPrompt) {
                     screen(capture)
                         .aspectRatio(9.0 / 19.5, contentMode: .fit)
                         .frame(maxWidth: .infinity)
@@ -162,14 +151,13 @@ private struct DeviceScreenCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .overlay {
                             RoundedRectangle(cornerRadius: 14)
-                                .strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.12), lineWidth: isSelected ? 3 : 1)
+                                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
                         }
                         .contentShape(RoundedRectangle(cornerRadius: 14))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Screen of \(device.name)")
-                .accessibilityValue(isSelected ? "Selected" : "Not selected")
-                .help("Select \(device.name) to give it instructions")
+                .help("Give \(device.name) instructions")
 
                 HStack {
                     screenStatus(capture)
@@ -248,6 +236,29 @@ private struct DeviceScreenCard: View {
         if capture.authorizationStatus != .authorized { return "Open screen settings to allow this iPhone’s live view." }
         if let error = deviceManager.screenConnectionErrors[device.identifier] ?? capture.errorMessage { return error }
         return "Connect this iPhone by USB, unlock it, and confirm Trust to see its screen."
+    }
+}
+
+private struct DevicePromptSheet: View {
+    let device: Device
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(device.name).font(.headline)
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(20)
+            Divider()
+            Form {
+                DevicePromptView(device: device)
+            }
+            .formStyle(.grouped)
+        }
+        .frame(width: 480, height: 640)
     }
 }
 
