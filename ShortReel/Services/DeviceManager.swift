@@ -262,17 +262,9 @@ final class DeviceManager {
         }
         let perform: (PhonePromptAction) async throws -> Void = { action in
             if case .home = action, screenBlockedReason() == nil, let source = screen.selectedSourceID {
-                let navigator = PhoneHomeNavigator(openMenu: {
-                    try await host.openAssistiveTouchMenu(on: descriptor)
-                }, capture: { try await screen.capture(after: $0) }, recognize: { frame in
-                    try await Task.detached(priority: .userInitiated) {
-                        try PhoneVisionClient.makeScreenContext(frame.jpegData).targets.map {
-                            PhoneHomeTarget(text: $0.text, x: $0.x, y: $0.y)
-                        }
-                    }.value
-                }, tap: { x, y in
-                    try await host.tap(.init(x: x, y: y), on: descriptor)
-                }, blockedReason: {
+                let navigator = PhoneHomeNavigator(swipeHome: {
+                    try await host.pressKey(.home, on: descriptor)
+                }, capture: { try await screen.capture(after: $0) }, blockedReason: {
                     if screen.selectedSourceID != source { return "The phone’s screen source changed. Reconnect its USB screen and try again." }
                     return blockedReason() ?? screenBlockedReason()
                 })

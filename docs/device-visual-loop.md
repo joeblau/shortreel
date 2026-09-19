@@ -37,9 +37,9 @@ Starting an AVFoundation graph does not mark the screen ready. Startup waits for
 
 The runner checks source identity, frame ID, capture time, JPEG validity, and encoded dimensions. It checks cancellation and connection state again after model inference and before input. Completion requires a model decision based on a valid screen observation; a successful Bluetooth write alone is not completion.
 
-Home has an observed implementation when the verified USB screen is running, even if a vision model is unavailable. It opens the AssistiveTouch menu with the secondary pointer button, captures after the menu settles, requires exactly one OCR Home label plus two distinct AssistiveTouch menu labels, then taps that target and captures again. Identity, freshness, availability, and cancellation are checked between those inputs. An unavailable menu stops the request without a gesture fallback. Direct Home still reports Sent; full visual goals use a subsequent model observation to establish completion.
+Home uses the Bluetooth driver’s AssistiveTouch pointer swipe from the bottom center toward the middle of the screen, releasing immediately at the end. It does not open or read the floating menu. With a verified USB screen, the navigator checks a fresh frame before the swipe and captures again after the animation settles, checking identity, freshness, availability, and cancellation. Direct Home reports Sent; full visual goals use a subsequent model observation to establish completion.
 
-The manual floating-menu → Home sequence was physically verified. The automatic secondary-button → OCR Home implementation passes its injected tests and the application build; its final hardware check was blocked when the Mac session locked. The prior edge gestures did not reliably reach Home and are not evidence that this replacement works on hardware.
+The swipe routing and frame checks are covered by injected tests and the application build. The bottom-edge gesture still needs verification on the attached iPhone; a fresh frame alone does not prove that Home was reached.
 
 ## Bounds and limitations
 
