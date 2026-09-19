@@ -42,6 +42,8 @@ Home uses the Bluetooth driver’s AssistiveTouch pointer swipe from the bottom 
 
 The swipe routing and frame checks are covered by injected tests and the application build. The bottom-edge gesture still needs verification on the attached iPhone; a fresh frame alone does not prove that Home was reached.
 
+Both visual planners use Spotlight for app launches, including when the app icon is visible on Home. They return Home if needed, swipe down below the status bar to open Spotlight, enter the app name (replacing an old query), and select its matching visible result. Every input is followed by a fresh screen observation. If the app is already open, they continue the goal there. Explicit icon taps and coordinate requests retain their literal meaning.
+
 ## Bounds and limitations
 
 - One request runs per device, with at most 30 decisions and five minutes total. A suspended capture or model cannot later dispatch a result after cancellation or timeout.
