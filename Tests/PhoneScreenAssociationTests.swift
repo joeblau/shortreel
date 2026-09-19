@@ -44,11 +44,14 @@ enum PhoneScreenAssociationTests {
         expect([phone, other], [physical, otherPhysical], "physical-source")
         expect([phone, other], [source, physical], "physical-source")
 
-        // Name fallback never chooses among multiple connected devices/sources,
-        // even if only one name matches or an extra device has not been trusted.
-        expect([phone, other], [source], nil)
+        // Name fallback only when the name is unique on both sides.
+        expect([phone, other], [source], privacyID)
+        expect([phone], [source, screen(id: secondPrivacyID, name: "Other Phone")], privacyID)
+        expect([phone, other], [source, screen(id: secondPrivacyID, name: "Other Phone")], privacyID)
+        expect([identity(name: "iPhone"), identity(id: otherPhoneID, name: "iPhone", address: otherAddress)], [screen(name: "iPhone")], nil)
+        expect([phone], [source, screen(id: secondPrivacyID, name: "SOCIAL15PRO")], nil)
+        expect([phone, identity(id: otherPhoneID, name: "iPhone", address: otherAddress)], [screen(name: "iPhone"), screen(id: secondPrivacyID, name: "iPhone")], nil)
         expect([phone, identity(id: otherPhoneID, address: otherAddress, trusted: false)], [source], nil)
-        expect([phone], [source, screen(id: secondPrivacyID, name: "Other Phone")], nil)
         expect([phone], [screen(name: "Other Phone")], nil)
         expect([identity(name: "")], [screen(name: "")], nil)
         expect([identity(name: "SOCIAL 15 PRO")], [screen(name: "SOCIAL  15 PRO")], nil)

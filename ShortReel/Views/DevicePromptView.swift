@@ -12,7 +12,7 @@ struct DevicePromptView: View {
         @Bindable var session = deviceManager.promptSession(for: device)
         @Bindable var manager = deviceManager
 
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             if let status = statusLine(session) {
                 Label(status.text, systemImage: status.symbol)
                     .font(.caption)
@@ -25,7 +25,7 @@ struct DevicePromptView: View {
                 if session.draft.isEmpty {
                     Text("Open Safari, then scroll down")
                         .foregroundStyle(.tertiary)
-                        .padding(9)
+                        .padding(8)
                         .allowsHitTesting(false)
                 }
 
@@ -43,16 +43,25 @@ struct DevicePromptView: View {
                     .strokeBorder(.quaternary, lineWidth: 1)
             }
 
-            HStack(spacing: 10) {
-                Menu("Try an example") {
+            // One tier per control: examples are tertiary, the planner is
+            // secondary, and Run is the only prominent button.
+            HStack(spacing: 8) {
+                Menu {
                     ForEach(examples, id: \.self) { example in
                         Button(example) {
                             session.draft = example
                             composerFocused = true
                         }
                     }
+                } label: {
+                    Label("Try an example", systemImage: "lightbulb")
+                        .labelStyle(.iconOnly)
                 }
+                .menuStyle(.button)
+                .buttonStyle(.borderless)
+                .menuIndicator(.hidden)
                 .fixedSize()
+                .help("Try an example")
 
                 Picker("Planner", selection: $manager.visionProvider) {
                     ForEach(PhoneVisionProvider.allCases) { provider in
@@ -73,26 +82,18 @@ struct DevicePromptView: View {
                         session.cancel()
                     }
                 } else {
-                    Button {
+                    Button("Run") {
                         session.submit()
-                    } label: {
-                        HStack(spacing: 8) {
-                            Text("Run")
-                            Text("⌘ Enter")
-                                .font(.caption)
-                                .opacity(0.8)
-                        }
-                        .fixedSize()
                     }
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.return, modifiers: .command)
                     .accessibilityLabel("Run instructions (Command-Enter)")
                     .disabled(!canSubmit(session))
-                    .help("Run these instructions on \(device.name) (⌘ Enter)")
+                    .help("Run these instructions on \(device.name) (⌘↩)")
                 }
             }
         }
-        .padding(12)
+        .padding(16)
     }
 
     private let examples = ["Open Safari", "Scroll down", "Go Home"]
@@ -118,11 +119,13 @@ struct DevicePromptView: View {
         if let reason = session.unavailableReason {
             return (reason, "info.circle")
         }
-        return (deviceManager.visionProvider.screenRequestDescription, "lock.shield")
+        return nil
     }
 }
 
-/// The scrollable request history, shown above the pinned composer.
+/// The request history: one plain scrolling list, newest first. Rows are
+/// grouped by whitespace rather than cards or separators, and each leads
+/// with a status glyph so the list scans by shape before text.
 struct DevicePromptHistory: View {
     let device: Device
 
@@ -131,76 +134,100 @@ struct DevicePromptHistory: View {
     var body: some View {
         let session = deviceManager.promptSession(for: device)
 
-        if !session.entries.isEmpty {
-            Section("Requests") {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 12) {
-                        ForEach(Array(session.entries.reversed())) { entry in
-                            requestRow(entry)
-                            if entry.id != session.entries.first?.id {
-                                Divider()
-                            }
-                        }
+        if session.entries.isEmpty {
+            ContentUnavailableView {
+                Label("No Requests", systemImage: "text.bubble")
+            } description: {
+                Text("Instructions you run on \(device.name) appear here.")
+            }
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(session.entries.reversed()) { entry in
+                        requestRow(entry)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.trailing, 8)
-                    .padding(.vertical, 2)
                 }
-                .frame(height: session.entries.contains(where: { !$0.steps.isEmpty }) ? 300 : min(230, CGFloat(session.entries.count) * 108))
+                .padding(.vertical, 4)
             }
         }
     }
 
     private func requestRow(_ entry: DevicePromptEntry) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            statusGlyph(entry.status)
+                .frame(width: 16)
+
+            VStack(alignment: .leading, spacing: 4) {
                 Text(entry.prompt)
                     .font(.body.weight(.medium))
                     .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                Text(entry.status.displayName)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(statusColor(entry.status))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(statusColor(entry.status).opacity(0.1), in: Capsule())
-                    .fixedSize()
-            }
-
-            if !entry.message.isEmpty {
-                Text(entry.message)
+                Text(entry.message.isEmpty ? entry.status.displayName : entry.message)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
-            }
 
-            if !entry.steps.isEmpty {
-                DisclosureGroup("\(entry.steps.count) steps") {
-                    ForEach(entry.steps) { step in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("\(step.number). \(step.action)")
-                                .font(.caption.weight(.medium))
-                            Text(step.detail)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                if !entry.steps.isEmpty {
+                    DisclosureGroup("\(entry.steps.count) steps") {
+                        ForEach(entry.steps) { step in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(step.number). \(step.action)")
+                                    .font(.caption.weight(.medium))
+                                Text(step.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 4)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 3)
                     }
+                    .font(.callout)
+                    .padding(.top, 4)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .accessibilityElement(children: .combine)
     }
 
+    @ViewBuilder
+    private func statusGlyph(_ status: DevicePromptStatus) -> some View {
+        Group {
+            if status.isActive {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: statusSymbol(status))
+                    .foregroundStyle(statusColor(status))
+            }
+        }
+        .help(status.displayName)
+        .accessibilityLabel(status.displayName)
+    }
+
+    private func statusSymbol(_ status: DevicePromptStatus) -> String {
+        switch status {
+        case .planning, .running: "circle.dotted"
+        case .sent: "paperplane.circle.fill"
+        case .cancelled: "stop.circle.fill"
+        case .completed: "checkmark.circle.fill"
+        case .failed: "xmark.circle.fill"
+        case .needsInput: "questionmark.circle.fill"
+        }
+    }
+
+    // Red is reserved for a failure — the one moment it should read as a
+    // signal — so it stays quiet across the rest of the list.
     private func statusColor(_ status: DevicePromptStatus) -> Color {
         switch status {
         case .planning, .running: .accentColor
         case .sent, .cancelled: .secondary
         case .completed: .green
-        case .failed, .needsInput: .orange
+        case .failed: .red
+        case .needsInput: .orange
         }
     }
 }

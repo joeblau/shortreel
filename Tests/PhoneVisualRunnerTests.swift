@@ -311,12 +311,12 @@ enum PhoneVisualRunnerTests {
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw TestError.failed("Could not encode JPEG fixture") }
         let timestamp = max(Date(), after.addingTimeInterval(0.000_001))
-        return .init(id: id, capturedAt: timestamp, pixelWidth: width, pixelHeight: height, jpegData: data as Data, sourceID: source)
+        return .init(id: id, capturedAt: timestamp, pixelWidth: width, pixelHeight: height, jpegData: data as Data, cgImage: image, sourceID: source)
     }
 
     private static func copy(_ frame: PhoneScreenFrame, capturedAt: Date? = nil, data: Data? = nil, width: Int? = nil, source: String? = nil) -> PhoneScreenFrame {
         .init(id: frame.id, capturedAt: capturedAt ?? frame.capturedAt, pixelWidth: width ?? frame.pixelWidth,
-            pixelHeight: frame.pixelHeight, jpegData: data ?? frame.jpegData, sourceID: source ?? frame.sourceID)
+            pixelHeight: frame.pixelHeight, jpegData: data ?? frame.jpegData, cgImage: frame.cgImage, sourceID: source ?? frame.sourceID)
     }
 
     private enum ExpectedError { case stale, source, unavailable, invalid, limit }

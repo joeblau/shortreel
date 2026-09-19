@@ -15,6 +15,8 @@ final class DeviceManager {
     let phoneSetup = USBPhoneSetup()
     private(set) var connectionErrors: [String: String] = [:]
     private(set) var controlTestStatus: String?
+    private(set) var autoLockStatus: String?
+    @ObservationIgnored private var autoLockRuns: Set<String> = []
     @ObservationIgnored private var promptSessions: [String: DevicePromptSession] = [:]
     private var pointerTests: Set<String> = []
     /// Devices the user disconnected by hand stay offline until they connect
@@ -22,6 +24,9 @@ final class DeviceManager {
     private var manualDisconnects: Set<String> = []
     private var reconnectAttempts: [String: Int] = [:]
     @ObservationIgnored private var reconnectTasks: [String: Task<Void, Never>] = [:]
+    @ObservationIgnored private var usbWatchTask: Task<Void, Never>?
+    private var autoSetupAttempts: [String: Date] = [:]
+    @ObservationIgnored private var autoSetupInFlight: Set<String> = []
     @ObservationIgnored private var screenServices: [String: PhoneScreenCaptureService] = [:]
     @ObservationIgnored private var screenOwners: [String: String] = [:]
     @ObservationIgnored private var screenConnectionAttempts: [String: UUID] = [:]
@@ -92,6 +97,23 @@ final class DeviceManager {
         for device in devices where canAutoConnect(device) {
             connect(device)
         }
+
+        usbWatchTask = Task { [weak self] in
+            var knownUSBInventory: Set<String> = []
+            while !Task.isCancelled {
+                guard let self else { return }
+                await self.phoneSetup.refresh()
+                self.autoConnectUSBPhones()
+                let usbInventory = Set(self.phoneSetup.phones.map {
+                    "\($0.id)|\($0.trusted)|\($0.bluetoothAddress ?? "")"
+                })
+                if usbInventory != knownUSBInventory {
+                    knownUSBInventory = usbInventory
+                    await self.refreshDeviceScreens()
+                }
+                do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            }
+        }
     }
 
     // MARK: - Connections
@@ -153,6 +175,36 @@ final class DeviceManager {
             } catch {
                 discovery.errorMessage = error.localizedDescription
             }
+        }
+    }
+
+    private func autoConnectUSBPhones() {
+        let phones = phoneSetup.phones
+        let present = Set(phones.map(\.id))
+        autoSetupAttempts = autoSetupAttempts.filter { present.contains($0.key) }
+        autoSetupInFlight.formIntersection(present)
+        guard !phones.isEmpty,
+              discovery.pairingAddress == nil,
+              phoneSetup.preparingIdentifier == nil else { return }
+        let registered = allDevices().filter { $0.transport == .bluetoothHID }
+        for phone in phones {
+            guard phone.trusted, !autoSetupInFlight.contains(phone.id) else { continue }
+            if let lastAttempt = autoSetupAttempts[phone.id],
+               Date.now.timeIntervalSince(lastAttempt) < 60 { continue }
+            if let address = phone.bluetoothAddress,
+               let existing = registered.first(where: {
+                   DiscoveredBluetoothDevice.canonicalAddress($0.identifier) == DiscoveredBluetoothDevice.canonicalAddress(address)
+               }) {
+                if existing.isConnected || bluetoothHost.canAutoConnect(existing.descriptor) { continue }
+            }
+            autoSetupInFlight.insert(phone.id)
+            autoSetupAttempts[phone.id] = .now
+            let setup = connectUSBPhone(phone, to: nil) { _ in }
+            Task { [weak self] in
+                await setup.value
+                self?.autoSetupInFlight.remove(phone.id)
+            }
+            break
         }
     }
 
@@ -236,6 +288,62 @@ final class DeviceManager {
         }
     }
 
+    /// Drives Settings › Auto-Lock › Never on the phone itself so it stops
+    /// locking its screen. Needs both live channels and the verified USB
+    /// screen, since the final tap is chosen by reading the settings page.
+    func disableAutoLock(_ device: Device) {
+        guard device.isLive, device.transport == .bluetoothHID else { return }
+        let descriptor = device.descriptor
+        guard !autoLockRuns.contains(descriptor.identifier),
+              promptSessions[descriptor.identifier]?.isRunning != true,
+              !pointerTests.contains(descriptor.identifier) else {
+            autoLockStatus = "Wait for the current device request to finish."
+            return
+        }
+        guard device.isConnected else {
+            autoLockStatus = "Connect \(device.name) over Bluetooth first."
+            return
+        }
+        let screen = screenCapture(for: device)
+        guard screen.isRunning, let source = screen.selectedSourceID,
+              verifiedScreens[descriptor.identifier] == source else {
+            autoLockStatus = "Connect \(device.name)’s USB screen before changing Auto-Lock."
+            return
+        }
+        autoLockRuns.insert(descriptor.identifier)
+        autoLockStatus = "Setting Auto-Lock to Never on \(device.name)…"
+        let host = bluetoothHost
+        let configurator = PhoneAutoLockConfigurator(
+            openSearch: { try await host.pressKey(.search, on: descriptor) },
+            type: { try await host.type($0, on: descriptor) },
+            confirm: { try await host.pressKey(.enter, on: descriptor) },
+            capture: { try await screen.capture(after: $0) },
+            recognize: { frame in
+                try await Task.detached(priority: .userInitiated) {
+                    try PhoneVisionClient.makeScreenContext(frame).targets.map {
+                        PhoneHomeTarget(text: $0.text, x: $0.x, y: $0.y)
+                    }
+                }.value
+            },
+            tap: { x, y in try await host.tap(.init(x: x, y: y), on: descriptor) },
+            blockedReason: { [weak self, weak device] in
+                guard let self, let device, device.isLive else { return "This device is no longer available." }
+                if !device.isConnected { return "The phone disconnected." }
+                if screen.selectedSourceID != source { return "The phone’s screen source changed. Reconnect its USB screen and try again." }
+                return nil
+            }
+        )
+        Task {
+            defer { autoLockRuns.remove(descriptor.identifier) }
+            do {
+                try await configurator.disableAutoLock(sourceID: source)
+                autoLockStatus = "Auto-Lock is set to Never on \(device.name)."
+            } catch {
+                autoLockStatus = "Couldn’t disable Auto-Lock on \(device.name): \(error.localizedDescription)"
+            }
+        }
+    }
+
     func promptSession(for device: Device) -> DevicePromptSession {
         if let session = promptSessions[device.identifier] { return session }
         let descriptor = device.descriptor
@@ -292,7 +400,11 @@ final class DeviceManager {
                     guard OnDevicePromptPlanner.unavailabilityReason == nil else { throw error }
                     return try await OnDevicePromptPlanner.plan(prompt)
                 }
-            }, perform: perform, visualRunner: runner, visualBlockedReason: visualBlockedReason)
+            }, perform: perform, visualRunner: runner, visualBlockedReason: visualBlockedReason,
+            onVisualStart: { [weak self] in
+                guard let self, self.visionProvider == .onDevice else { return }
+                PhoneVisionClient.prewarm()
+            })
         promptSessions[descriptor.identifier] = session
         return session
     }
@@ -318,8 +430,6 @@ final class DeviceManager {
             bluetoothAddress: $0.bluetoothAddress, trusted: $0.trusted) }
     }
 
-    /// Prefer hardware IDs. Privacy UUIDs need an unambiguous USB inventory;
-    /// matching a display name alone is insufficient.
     func matchingScreenSource(for device: Device) -> String? {
         guard device.isLive else { return nil }
         return PhoneScreenAssociation.matchingSource(bluetoothAddress: device.identifier,
@@ -505,6 +615,7 @@ final class DeviceManager {
         manualDisconnects.remove(device.identifier)
         reconnectAttempts[device.identifier] = nil
         reconnectTasks.removeValue(forKey: device.identifier)?.cancel()
+        autoLockRuns.remove(device.identifier)
         disabledScreenAutoConnections.remove(device.identifier)
         screenConnectionAttempts[device.identifier] = nil
         screenConnectionStops[device.identifier] = nil

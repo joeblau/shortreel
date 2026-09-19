@@ -15,8 +15,8 @@ struct PhoneScreenView: View {
 
         Section("Phone Screen") {
             VStack(alignment: .leading, spacing: 12) {
-                if let frame = capture.latestFrame, let image = NSImage(data: frame.jpegData) {
-                    Image(nsImage: image)
+                if let frame = capture.latestFrame {
+                    Image(decorative: frame.cgImage, scale: 1)
                         .resizable()
                         .interpolation(.high)
                         .scaledToFit()

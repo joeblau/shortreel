@@ -26,6 +26,8 @@
 		44E8C59ED96B97C5A4A9EC3A /* DevicePromptSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9E7091BEFE15778B1F7D50 /* DevicePromptSession.swift */; };
 		4C1F0730AE4E3FF2DEC47881 /* PhoneVisionTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C4C867582A66B1699096BD /* PhoneVisionTypes.swift */; };
 		4C747511A72F5F35C9388C4A /* DeviceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CCE706AB92F64CA0B3C31B /* DeviceHost.swift */; };
+		550901733BB9863D5C256386 /* DeviceStageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25301F554B562932915EF030 /* DeviceStageView.swift */; };
+		58CCEA02170CE6C37F739164 /* PhoneAutoLockConfigurator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D44CBA5C390F49ADCD312 /* PhoneAutoLockConfigurator.swift */; };
 		59BE468C9249DF830784E1A3 /* PhoneScreenFrameEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB3BD60B05A649DD18352F50 /* PhoneScreenFrameEncoder.swift */; };
 		5DA7512E3A88C131E74DA156 /* BluetoothHIDHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A2A068FA1C1E168E2EC690E /* BluetoothHIDHost.swift */; };
 		5DB8598C01D6BC22FC2CEA0D /* CoreMediaIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9CE65DBA70C8DF036D5D3321 /* CoreMediaIO.framework */; };
@@ -68,6 +70,7 @@
 		1AED36D2FE1068896F3CAE72 /* CBClassicDiscovery.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CBClassicDiscovery.m; sourceTree = "<group>"; };
 		1F48901B5A3AD953864B6D0B /* IOBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOBluetooth.framework; path = System/Library/Frameworks/IOBluetooth.framework; sourceTree = SDKROOT; };
 		217A472BAAE4B58A9529429B /* HIDControlSession.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDControlSession.h; sourceTree = "<group>"; };
+		25301F554B562932915EF030 /* DeviceStageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStageView.swift; sourceTree = "<group>"; };
 		2D748206D2366B27A440EAD2 /* AddDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDeviceView.swift; sourceTree = "<group>"; };
 		2D78EB632038DBAAC3A3AA4C /* OnDevicePromptPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDevicePromptPlanner.swift; sourceTree = "<group>"; };
 		318A73F3E800902771F9151D /* DevicePromptPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptPlanner.swift; sourceTree = "<group>"; };
@@ -83,6 +86,7 @@
 		78719F58EDEC0BD3806DAEE5 /* CBHIDSocket.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CBHIDSocket.h; sourceTree = "<group>"; };
 		78E9B0DFCB355E2CFEE12727 /* WarmUpAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpAgent.swift; sourceTree = "<group>"; };
 		8383273757C8897157EF8F9E /* ShortReelApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortReelApp.swift; sourceTree = "<group>"; };
+		8A1D44CBA5C390F49ADCD312 /* PhoneAutoLockConfigurator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneAutoLockConfigurator.swift; sourceTree = "<group>"; };
 		8A2A068FA1C1E168E2EC690E /* BluetoothHIDHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothHIDHost.swift; sourceTree = "<group>"; };
 		8F9D17B1E23AE149DA481298 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		969D1AE2B0E6527F1642C17F /* ShortReel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShortReel.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -229,6 +233,7 @@
 				FF9E7091BEFE15778B1F7D50 /* DevicePromptSession.swift */,
 				C4CC43FE179B172CD344F30E /* GrokPhonePlanner.swift */,
 				2D78EB632038DBAAC3A3AA4C /* OnDevicePromptPlanner.swift */,
+				8A1D44CBA5C390F49ADCD312 /* PhoneAutoLockConfigurator.swift */,
 				06B7CA2EB5ED31001E0EA9DD /* PhoneHomeNavigator.swift */,
 				1A69CE7F09709617F2C3F30A /* PhonePlannerProcess.swift */,
 				399A52CD1FE15865901DB711 /* PhoneVisionClient.swift */,
@@ -269,6 +274,7 @@
 				CB68921DCC496EE5EF807DC3 /* DeviceDetailView.swift */,
 				DEDBE3E92D900F0A970377D9 /* DeviceGalleryView.swift */,
 				B27CEE80EA70FFB83D8C4E2A /* DevicePromptView.swift */,
+				25301F554B562932915EF030 /* DeviceStageView.swift */,
 				52749801244FE485B01392EB /* PhoneScreenView.swift */,
 			);
 			path = Views;
@@ -349,12 +355,14 @@
 				D77FEF162580FAFF23319D98 /* DevicePromptPlanner.swift in Sources */,
 				44E8C59ED96B97C5A4A9EC3A /* DevicePromptSession.swift in Sources */,
 				D0EC79E7497032E3D64B9DD1 /* DevicePromptView.swift in Sources */,
+				550901733BB9863D5C256386 /* DeviceStageView.swift in Sources */,
 				1A0DD82E7D3C3F2CFBCC8C1E /* Farm.swift in Sources */,
 				6AADFA23E9B815E9A8316B21 /* GrokPhonePlanner.swift in Sources */,
 				0D9176BF54DC8244578D8F12 /* HIDControlSession.m in Sources */,
 				16CFDE08EE3AE9BDDC04D6F0 /* HIDServiceRecord.swift in Sources */,
 				15FB827C40A69C8A7014DF33 /* OnDevicePromptPlanner.swift in Sources */,
 				B47989288B7C62003867E8EF /* PersistentModel+Live.swift in Sources */,
+				58CCEA02170CE6C37F739164 /* PhoneAutoLockConfigurator.swift in Sources */,
 				796F41D573C1882556A635B3 /* PhoneHomeNavigator.swift in Sources */,
 				7220952A5A6801449F20E824 /* PhonePlannerProcess.swift in Sources */,
 				FB5FE1C825FFD9B1D6825AFE /* PhoneScreenAssociation.swift in Sources */,

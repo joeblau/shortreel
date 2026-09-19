@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import ImageIO
 
@@ -124,18 +125,16 @@ final class PhoneVisualRunner {
         }
         try checkFrameAge(frame)
         if let sourceID, frame.sourceID != sourceID { throw PhoneVisionError.sourceChanged }
+        // The encoder already bounds and decodes every published frame, so the
+        // per-step check only guards identity and size invariants, plus a cheap
+        // header-level JPEG completeness parse instead of a full re-decode.
         guard !frame.sourceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               (1...8_192).contains(frame.pixelWidth), (1...8_192).contains(frame.pixelHeight),
               frame.pixelWidth * frame.pixelHeight <= 32_000_000,
+              frame.pixelWidth == frame.cgImage.width, frame.pixelHeight == frame.cgImage.height,
               !frame.jpegData.isEmpty, frame.jpegData.count <= 10_000_000,
               let imageSource = CGImageSourceCreateWithData(frame.jpegData as CFData, nil),
-              CGImageSourceGetType(imageSource) as String? == "public.jpeg",
-              CGImageSourceGetCount(imageSource) == 1,
-              CGImageSourceGetStatus(imageSource) == .statusComplete,
-              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
-              (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue == frame.pixelWidth,
-              (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue == frame.pixelHeight,
-              CGImageSourceCreateImageAtIndex(imageSource, 0, [kCGImageSourceShouldCache: false] as CFDictionary) != nil else {
+              CGImageSourceGetStatusAtIndex(imageSource, 0) == .statusComplete else {
             throw PhoneVisionError.unavailable("The iPhone screen image was invalid. Reconnect its USB screen and try again.")
         }
     }

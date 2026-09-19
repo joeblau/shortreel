@@ -10,9 +10,9 @@ enum DevicePromptExecutor {
             try await host.pressKey(.home, on: device)
         case .openApp(let name):
             try await search(name, using: host, on: device)
-            try await Task.sleep(for: .milliseconds(900))
+            try await Task.sleep(for: .milliseconds(600))
             try await host.pressKey(.enter, on: device)
-            try await Task.sleep(for: .milliseconds(700))
+            try await Task.sleep(for: .milliseconds(500))
         case .search(let query):
             try await search(query, using: host, on: device)
         case .typeText(let text):
@@ -47,15 +47,15 @@ enum DevicePromptExecutor {
             }
             try await host.pressKey(deviceKey, on: device)
         }
-        try await Task.sleep(for: .milliseconds(250))
+        try await Task.sleep(for: .milliseconds(100))
     }
 
     private static func search(_ text: String, using host: any DeviceHost, on device: DeviceDescriptor) async throws {
         // Home makes Command-Space consistently open a fresh system Search.
         try await host.pressKey(.home, on: device)
-        try await Task.sleep(for: .milliseconds(300))
+        try await Task.sleep(for: .milliseconds(200))
         try await host.pressKey(.search, on: device)
-        try await Task.sleep(for: .milliseconds(500))
+        try await Task.sleep(for: .milliseconds(400))
         try await host.pressKey(.selectAll, on: device)
         try await host.type(text, on: device)
     }

@@ -2,8 +2,9 @@ import CoreImage
 import Foundation
 import ImageIO
 
-/// Encodes on the capture queue. Metadata comes from the JPEG itself because
-/// Core Image rounds fractional image extents when creating a raster image.
+/// Encodes on the capture queue. Dimensions come from the integral raster
+/// bounds, and the JPEG is decoded once here so views render a ready CGImage
+/// instead of decoding on the main actor.
 enum PhoneScreenFrameEncoder {
     static func encode(_ image: CIImage, using context: CIContext,
                        capturedAt: Date, sourceID: String) -> PhoneScreenFrame? {
@@ -21,11 +22,9 @@ enum PhoneScreenFrameEncoder {
               let data = context.jpegRepresentation(of: scaled.cropped(to: bounds), colorSpace: colorSpace,
                 options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 0.8]),
               let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-              let width = properties[kCGImagePropertyPixelWidth] as? Int,
-              let height = properties[kCGImagePropertyPixelHeight] as? Int,
-              width > 0, height > 0, width <= 1280, height <= 1280 else { return nil }
-        return PhoneScreenFrame(id: UUID(), capturedAt: capturedAt, pixelWidth: width,
-                                pixelHeight: height, jpegData: data, sourceID: sourceID)
+              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              cgImage.width > 0, cgImage.height > 0, cgImage.width <= 1280, cgImage.height <= 1280 else { return nil }
+        return PhoneScreenFrame(id: UUID(), capturedAt: capturedAt, pixelWidth: cgImage.width,
+                                pixelHeight: cgImage.height, jpegData: data, cgImage: cgImage, sourceID: sourceID)
     }
 }

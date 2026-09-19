@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 // swiftc -swift-version 6 ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift ShortReel/Services/DevicePrompts/PhoneVisionTypes.swift ShortReel/Services/DevicePrompts/PhoneHomeNavigator.swift Tests/PhoneHomeNavigatorTests.swift -o /tmp/shortreel-home-navigator-tests
@@ -10,8 +11,11 @@ enum PhoneHomeNavigatorTests {
     }
 
     static func frame(after: Date, source: String = "phone", id: UUID = UUID()) -> PhoneScreenFrame {
+        let image = CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8,
+            bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!.makeImage()!
         return .init(id: id, capturedAt: max(Date(), after.addingTimeInterval(0.0001)),
-            pixelWidth: 1, pixelHeight: 1, jpegData: Data([1]), sourceID: source)
+            pixelWidth: 1, pixelHeight: 1, jpegData: Data([1]), cgImage: image, sourceID: source)
     }
 
     static func main() async throws {
@@ -107,6 +111,6 @@ enum PhoneHomeNavigatorTests {
 private extension PhoneScreenFrame {
     func captured(at date: Date) -> Self {
         .init(id: id, capturedAt: date, pixelWidth: pixelWidth, pixelHeight: pixelHeight,
-            jpegData: jpegData, sourceID: sourceID)
+            jpegData: jpegData, cgImage: cgImage, sourceID: sourceID)
     }
 }

@@ -635,7 +635,7 @@ enum DevicePromptSessionTests {
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw TestError.failure("Could not encode test JPEG") }
         return .init(id: UUID(), capturedAt: max(Date(), after.addingTimeInterval(0.000_001)),
-            pixelWidth: 8, pixelHeight: 12, jpegData: data as Data, sourceID: "Test Phone")
+            pixelWidth: 8, pixelHeight: 12, jpegData: data as Data, cgImage: image, sourceID: "Test Phone")
     }
 
     private static func makeSession(actions: [PhonePromptAction], perform: @escaping (PhonePromptAction) async throws -> Void) -> DevicePromptSession {

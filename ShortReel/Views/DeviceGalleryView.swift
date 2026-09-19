@@ -41,6 +41,7 @@ struct DeviceGalleryView: View {
                             if device.isLive {
                                 DeviceScreenCard(
                                     device: device,
+                                    isSelected: promptDevice == device,
                                     onPrompt: { promptDevice = promptDevice == device ? nil : device },
                                     onSettings: { settingsDevice = device }
                                 )
@@ -177,11 +178,10 @@ private struct DeviceScreenCard: View {
     private func screen(_ capture: PhoneScreenCaptureService) -> some View {
         if capture.isRunning,
            let frame = capture.latestFrame,
-           frame.sourceID == deviceManager.verifiedScreens[device.identifier],
-           let image = NSImage(data: frame.jpegData) {
+           frame.sourceID == deviceManager.verifiedScreens[device.identifier] {
             // Preserve the complete captured image, including landscape screens.
             Color.clear.overlay {
-                Image(nsImage: image)
+                Image(decorative: frame.cgImage, scale: 1)
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
@@ -245,70 +245,95 @@ private struct DeviceScreenCard: View {
 private struct DevicePromptInspector: View {
     let device: Device?
 
+    private enum Segment: String, CaseIterable {
+        case stage, agent
+        var title: String { rawValue.capitalized }
+    }
+
+    @State private var segment: Segment = .agent
+
     var body: some View {
         VStack(spacing: 0) {
-            Form {
-                if let device, device.isLive {
-                    Section("Device") {
-                        HStack(spacing: 10) {
-                            Image(systemName: "iphone.gen3")
-                                .font(.title2)
-                                .foregroundStyle(.tint)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(device.name)
-                                    .font(.headline)
-                                    .textSelection(.enabled)
-
-                                HStack(spacing: 6) {
-                                    if device.connectionState == .pairing {
-                                        ProgressView()
-                                            .controlSize(.mini)
-                                    } else {
-                                        Circle()
-                                            .fill(device.connectionState.color)
-                                            .frame(width: 7, height: 7)
-                                    }
-                                    Text(device.connectionState.displayName)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.vertical, 2)
-                    }
-
-                    DevicePromptHistory(device: device)
-                } else {
-                    Section("Device") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label("No iPhone Selected", systemImage: "iphone")
-                                .font(.headline)
-                            Text("Select a device screen to give it instructions and see its requests.")
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(.vertical, 4)
-                    }
+            Picker("Inspector", selection: $segment) {
+                ForEach(Segment.allCases, id: \.rawValue) { option in
+                    Text(option.title).tag(option)
                 }
             }
-            .formStyle(.grouped)
-            // Let the history shrink independently of its scrollable contents.
-            .frame(minHeight: 0, maxHeight: .infinity)
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
 
             if let device, device.isLive {
-                VStack(spacing: 0) {
-                    Divider()
-                    DevicePromptView(device: device)
+                DeviceInspectorHeader(device: device)
+
+                switch segment {
+                case .stage:
+                    DeviceStageView(device: device)
+                        .transition(.opacity)
+                case .agent:
+                    agentPane(device)
+                        .transition(.opacity)
                 }
-                .fixedSize(horizontal: false, vertical: true)
-                .background(.bar)
+            } else {
+                ContentUnavailableView {
+                    Label("No iPhone Selected", systemImage: "iphone")
+                } description: {
+                    Text("Select a phone’s screen to give it instructions.")
+                }
             }
         }
+        .animation(.easeOut(duration: 0.15), value: segment)
         .frame(minHeight: 0, maxHeight: .infinity)
         .inspectorColumnWidth(min: 320, ideal: 360, max: 460)
+    }
+
+    private func agentPane(_ device: Device) -> some View {
+        VStack(spacing: 0) {
+            // The history shrinks independently of its scrollable contents so
+            // the composer stays pinned.
+            DevicePromptHistory(device: device)
+                .frame(minHeight: 0, maxHeight: .infinity)
+
+            Divider()
+            DevicePromptView(device: device)
+                .fixedSize(horizontal: false, vertical: true)
+                .background(.bar)
+        }
+    }
+}
+
+/// One line naming the selected phone, shared by both inspector segments.
+/// The gallery card already shows the icon and transport, so this only
+/// answers "which phone" and whether it is reachable.
+private struct DeviceInspectorHeader: View {
+    let device: Device
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(device.name)
+                .font(.headline)
+                .lineLimit(1)
+                .textSelection(.enabled)
+
+            Spacer(minLength: 8)
+
+            HStack(spacing: 6) {
+                if device.connectionState == .pairing {
+                    ProgressView()
+                        .controlSize(.mini)
+                } else {
+                    Circle()
+                        .fill(device.connectionState.color)
+                        .frame(width: 8, height: 8)
+                }
+                Text(device.connectionState.displayName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
 }
 
