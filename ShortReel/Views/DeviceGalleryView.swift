@@ -41,7 +41,6 @@ struct DeviceGalleryView: View {
                             if device.isLive {
                                 DeviceScreenCard(
                                     device: device,
-                                    isSelected: promptDevice == device,
                                     onPrompt: { promptDevice = promptDevice == device ? nil : device },
                                     onSettings: { settingsDevice = device }
                                 )
