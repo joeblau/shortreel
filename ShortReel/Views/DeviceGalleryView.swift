@@ -246,64 +246,69 @@ private struct DevicePromptInspector: View {
     let device: Device?
 
     var body: some View {
-        Form {
-            if let device, device.isLive {
-                Section("Device") {
-                    HStack(spacing: 10) {
-                        Image(systemName: "iphone.gen3")
-                            .font(.title2)
-                            .foregroundStyle(.tint)
+        VStack(spacing: 0) {
+            Form {
+                if let device, device.isLive {
+                    Section("Device") {
+                        HStack(spacing: 10) {
+                            Image(systemName: "iphone.gen3")
+                                .font(.title2)
+                                .foregroundStyle(.tint)
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(device.name)
-                                .font(.headline)
-                                .textSelection(.enabled)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(device.name)
+                                    .font(.headline)
+                                    .textSelection(.enabled)
 
-                            HStack(spacing: 6) {
-                                if device.connectionState == .pairing {
-                                    ProgressView()
-                                        .controlSize(.mini)
-                                } else {
-                                    Circle()
-                                        .fill(device.connectionState.color)
-                                        .frame(width: 7, height: 7)
+                                HStack(spacing: 6) {
+                                    if device.connectionState == .pairing {
+                                        ProgressView()
+                                            .controlSize(.mini)
+                                    } else {
+                                        Circle()
+                                            .fill(device.connectionState.color)
+                                            .frame(width: 7, height: 7)
+                                    }
+                                    Text(device.connectionState.displayName)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                 }
-                                Text(device.connectionState.displayName)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
                             }
+
+                            Spacer(minLength: 0)
                         }
-
-                        Spacer(minLength: 0)
+                        .padding(.vertical, 2)
                     }
-                    .padding(.vertical, 2)
-                }
 
-                DevicePromptHistory(device: device)
-            } else {
-                Section("Device") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("No iPhone Selected", systemImage: "iphone")
-                            .font(.headline)
-                        Text("Select a device screen to give it instructions and see its requests.")
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                    DevicePromptHistory(device: device)
+                } else {
+                    Section("Device") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("No iPhone Selected", systemImage: "iphone")
+                                .font(.headline)
+                            Text("Select a device screen to give it instructions and see its requests.")
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
                 }
             }
-        }
-        .formStyle(.grouped)
-        .inspectorColumnWidth(min: 320, ideal: 360, max: 460)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+            .formStyle(.grouped)
+            // Let the history shrink independently of its scrollable contents.
+            .frame(minHeight: 0, maxHeight: .infinity)
+
             if let device, device.isLive {
                 VStack(spacing: 0) {
                     Divider()
                     DevicePromptView(device: device)
                 }
+                .fixedSize(horizontal: false, vertical: true)
                 .background(.bar)
             }
         }
+        .frame(minHeight: 0, maxHeight: .infinity)
+        .inspectorColumnWidth(min: 320, ideal: 360, max: 460)
     }
 }
 
