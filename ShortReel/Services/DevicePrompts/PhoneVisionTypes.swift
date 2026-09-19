@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Image bytes and identity stay together so a plan cannot use another phone's screen.
@@ -7,7 +8,11 @@ struct PhoneScreenFrame: Identifiable, Sendable, Equatable {
     let pixelWidth: Int
     let pixelHeight: Int
     let jpegData: Data
+    /// Pre-decoded on the capture queue so views never decode JPEG on the main actor.
+    let cgImage: CGImage
     let sourceID: String
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
 }
 
 struct PhoneVisionStep: Identifiable, Sendable, Equatable {

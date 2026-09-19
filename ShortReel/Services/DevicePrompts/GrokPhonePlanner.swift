@@ -7,6 +7,9 @@ import UniformTypeIdentifiers
 /// It returns decisions only; ShortReel remains the sole device-input executor.
 @MainActor
 enum GrokPhonePlanner {
+    /// Set after the sandbox isolation check succeeds once; see `nextDecision`.
+    private static var isolationValidated = false
+
     static var unavailabilityReason: String? {
         guard executableURL != nil else { return "Install the Grok CLI and run ‘grok login’ in Terminal to use Grok." }
         guard FileManager.default.isExecutableFile(atPath: sandboxURL.path) else {
@@ -27,7 +30,7 @@ enum GrokPhonePlanner {
             throw PhoneVisionError.invalidDecision("Supply a short goal and a fresh phone screen for Grok.")
         }
         let context = try await Task.detached(priority: .userInitiated) {
-            try PhoneVisionClient.makeScreenContext(frame.jpegData)
+            try PhoneVisionClient.makeScreenContext(frame)
         }.value
         try Task.checkCancellation()
 
@@ -54,14 +57,20 @@ enum GrokPhonePlanner {
         let environment = isolatedEnvironment(profile: profile)
         let prefix = ["-p", sandboxProfile(), grok.path, "--cwd", directory.path,
                       "--leader-socket", profile.appendingPathComponent("leader.sock").path]
-        let inspection = try await PhonePlannerProcess.run(
-            executable: sandboxURL, arguments: prefix + ["inspect", "--json"], directory: directory,
-            environment: environment, timeout: 15
-        )
-        guard inspection.exitCode == 0 else {
-            throw PhoneVisionError.unavailable("Grok’s isolated configuration could not be checked. No phone image was sent.")
+        // The CLI binary and sandbox profile do not change between steps, so the
+        // isolation check runs once per session instead of spawning a second
+        // process on every decision.
+        if !isolationValidated {
+            let inspection = try await PhonePlannerProcess.run(
+                executable: sandboxURL, arguments: prefix + ["inspect", "--json"], directory: directory,
+                environment: environment, timeout: 15
+            )
+            guard inspection.exitCode == 0 else {
+                throw PhoneVisionError.unavailable("Grok’s isolated configuration could not be checked. No phone image was sent.")
+            }
+            try validateIsolation(inspection.stdout)
+            isolationValidated = true
         }
-        try validateIsolation(inspection.stdout)
         try Task.checkCancellation()
 
         let imageData = try boundedJPEG(context.image)

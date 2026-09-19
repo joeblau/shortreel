@@ -42,6 +42,7 @@ final class DevicePromptSession {
     @ObservationIgnored private let perform: (PhonePromptAction) async throws -> Void
     @ObservationIgnored private let visualRunner: PhoneVisualRunner?
     @ObservationIgnored private let visualBlockedReason: () -> String?
+    @ObservationIgnored private let onVisualStart: (() -> Void)?
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var cancellationMessage = "Stopped. Input already sent to the phone cannot be undone."
 
@@ -50,13 +51,15 @@ final class DevicePromptSession {
          planner: @escaping (String) async throws -> PhonePromptPlan,
          perform: @escaping (PhonePromptAction) async throws -> Void,
          visualRunner: PhoneVisualRunner? = nil,
-         visualBlockedReason: @escaping () -> String? = { nil }) {
+         visualBlockedReason: @escaping () -> String? = { nil },
+         onVisualStart: (() -> Void)? = nil) {
         self.deviceName = deviceName
         self.blockedReason = blockedReason
         self.planner = planner
         self.perform = perform
         self.visualRunner = visualRunner
         self.visualBlockedReason = visualBlockedReason
+        self.onVisualStart = onVisualStart
     }
 
     var unavailableReason: String? { blockedReason() }
@@ -96,6 +99,8 @@ final class DevicePromptSession {
             defer { self.isRunning = false; self.task = nil }
             do {
                 if useVisualLoop, let runner = self.visualRunner {
+                    // Overlap model warm-up with the first capture and OCR.
+                    self.onVisualStart?()
                     let summary = try await runner.run(goal: prompt, onProgress: { message in
                         self.update(id, status: .running, message: message)
                     }, onStep: { step in

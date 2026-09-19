@@ -32,6 +32,22 @@ enum PhoneVisionClient {
         return "Screen-driven actions require macOS 27 or later and an Apple Intelligence model with vision."
     }
 
+    /// Warms the model assets while the first screen capture and OCR run, so
+    /// the first decision does not pay the full cold-start cost.
+    static func prewarm() {
+        #if canImport(FoundationModels)
+        if #available(macOS 27.0, *), unavailabilityReason == nil {
+            if warmSession == nil { warmSession = LanguageModelSession(instructions: instructions) }
+            Task { try? await warmSession?.prewarm() }
+        }
+        #endif
+    }
+
+    #if canImport(FoundationModels)
+    @available(macOS 27.0, *)
+    private static var warmSession: LanguageModelSession?
+    #endif
+
     static func nextDecision(goal: String, frame: PhoneScreenFrame, history: [PhoneVisionStep]) async throws -> PhoneVisionDecision {
         try Task.checkCancellation()
         if let reason = unavailabilityReason { throw PhoneVisionError.unavailable(reason) }
@@ -44,9 +60,8 @@ enum PhoneVisionClient {
         }
         #if canImport(FoundationModels)
         if #available(macOS 27.0, *) {
-            let jpegData = frame.jpegData
             let context = try await Task.detached(priority: .userInitiated) {
-                try makeScreenContext(jpegData)
+                try makeScreenContext(frame)
             }.value
             try Task.checkCancellation()
             return try await decide(goal: goal, context: context, history: history).validated()
@@ -79,7 +94,7 @@ enum PhoneVisionClient {
         do {
             result = try await session.respond(
                 generating: GeneratedPhoneVisionDecision.self,
-                options: GenerationOptions(samplingMode: .greedy, maximumResponseTokens: 1000)
+                options: GenerationOptions(samplingMode: .greedy, maximumResponseTokens: 512)
             ) {
                 prompt
                 Attachment(context.image)
@@ -231,19 +246,18 @@ enum PhoneVisionClient {
         let targets: [GroundingTarget]
     }
 
-    nonisolated static func makeScreenContext(_ data: Data) throws -> ScreenContext {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: 1024
-              ] as CFDictionary) else {
+    /// Uses the frame's pre-decoded image (capped at 1280 px by the encoder)
+    /// instead of re-decoding the JPEG into a thumbnail. Language detection is
+    /// pinned to English so OCR does not run language identification per frame.
+    nonisolated static func makeScreenContext(_ frame: PhoneScreenFrame) throws -> ScreenContext {
+        let image = frame.cgImage
+        guard image.width > 0, image.height > 0 else {
             throw PhoneVisionError.invalidDecision("The phone’s screen image could not be decoded.")
         }
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = false
-        request.automaticallyDetectsLanguage = true
+        request.recognitionLanguages = ["en-US"]
         try VNImageRequestHandler(cgImage: image).perform([request])
         let observations = (request.results ?? []).sorted {
             if abs($0.boundingBox.midY - $1.boundingBox.midY) > 0.015 {

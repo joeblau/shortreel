@@ -88,17 +88,7 @@ struct AddDeviceView: View {
             }
             .disabled(discovery.pairingAddress != nil || pairedDevice != nil)
 
-            if let code = discovery.confirmationCode {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Does this code match your phone?")
-                    Text(code).font(.largeTitle.monospacedDigit())
-                    HStack {
-                        Button("Doesn’t Match") { discovery.confirmPairing(false) }
-                        Button("Codes Match — Pair") { discovery.confirmPairing(true) }
-                            .buttonStyle(.borderedProminent)
-                    }
-                }
-            } else if let code = discovery.displayedPasskey {
+            if let code = discovery.displayedPasskey {
                 Text("Enter \(code) on your phone.").font(.title3.monospacedDigit())
             } else if discovery.needsPIN {
                 HStack {

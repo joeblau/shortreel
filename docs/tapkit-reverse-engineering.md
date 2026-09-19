@@ -359,3 +359,65 @@ sends only released-button pointer reports.
 
 The Mac subsequently reported `CGSSessionScreenIsLocked = 1`, preventing
 app UI verification and completion of a fresh Bluetooth permission prompt.
+
+## 3. The agent loop (AgentKit), from the arm64 slice
+
+Embedded source paths name the package: `AgentKit/Sources/AgentKit/AgentSession.swift`
+with dependency protocols `LLMClient`, `PhoneControlClient`, `ScreenshotClient`,
+`SessionDBClient`, and `SkillClient`, plus the app-side
+`Features/Agent/AgentSessionManager.swift`. `AgentSession` is `@Observable` with
+`messages`, `status`, `isRunning`, `isCancelled`, `currentStep`, `maxSteps`,
+`lastError`.
+
+The loop is **completion-driven**, never timer- or frame-driven. Each iteration:
+build messages → `llmClient.complete` (`POST {base}/chat/completions`) →
+execute any tool calls via `phoneControlClient` → capture a fresh screenshot →
+append both to the transcript → repeat. Termination is a prompt contract
+("When the task is complete, respond with text and no tool calls",
+`0x1010d4620`), bounded by `maxSteps` with `Task.isCancelled` checks between
+steps. Step failures are caught and logged (`agent step failed:`, `0x1010d4600`)
+rather than stalling the loop. The transcript persists live in GRDB
+(`sessions`, `sessionMessages` in `agent.db`), so runs resume after a block
+(`agent:task_blocked` / `agent:task_resumed`).
+
+### Fresh-frame barrier
+
+Capture runs continuously: `AVCaptureVideoDataOutputSampleBufferDelegate` feeds
+`FrameCaptureManager` (`frameContinuations` ivar), wrapped by
+`FrameStreamService` as an `AsyncThrowingStream`. `alwaysDiscardsLateVideoFrames`
+is set, so the delegate only ever delivers the newest frame. A screenshot
+**awaits the next frame yielded after the request** — freshness is structural,
+not a timestamp comparison. Startup gates on `startAndWaitForFirstFrame(timeoutMs:)`.
+Frames are encoded as PNG and downscaled to a **1152 px** max edge
+(`cmp x8, #0x480` at `0x100a3489c`) before embedding as `data:image/png;base64,`.
+
+### Decisions
+
+One cloud CUA model: `tzafon.northstar-cua-fast-1.6` against
+`https://api.tzafon.ai` (env overrides `LIGHTCONE_API_KEY`/`LIGHTCONE_BASE_URL`),
+with a Cerebras/Supabase-proxy path (`https://api.cerebras.ai/v1`) for
+`chat/completions`. Requests set `reasoning_effort` explicitly. No on-device
+model ships in the bundle (no `.mlmodelc`, no Vision/CoreML/ONNX frameworks;
+Agora is only screen streaming to a remote viewer). Onboarding verification is
+a separate `LightconeClient` with typed calls (`inspectToggleState`,
+`locateTargetCoordinate`, `analyzePhoneFrame`), serialized with per-call
+timeouts and HTTP 413 retry-smaller behavior.
+
+### Execution and verification
+
+A single `use_phone` tool with nine actions: `tap`, `double_tap`,
+`tap_and_hold`, `drag`, `hold_and_drag`, `flick`, `type_text` (ASCII ≤100),
+`press_key`, `wait` (`wait_duration_ms`), plus `home`. Coordinates arrive in
+the model's 0–999 space and map onto the absolute 0…32767 HID grid. Drags are
+smoothstep-interpolated (`3t²−2t³` visible in the FP instructions at
+`0x10002c67c`) with many intermediate absolute reports. Every tool result
+carries the post-action screenshot back to the model, and the prompt requires
+it: "After each action you receive a fresh screenshot. Verify the result
+before continuing." The prompt also steers toward `wait` instead of blind
+re-taps. Home is the bottom-edge gesture at `0x100025c00` — move to (500, 990)
+on the 1000×1000 surface, settle 0.1 s, press, hold 0.5 s, smoothstep drag to
+(500, 10) over ~0.7 s, release — never the AssistiveTouch menu.
+
+Observability: per-step `agent_step_progress` / `agent_step_reasoning` /
+`agent_step_completed` events stream over WebSocket (Starscream) to tapkit.ai,
+and HTTP calls go through a `RetryRequestInterceptor` with exponential backoff.

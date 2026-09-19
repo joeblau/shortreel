@@ -7,8 +7,7 @@ struct PhoneScreenPhoneIdentity: Sendable, Equatable {
     let trusted: Bool
 }
 
-/// Associates an already-filtered iOS screen source with the phone receiving HID
-/// input. Friendly names never choose among multiple phones or screen sources.
+/// Associates an already-filtered iOS screen source with the phone receiving HID input.
 enum PhoneScreenAssociation {
     static func selectedPhone(bluetoothAddress: String, phones: [PhoneScreenPhoneIdentity]) -> PhoneScreenPhoneIdentity? {
         guard let address = canonicalBluetoothAddress(bluetoothAddress),
@@ -33,13 +32,13 @@ enum PhoneScreenAssociation {
         if physicalMatches.count == 1 { return physicalMatches[0].id }
         guard physicalMatches.isEmpty else { return nil }
 
-        // Current macOS can expose the iOS screen under an opaque privacy UUID
-        // instead of its USB UDID. This fallback is deliberately unavailable if
-        // any second phone/source could make the same-name association ambiguous.
-        guard phones.count == 1, sources.count == 1, let source = sources.first,
-              UUID(uuidString: source.deviceUniqueID.trimmingCharacters(in: .whitespacesAndNewlines)) != nil else { return nil }
+        // macOS may expose the iOS screen as a privacy UUID instead of the USB UDID.
         let phoneName = canonicalName(phone.name)
-        guard !phoneName.isEmpty, canonicalName(source.name) == phoneName else { return nil }
+        guard !phoneName.isEmpty else { return nil }
+        let namedPhones = phones.filter { canonicalName($0.name) == phoneName }
+        let namedSources = sources.filter { canonicalName($0.name) == phoneName }
+        guard namedPhones.count == 1, namedSources.count == 1, let source = namedSources.first,
+              UUID(uuidString: source.deviceUniqueID.trimmingCharacters(in: .whitespacesAndNewlines)) != nil else { return nil }
         return source.id
     }
 

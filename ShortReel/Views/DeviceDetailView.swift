@@ -90,6 +90,21 @@ struct DeviceDetailView: View {
                     }
                 }
 
+                Section("Automation") {
+                    Button("Set Auto-Lock to Never") {
+                        deviceManager.disableAutoLock(device)
+                    }
+                    .disabled(!device.isConnected || deviceManager.promptSession(for: device).isRunning)
+                    Text("Keeps this iPhone unlocked so its screen and agent stay available. The phone’s Settings app is driven over Bluetooth to change it.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let status = deviceManager.autoLockStatus {
+                        Text(status)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("Device Information") {
                     LabeledContent("Connection", value: device.transport.displayName)
                     LabeledContent(device.transport.identifierLabel) {

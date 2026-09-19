@@ -371,7 +371,7 @@ private final class PhoneScreenCaptureEngine: NSObject, AVCaptureVideoDataOutput
         }
         let hostClock = CMClockGetHostTimeClock()
         let nowHost = CMClockGetTime(hostClock).seconds
-        guard nowHost - lastEncodedHostTime >= 1.0 / 3.0 else { return }
+        guard nowHost - lastEncodedHostTime >= 1.0 / 10.0 else { return }
         let sampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         let captureHost = CMSyncConvertTime(sampleTime, from: clock, to: hostClock).seconds
         // Invalid timestamps must never be relabelled as a fresh observation.

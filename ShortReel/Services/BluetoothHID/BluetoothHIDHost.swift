@@ -188,9 +188,9 @@ final class BluetoothHIDHost: DeviceHost {
             try Task.checkCancellation()
             guard let key = HIDKeyMap.lookup(character) else { continue }
             try send(keyboardReport(modifiers: key.shift ? 0x02 : 0, keycode: key.code), to: device)
-            try await Task.sleep(for: .milliseconds(12))
+            try await Task.sleep(for: .milliseconds(8))
             try send(keyboardReport(modifiers: 0, keycode: 0), to: device)
-            try await Task.sleep(for: .milliseconds(12))
+            try await Task.sleep(for: .milliseconds(8))
         }
     }
 

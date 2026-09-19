@@ -24,7 +24,6 @@ final class BluetoothDiscovery: NSObject, @preconcurrency IOBluetoothDevicePairD
     private(set) var devices: [DiscoveredBluetoothDevice] = []
     private(set) var isScanning = false
     private(set) var pairingAddress: String?
-    private(set) var confirmationCode: String?
     private(set) var displayedPasskey: String?
     private(set) var needsPIN = false
     private(set) var status = ""
@@ -144,13 +143,6 @@ final class BluetoothDiscovery: NSObject, @preconcurrency IOBluetoothDevicePairD
         }
     }
 
-    func confirmPairing(_ matches: Bool) {
-        guard confirmationCode != nil else { return }
-        confirmationCode = nil
-        pairer?.replyUserConfirmation(matches)
-        if !matches { cancelPairing() }
-    }
-
     func submitPIN(_ pin: String) {
         let bytes = Array(pin.utf8)
         guard needsPIN, !bytes.isEmpty, bytes.count <= 16 else { return }
@@ -169,7 +161,6 @@ final class BluetoothDiscovery: NSObject, @preconcurrency IOBluetoothDevicePairD
         pairingAddress = nil
         selectedDevice = nil
         onPaired = nil
-        confirmationCode = nil
         displayedPasskey = nil
         needsPIN = false
     }
@@ -243,8 +234,11 @@ final class BluetoothDiscovery: NSObject, @preconcurrency IOBluetoothDevicePairD
 
     func devicePairingUserConfirmationRequest(_ sender: Any!, numericValue: BluetoothNumericValue) {
         guard let sender = sender as? IOBluetoothDevicePair, sender === pairer else { return }
-        confirmationCode = String(format: "%06u", numericValue)
-        status = "Confirm that the code matches the one on your phone."
+        // iPhone pairing alerts time out (HCI 0x1F) if the Mac waits for a second confirmation.
+        let code = String(format: "%06u", numericValue)
+        log.info("Numeric comparison \(code, privacy: .public) with \(self.pairingAddress ?? "device", privacy: .public); confirming")
+        status = "Confirm code \(code) on your iPhone to finish pairing."
+        pairer?.replyUserConfirmation(true)
     }
 
     func devicePairingUserPasskeyNotification(_ sender: Any!, passkey: BluetoothPasskey) {
@@ -262,6 +256,6 @@ final class BluetoothDiscovery: NSObject, @preconcurrency IOBluetoothDevicePairD
     func devicePairingFinished(_ sender: Any!, error: IOReturn) {
         guard let sender = sender as? IOBluetoothDevicePair, sender === pairer else { return }
         if error == kIOReturnSuccess { finishPairing() }
-        else { fail("Pairing failed (\(error)). Keep the phone’s Bluetooth settings open, then try again.") }
+        else { fail("Pairing failed (\(error)). Accept the pairing request on the iPhone and keep its Bluetooth settings open, then try again.") }
     }
 }
