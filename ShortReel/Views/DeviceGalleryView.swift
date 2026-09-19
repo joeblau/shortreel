@@ -41,7 +41,7 @@ struct DeviceGalleryView: View {
                             if device.isLive {
                                 DeviceScreenCard(
                                     device: device,
-                                    onPrompt: { promptDevice = device },
+                                    onPrompt: { promptDevice = promptDevice == device ? nil : device },
                                     onSettings: { settingsDevice = device }
                                 )
                             }
@@ -82,8 +82,11 @@ struct DeviceGalleryView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { refreshRevision += 1 }
         }
-        .sheet(item: $promptDevice) { device in
-            DevicePromptSheet(device: device)
+        .inspector(isPresented: Binding(
+            get: { promptDevice != nil },
+            set: { if !$0 { promptDevice = nil } }
+        )) {
+            DevicePromptInspector(device: promptDevice)
         }
         .sheet(item: $settingsDevice, onDismiss: { refreshRevision += 1 }) { device in
             DeviceSettingsSheet(device: device)
@@ -239,26 +242,68 @@ private struct DeviceScreenCard: View {
     }
 }
 
-private struct DevicePromptSheet: View {
-    let device: Device
-    @Environment(\.dismiss) private var dismiss
+private struct DevicePromptInspector: View {
+    let device: Device?
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(device.name).font(.headline)
-                Spacer()
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.defaultAction)
+        Form {
+            if let device, device.isLive {
+                Section("Device") {
+                    HStack(spacing: 10) {
+                        Image(systemName: "iphone.gen3")
+                            .font(.title2)
+                            .foregroundStyle(.tint)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(device.name)
+                                .font(.headline)
+                                .textSelection(.enabled)
+
+                            HStack(spacing: 6) {
+                                if device.connectionState == .pairing {
+                                    ProgressView()
+                                        .controlSize(.mini)
+                                } else {
+                                    Circle()
+                                        .fill(device.connectionState.color)
+                                        .frame(width: 7, height: 7)
+                                }
+                                Text(device.connectionState.displayName)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, 2)
+                }
+
+                DevicePromptHistory(device: device)
+            } else {
+                Section("Device") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("No iPhone Selected", systemImage: "iphone")
+                            .font(.headline)
+                        Text("Select a device screen to give it instructions and see its requests.")
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.vertical, 4)
+                }
             }
-            .padding(20)
-            Divider()
-            Form {
-                DevicePromptView(device: device)
-            }
-            .formStyle(.grouped)
         }
-        .frame(width: 480, height: 640)
+        .formStyle(.grouped)
+        .inspectorColumnWidth(min: 320, ideal: 360, max: 460)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if let device, device.isLive {
+                VStack(spacing: 0) {
+                    Divider()
+                    DevicePromptView(device: device)
+                }
+                .background(.bar)
+            }
+        }
     }
 }
 
