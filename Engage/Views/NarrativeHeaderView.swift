@@ -5,15 +5,28 @@ struct NarrativeHeaderView: View {
     @Bindable var account: Account
     @Environment(\.modelContext) private var modelContext
 
+    private var liveEvents: [TimelineEvent] {
+        guard account.isLive else { return [] }
+        return account.events.filter(\.isLive)
+    }
+
     private var actionsToday: Int {
-        account.events.filter { Calendar.current.isDateInToday($0.timestamp) }.count
+        liveEvents.filter { Calendar.current.isDateInToday($0.timestamp) }.count
     }
 
     private var scheduledCount: Int {
-        account.events.filter { $0.status == .scheduled }.count
+        liveEvents.filter { $0.status == .scheduled }.count
     }
 
     var body: some View {
+        if !account.isLive {
+            EmptyView()
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {

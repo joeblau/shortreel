@@ -4,6 +4,16 @@ struct TimelineEventRow: View {
     let event: TimelineEvent
 
     var body: some View {
+        // Rows can be re-rendered after their event was cascade-deleted
+        // with its account; reading any other property would trap.
+        if !event.isLive {
+            EmptyView()
+        } else {
+            row
+        }
+    }
+
+    private var row: some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: event.kind.symbolName)
                 .font(.callout)

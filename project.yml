@@ -28,6 +28,9 @@ targets:
         CFBundlePackageType: APPL
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         NSPrincipalClass: NSApplication
+        NSBluetoothAlwaysUsageDescription: "Engage uses Bluetooth to expose an AssistiveTouch HID controller for paired iPhones."
+        NSCameraUsageDescription: "Engage reads the screen of your USB-connected iPhone so the agent can see the result of each action. macOS exposes this screen as a camera source."
+        NSMicrophoneUsageDescription: "macOS exposes a USB iPhone as a combined audio and video device. Engage opens it to read the phone’s screen; it does not record audio."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.joeblau.engage
@@ -35,3 +38,10 @@ targets:
         CODE_SIGNING_ALLOWED: NO
         SWIFT_VERSION: "6.0"
         ENABLE_HARDENED_RUNTIME: NO
+        SWIFT_OBJC_BRIDGING_HEADER: Engage/Services/BluetoothHID/Engage-Bridging-Header.h
+    dependencies:
+      - sdk: CoreBluetooth.framework
+      - sdk: IOBluetooth.framework
+      - sdk: AVFoundation.framework
+      - sdk: CoreMediaIO.framework
+      - sdk: Vision.framework

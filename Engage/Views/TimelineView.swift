@@ -4,7 +4,10 @@ struct TimelineView: View {
     let account: Account
 
     private var sortedEvents: [TimelineEvent] {
-        account.events.sorted { $0.timestamp > $1.timestamp }
+        guard account.isLive else { return [] }
+        return account.events
+            .filter(\.isLive)
+            .sorted { $0.timestamp > $1.timestamp }
     }
 
     private var groups: [(day: Date, events: [TimelineEvent])] {
@@ -46,7 +49,7 @@ struct TimelineView: View {
                         }
                         .padding(.horizontal)
                     }
-                    .onChange(of: account.events.count) { _, _ in
+                    .onChange(of: sortedEvents.count) { _, _ in
                         withAnimation {
                             proxy.scrollTo("top", anchor: .top)
                         }

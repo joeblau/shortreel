@@ -15,18 +15,18 @@ struct AccountListView: View {
 
     private var selectedAccount: Account? {
         guard let selection else { return nil }
-        return accounts.first { $0.persistentModelID == selection }
+        return accounts.first { $0.persistentModelID == selection && $0.isLive }
     }
 
     private var farmlessAccounts: [Account] {
-        accounts.filter { $0.farm == nil }
+        accounts.filter { $0.isLive && $0.farm == nil }
     }
 
     var body: some View {
         List(selection: $selection) {
             ForEach(farms) { farm in
                 Section {
-                    ForEach(farm.accounts.sorted { $0.createdAt < $1.createdAt }, id: \.persistentModelID) { account in
+                    ForEach(farm.accounts.filter(\.isLive).sorted { $0.createdAt < $1.createdAt }, id: \.persistentModelID) { account in
                         accountRow(account)
                     }
                 } header: {
@@ -128,8 +128,13 @@ struct AccountListView: View {
         if selection == account.persistentModelID {
             selection = nil
         }
-        modelContext.delete(account)
-        try? modelContext.save()
+        // Delete on the next run-loop turn so the detail and inspector views
+        // observing this account are torn down before its events and links
+        // are cascade-deleted out from under them.
+        Task { @MainActor in
+            modelContext.delete(account)
+            try? modelContext.save()
+        }
     }
 
     private func delete(_ farm: Farm) {
@@ -139,8 +144,10 @@ struct AccountListView: View {
                 selection = nil
             }
         }
-        modelContext.delete(farm)
-        try? modelContext.save()
+        Task { @MainActor in
+            modelContext.delete(farm)
+            try? modelContext.save()
+        }
     }
 }
 

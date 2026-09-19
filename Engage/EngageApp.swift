@@ -15,7 +15,6 @@ struct EngageApp: App {
             fatalError("Failed to create ModelContainer: \(error)")
         }
         Self.seedIfNeeded(in: container)
-        Self.seedDevicesIfNeeded(in: container)
         self.container = container
         _agent = State(initialValue: WarmUpAgent(container: container))
         _deviceManager = State(initialValue: DeviceManager(container: container))
@@ -94,45 +93,4 @@ struct EngageApp: App {
         try? context.save()
     }
 
-    /// Creates one `Device` per distinct legacy device name so stores from
-    /// before the device registry existed get a populated fleet.
-    private static func seedDevicesIfNeeded(in container: ModelContainer) {
-        let context = container.mainContext
-        let existing = (try? context.fetchCount(FetchDescriptor<Device>())) ?? 0
-        guard existing == 0 else { return }
-
-        let accounts = (try? context.fetch(FetchDescriptor<Account>(sortBy: [SortDescriptor(\.createdAt)]))) ?? []
-        var devicesByName: [String: Device] = [:]
-        for account in accounts where account.device == nil {
-            let name = account.deviceName
-            guard !name.isEmpty, name != "No device" else { continue }
-            let device: Device
-            if let known = devicesByName[name] {
-                device = known
-            } else {
-                device = Device(
-                    name: name,
-                    modelName: Self.modelName(from: name),
-                    transport: .bluetoothHID,
-                    identifier: Self.randomBluetoothAddress()
-                )
-                context.insert(device)
-                devicesByName[name] = device
-            }
-            account.device = device
-        }
-        try? context.save()
-    }
-
-    /// "Joe's iPhone 16 Pro" → "iPhone 16 Pro"
-    private static func modelName(from deviceName: String) -> String {
-        if let range = deviceName.range(of: "iPhone") {
-            return String(deviceName[range.lowerBound...])
-        }
-        return "iPhone"
-    }
-
-    private static func randomBluetoothAddress() -> String {
-        (0..<6).map { _ in String(format: "%02X", Int.random(in: 0...255)) }.joined(separator: ":")
-    }
 }

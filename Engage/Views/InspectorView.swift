@@ -1,11 +1,12 @@
 import SwiftData
 import SwiftUI
 
-/// Right-hand inspector: the fleet of phones agents can control, followed by
-/// the selected account's bound device and social profiles.
+/// Agent inspector: the selected agent's device assignment and social profiles.
+/// Fleet management lives in the Devices section.
 struct InspectorView: View {
     let account: Account?
     let onAddDevice: () -> Void
+    let onShowDevice: (Device) -> Void
 
     @Query(sort: \Device.createdAt) private var devices: [Device]
     @Environment(DeviceManager.self) private var deviceManager
@@ -15,20 +16,16 @@ struct InspectorView: View {
     @State private var newHandle = ""
     @State private var newURL = ""
 
-    private var connectedCount: Int {
-        devices.filter(\.isConnected).count
-    }
+    private var liveDevices: [Device] { devices.filter(\.isLive) }
 
     var body: some View {
         List {
-            devicesSection
-
-            if let account {
+            if let account, account.isLive {
                 boundDeviceSection(for: account)
                 socialSections(for: account)
             } else {
-                Section("Account") {
-                    Text("Select an account to see its bound device and social profiles.")
+                Section("Agent") {
+                    Text("Select an agent to see its bound device and social profiles.")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -36,92 +33,32 @@ struct InspectorView: View {
         .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
     }
 
-    // MARK: - Devices
-
-    private var devicesSection: some View {
-        Section {
-            if devices.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("No devices yet. Add an iPhone so agents have something to control.")
-                        .foregroundStyle(.secondary)
-                    Button("Add Device", action: onAddDevice)
-                }
-                .padding(.vertical, 4)
-            } else {
-                ForEach(devices, id: \.persistentModelID) { device in
-                    DeviceRow(device: device)
-                        .contextMenu { deviceMenu(for: device) }
-                }
-            }
-        } header: {
-            HStack {
-                Text("Devices")
-                Spacer()
-                if !devices.isEmpty {
-                    Text("\(connectedCount)/\(devices.count) connected")
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func deviceMenu(for device: Device) -> some View {
-        if device.isConnected {
-            Button {
-                deviceManager.disconnect(device)
-            } label: {
-                Label("Disconnect", systemImage: "iphone.gen3.slash")
-            }
-        } else {
-            Button {
-                deviceManager.connect(device)
-            } label: {
-                Label("Connect", systemImage: "iphone.gen3.radiowaves.left.and.right")
-            }
-            .disabled(device.connectionState == .pairing)
-        }
-
-        if let account {
-            Divider()
-            if account.device == device {
-                Button {
-                    deviceManager.unbind(account)
-                } label: {
-                    Label("Unbind from @\(account.handle)", systemImage: "link.badge.plus")
-                }
-            } else {
-                Button {
-                    deviceManager.bind(device, to: account)
-                } label: {
-                    Label("Bind to @\(account.handle)", systemImage: "link")
-                }
-            }
-        }
-
-        Divider()
-        Button(role: .destructive) {
-            deviceManager.remove(device)
-        } label: {
-            Label("Remove Device", systemImage: "trash")
-        }
-    }
-
     // MARK: - Bound device
 
     private func boundDeviceSection(for account: Account) -> some View {
         Section("Bound device") {
-            if let device = account.device {
-                DeviceRow(device: device)
-                    .contextMenu { deviceMenu(for: device) }
-            } else if devices.isEmpty {
-                Text("No device bound.")
+            if liveDevices.isEmpty {
+                Text("No devices connected to Engage yet.")
                     .foregroundStyle(.secondary)
+                Button("Connect iPhone", action: onAddDevice)
             } else {
                 Picker("Device", selection: boundDeviceSelection(for: account)) {
                     Text("None").tag(nil as PersistentIdentifier?)
-                    ForEach(devices, id: \.persistentModelID) { device in
+                    ForEach(liveDevices, id: \.persistentModelID) { device in
                         Text(device.name).tag(device.persistentModelID as PersistentIdentifier?)
+                    }
+                }
+                if let device = account.device, device.isLive {
+                    Button {
+                        onShowDevice(device)
+                    } label: {
+                        DeviceRow(device: device)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show in Devices")
+                    .contextMenu {
+                        Button("Show in Devices") { onShowDevice(device) }
+                        Button("Unbind Device") { deviceManager.unbind(account) }
                     }
                 }
             }
@@ -132,7 +69,7 @@ struct InspectorView: View {
         Binding(
             get: { account.device?.persistentModelID },
             set: { id in
-                if let id, let device = devices.first(where: { $0.persistentModelID == id }) {
+                if let id, let device = liveDevices.first(where: { $0.persistentModelID == id }) {
                     deviceManager.bind(device, to: account)
                 } else {
                     deviceManager.unbind(account)
@@ -186,7 +123,7 @@ struct InspectorView: View {
     }
 
     private func sortedLinks(for account: Account) -> [SocialLink] {
-        account.socialLinks.sorted { $0.platform.rawValue < $1.platform.rawValue }
+        account.socialLinks.filter(\.isLive).sorted { $0.platform.rawValue < $1.platform.rawValue }
     }
 
     private func addLink(to account: Account) {
@@ -221,10 +158,11 @@ struct InspectorView: View {
 
 struct DeviceRow: View {
     let device: Device
+    @Environment(DeviceManager.self) private var deviceManager
 
     private var subtitle: String {
         var parts = [device.modelName, device.transport.displayName]
-        if let handle = device.accounts.first?.handle {
+        if let handle = device.accounts.first(where: \.isLive)?.handle {
             parts.append("@\(handle)")
         }
         return parts.joined(separator: " · ")
@@ -261,7 +199,7 @@ struct DeviceRow: View {
                     .frame(width: 8, height: 8)
             }
         }
-        .help(device.connectionState.displayName)
+        .help(deviceManager.connectionErrors[device.identifier] ?? device.connectionState.displayName)
     }
 }
 

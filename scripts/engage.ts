@@ -30,13 +30,48 @@ if (!existsSync(builtApp)) {
   process.exit(1);
 }
 
+// Give local builds a stable identity so macOS can retain the user's
+// Bluetooth and camera permissions when the executable changes.
+let signingIdentity = process.env.ENGAGE_CODE_SIGN_IDENTITY;
+if (!signingIdentity) {
+  const identities = await $`security find-identity -v -p codesigning`.quiet().nothrow();
+  signingIdentity = identities.stdout.toString().match(
+    /\b([A-Fa-f0-9]{40})\s+"Apple Development:[^"]+"/
+  )?.[1];
+}
+if (signingIdentity) {
+  console.log("→ Signing Engage with the local development identity");
+  await $`codesign --force --sign ${signingIdentity} ${builtApp}`.quiet();
+  await $`codesign --verify --strict ${builtApp}`.quiet();
+} else {
+  console.log("→ No development signing identity found; macOS may request permissions again after updates.");
+}
+
 console.log("→ Quitting any running Engage");
 await $`pkill -x Engage`.quiet().nothrow();
+// Wait for termination before replacing the bundle; Launch Services can
+// otherwise try to reopen the exiting process and return -600 or -609.
+const quitDeadline = Date.now() + 10_000;
+while ((await $`pgrep -x Engage`.quiet().nothrow()).exitCode === 0) {
+  if (Date.now() >= quitDeadline) {
+    console.error("Engage did not quit; leaving the installed app in place.");
+    process.exit(1);
+  }
+  await Bun.sleep(200);
+}
 
 console.log(`→ Installing to ${installedApp}`);
 await $`rm -rf ${installedApp}`;
 await $`ditto ${builtApp} ${installedApp}`;
 
 console.log("→ Launching Engage");
-await $`open ${installedApp}`;
+for (let attempt = 0; attempt < 3; attempt++) {
+  const launch = await $`open ${installedApp}`.quiet().nothrow();
+  if (launch.exitCode === 0) break;
+  if (attempt === 2 || !/error -(600|609)\b/.test(launch.stderr.toString())) {
+    console.error(launch.stderr.toString());
+    process.exit(launch.exitCode);
+  }
+  await Bun.sleep(1_000);
+}
 console.log("✓ Engage is running from /Applications");

@@ -16,36 +16,61 @@ struct NormalizedPoint: Sendable, Hashable {
     var y: Double
 }
 
+enum DeviceKeyboardKey: Sendable {
+    case home, search, selectAll, addressBar, enter, escape, backspace, tab
+}
+
 enum DeviceHostEvent: Sendable {
+    case discovered(DeviceDescriptor)
     case connectionChanged(identifier: String, state: DeviceConnectionState)
+    /// The host learned a device's real Bluetooth address from an incoming
+    /// pairing, replacing the placeholder stored on the device.
+    case addressLearned(identifier: String, address: String)
 }
 
 /// Driver seam for whatever physically reaches the phone.
 ///
-/// The production implementation follows the approach TapKit uses (see
-/// docs/tapkit-reverse-engineering.md): the Mac publishes a Bluetooth Classic
-/// HID service (a mouse with absolute X/Y plus a keyboard) that the iPhone
-/// pairs with from Settings › Accessibility › Touch › AssistiveTouch › Devices,
-/// then streams HID input reports over the L2CAP interrupt channel.
-/// `SimulatedDeviceHost` stands in until that host exists.
+/// The Bluetooth production implementation follows the approach TapKit uses
+/// (see docs/tapkit-reverse-engineering.md): the Mac publishes a Bluetooth
+/// Classic HID service (a mouse with absolute X/Y plus a keyboard) that the
+/// iPhone pairs with from Settings › Accessibility › Touch › AssistiveTouch ›
+/// Devices, then streams HID input reports over the L2CAP interrupt channel.
+/// `SimulatedDeviceHost` still stands in for the USB transport.
 @MainActor
 protocol DeviceHost: AnyObject {
     var events: AsyncStream<DeviceHostEvent> { get }
 
+    func prepareForPairing() throws
     func connect(_ device: DeviceDescriptor) async throws
     func disconnect(_ device: DeviceDescriptor)
 
     func tap(_ point: NormalizedPoint, on device: DeviceDescriptor) async throws
     func swipe(from start: NormalizedPoint, to end: NormalizedPoint, on device: DeviceDescriptor) async throws
     func type(_ text: String, on device: DeviceDescriptor) async throws
+    func pressKey(_ key: DeviceKeyboardKey, on device: DeviceDescriptor) async throws
+    func openAssistiveTouchMenu(on device: DeviceDescriptor) async throws
+}
+
+extension DeviceHost {
+    func prepareForPairing() throws {}
+    func openAssistiveTouchMenu(on device: DeviceDescriptor) async throws {
+        throw DeviceHostError.unsupportedInput("Opening AssistiveTouch is unavailable for this device.")
+    }
+    func pressKey(_ key: DeviceKeyboardKey, on device: DeviceDescriptor) async throws {
+        throw DeviceHostError.unsupportedInput("Keyboard commands are unavailable for this device.")
+    }
 }
 
 enum DeviceHostError: Error, LocalizedError {
     case notConnected(String)
+    case connectionTimedOut(String)
+    case unsupportedInput(String)
 
     var errorDescription: String? {
         switch self {
         case .notConnected(let name): "\(name) is not connected"
+        case .connectionTimedOut(let name): "\(name) did not open its Bluetooth control channels. On the iPhone, enable AssistiveTouch and select this Mac under Devices › Bluetooth Devices."
+        case .unsupportedInput(let message): message
         }
     }
 }
