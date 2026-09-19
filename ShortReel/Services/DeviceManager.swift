@@ -17,6 +17,11 @@ final class DeviceManager {
     private(set) var controlTestStatus: String?
     @ObservationIgnored private var promptSessions: [String: DevicePromptSession] = [:]
     private var pointerTests: Set<String> = []
+    /// Devices the user disconnected by hand stay offline until they connect
+    /// them again; every other known bond is re-established automatically.
+    private var manualDisconnects: Set<String> = []
+    private var reconnectAttempts: [String: Int] = [:]
+    @ObservationIgnored private var reconnectTasks: [String: Task<Void, Never>] = [:]
     @ObservationIgnored private var screenServices: [String: PhoneScreenCaptureService] = [:]
     @ObservationIgnored private var screenOwners: [String: String] = [:]
     @ObservationIgnored private var screenConnectionAttempts: [String: UUID] = [:]
@@ -80,9 +85,11 @@ final class DeviceManager {
             device.connectionState = .disconnected
         }
         try? context.save()
-        // Bluetooth connections are initiated from a discovered selection;
-        // legacy demo entries may contain invented Bluetooth addresses.
-        for device in devices where device.transport == .usb {
+        // Re-establish every connection that existed before. USB devices are
+        // always eligible; Bluetooth phones only when their bond with this
+        // Mac is still in the system pairing list, which filters out legacy
+        // demo entries with invented addresses.
+        for device in devices where canAutoConnect(device) {
             connect(device)
         }
     }
@@ -158,6 +165,7 @@ final class DeviceManager {
 
     func connect(_ device: Device) {
         guard device.connectionState == .disconnected else { return }
+        manualDisconnects.remove(device.identifier)
         connectionErrors[device.identifier] = nil
         device.connectionState = .pairing
         let descriptor = device.descriptor
@@ -173,9 +181,38 @@ final class DeviceManager {
     }
 
     func disconnect(_ device: Device) {
+        manualDisconnects.insert(device.identifier)
+        reconnectTasks[device.identifier]?.cancel()
         promptSessions[device.identifier]?.cancel(because: "Stopped because the phone was disconnected.")
         connectionErrors[device.identifier] = nil
         host(for: device.transport).disconnect(device.descriptor)
+    }
+
+    private func canAutoConnect(_ device: Device) -> Bool {
+        device.transport == .usb || host(for: device.transport).canAutoConnect(device.descriptor)
+    }
+
+    /// A phone that drops without the user asking for it comes back on its
+    /// own: retry with a growing pause, giving up after a few attempts so an
+    /// absent phone does not spin forever. It can still reconnect inbound
+    /// from AssistiveTouch at any time.
+    private func scheduleReconnect(for device: Device) {
+        let identifier = device.identifier
+        guard device.isLive,
+              !manualDisconnects.contains(identifier),
+              canAutoConnect(device) else { return }
+        let attempt = (reconnectAttempts[identifier] ?? 0) + 1
+        guard attempt <= 5 else { return }
+        reconnectAttempts[identifier] = attempt
+        reconnectTasks[identifier]?.cancel()
+        reconnectTasks[identifier] = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(min(30, attempt * 5))) } catch { return }
+            guard let self, !Task.isCancelled else { return }
+            guard device.isLive,
+                  device.connectionState == .disconnected,
+                  !self.manualDisconnects.contains(identifier) else { return }
+            self.connect(device)
+        }
     }
 
     func testControl(_ device: Device) {
@@ -473,6 +510,9 @@ final class DeviceManager {
     }
 
     func remove(_ device: Device) {
+        manualDisconnects.remove(device.identifier)
+        reconnectAttempts[device.identifier] = nil
+        reconnectTasks.removeValue(forKey: device.identifier)?.cancel()
         disabledScreenAutoConnections.remove(device.identifier)
         screenConnectionAttempts[device.identifier] = nil
         screenConnectionStops[device.identifier] = nil
@@ -503,8 +543,12 @@ final class DeviceManager {
             device.connectionState = state
             if state == .disconnected {
                 promptSessions[identifier]?.cancel(because: "Stopped because the phone disconnected.")
+                scheduleReconnect(for: device)
             }
             if state == .connected {
+                reconnectAttempts[identifier] = 0
+                reconnectTasks[identifier]?.cancel()
+                manualDisconnects.remove(identifier)
                 connectionErrors[identifier] = nil
                 device.lastSeen = .now
             }

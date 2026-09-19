@@ -44,6 +44,12 @@ protocol DeviceHost: AnyObject {
     func connect(_ device: DeviceDescriptor) async throws
     func disconnect(_ device: DeviceDescriptor)
 
+    /// Whether the stored descriptor refers to a device this Mac has a real
+    /// bond with, making it eligible for automatic reconnection. Stored
+    /// entries can outlive their bond or carry invented addresses, so hosts
+    /// must verify against the system pairing list.
+    func canAutoConnect(_ device: DeviceDescriptor) -> Bool
+
     func tap(_ point: NormalizedPoint, on device: DeviceDescriptor) async throws
     func swipe(from start: NormalizedPoint, to end: NormalizedPoint, on device: DeviceDescriptor) async throws
     func type(_ text: String, on device: DeviceDescriptor) async throws
@@ -53,6 +59,7 @@ protocol DeviceHost: AnyObject {
 
 extension DeviceHost {
     func prepareForPairing() throws {}
+    func canAutoConnect(_ device: DeviceDescriptor) -> Bool { false }
     func openAssistiveTouchMenu(on device: DeviceDescriptor) async throws {
         throw DeviceHostError.unsupportedInput("Opening AssistiveTouch is unavailable for this device.")
     }

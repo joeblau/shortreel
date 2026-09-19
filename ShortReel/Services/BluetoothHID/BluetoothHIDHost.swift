@@ -1,5 +1,6 @@
 import CoreBluetooth
 import Foundation
+@preconcurrency import IOBluetooth
 import OSLog
 
 private let log = Logger(subsystem: "com.joeblau.shortreel", category: "BluetoothHID")
@@ -115,6 +116,14 @@ final class BluetoothHIDHost: DeviceHost {
             bridge.disconnectPeer(withAddress: address)
         }
         continuation.yield(.connectionChanged(identifier: device.identifier, state: .disconnected))
+    }
+
+    /// A saved phone may reconnect on its own only while its bond with this
+    /// Mac still exists; everything else (stale entries, invented addresses)
+    /// must wait for an explicit selection in the scan sheet.
+    func canAutoConnect(_ device: DeviceDescriptor) -> Bool {
+        guard let address = normalizedAddress(for: device) else { return false }
+        return IOBluetoothDevice(addressString: Self.format(address: address))?.isPaired() ?? false
     }
 
     func tap(_ point: NormalizedPoint, on device: DeviceDescriptor) async throws {
