@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// The prompt composer, pinned to the bottom of the inspector so it stays
+/// reachable while the request history above scrolls.
 struct DevicePromptView: View {
     let device: Device
 
@@ -10,111 +12,124 @@ struct DevicePromptView: View {
         @Bindable var session = deviceManager.promptSession(for: device)
         @Bindable var manager = deviceManager
 
-        Section("Ask this iPhone") {
-            VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
+            if let status = statusLine(session) {
+                Label(status.text, systemImage: status.symbol)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .labelStyle(.titleAndIcon)
+            }
+
+            ZStack(alignment: .topLeading) {
+                if session.draft.isEmpty {
+                    Text("Open Safari, then scroll down")
+                        .foregroundStyle(.tertiary)
+                        .padding(9)
+                        .allowsHitTesting(false)
+                }
+
+                TextEditor(text: $session.draft)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .padding(4)
+                    .focused($composerFocused)
+                    .accessibilityLabel("Instructions for \(device.name)")
+            }
+            .frame(height: 72)
+            .background(.background, in: RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(.quaternary, lineWidth: 1)
+            }
+
+            HStack(spacing: 10) {
+                Menu("Try an example") {
+                    ForEach(examples, id: \.self) { example in
+                        Button(example) {
+                            session.draft = example
+                            composerFocused = true
+                        }
+                    }
+                }
+                .fixedSize()
+
                 Picker("Planner", selection: $manager.visionProvider) {
                     ForEach(PhoneVisionProvider.allCases) { provider in
                         Text(provider.displayName).tag(provider)
                     }
                 }
+                .labelsHidden()
+                .fixedSize()
                 .disabled(deviceManager.isAnyPromptRunning)
                 .help("Choose the planner for requests that use the phone’s screen.")
 
-                Text(deviceManager.visionProvider.screenRequestDescription)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
 
-                if let reason = deviceManager.visionUnavailabilityReason {
-                    Text(reason)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Text(session.canUseScreen
-                    ? "Run a command, or ask the agent to use the screen."
-                    : "Give your iPhone a command over Bluetooth.")
-                    .foregroundStyle(.secondary)
-
-                ZStack(alignment: .topLeading) {
-                    if session.draft.isEmpty {
-                        Text("Open Safari, then scroll down")
-                            .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 9)
-                            .allowsHitTesting(false)
+                if session.isRunning {
+                    ProgressView()
+                        .controlSize(.small)
+                    Button("Stop", role: .cancel) {
+                        session.cancel()
                     }
-
-                    TextEditor(text: $session.draft)
-                        .font(.body)
-                        .scrollContentBackground(.hidden)
-                        .padding(4)
-                        .focused($composerFocused)
-                        .accessibilityLabel("Instructions for \(device.name)")
-                }
-                .frame(height: 84)
-                .background(.background, in: RoundedRectangle(cornerRadius: 6))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(.quaternary, lineWidth: 1)
-                }
-
-                HStack {
-                    Menu("Try an example") {
-                        ForEach(examples, id: \.self) { example in
-                            Button(example) {
-                                session.draft = example
-                                composerFocused = true
-                            }
-                        }
-                    }
-                    .fixedSize()
-
-                    Spacer()
-
-                    if session.isRunning {
-                        ProgressView()
-                            .controlSize(.small)
-                        Button("Stop", role: .cancel) {
-                            session.cancel()
-                        }
-                    } else {
-                        Button {
-                            session.submit()
-                        } label: {
-                            HStack(spacing: 8) {
-                                Text("Run")
-                                Text("⌘ Enter")
-                                    .font(.caption)
-                                    .opacity(0.8)
-                            }
-                            .fixedSize()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .keyboardShortcut(.return, modifiers: .command)
-                        .accessibilityLabel("Run instructions (Command-Enter)")
-                        .disabled(!canSubmit(session))
-                        .help("Run these instructions on \(device.name) (⌘ Enter)")
-                    }
-                }
-
-                if let connectionHint {
-                    Label(connectionHint, systemImage: "info.circle")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Text(session.canUseScreen
-                        ? "Keep the iPhone unlocked and connected by USB and Bluetooth while the agent checks each step."
-                        : "Bluetooth commands are ready. Add the USB screen for requests that need to see buttons or read the phone.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Button {
+                        session.submit()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text("Run")
+                            Text("⌘ Enter")
+                                .font(.caption)
+                                .opacity(0.8)
+                        }
+                        .fixedSize()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .accessibilityLabel("Run instructions (Command-Enter)")
+                    .disabled(!canSubmit(session))
+                    .help("Run these instructions on \(device.name) (⌘ Enter)")
                 }
             }
-            .padding(.vertical, 4)
         }
+        .padding(12)
+    }
+
+    private let examples = ["Open Safari", "Scroll down", "Go Home"]
+
+    private func canSubmit(_ session: DevicePromptSession) -> Bool {
+        device.isLive
+            && session.unavailableReason == nil
+            && !session.isRunning
+            && !session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// One contextual status line instead of several stacked captions.
+    private func statusLine(_ session: DevicePromptSession) -> (text: String, symbol: String)? {
+        if session.isRunning {
+            return ("Keep the iPhone unlocked and connected by USB and Bluetooth while the agent checks each step.", "info.circle")
+        }
+        if let reason = deviceManager.visionUnavailabilityReason {
+            return (reason, "exclamationmark.triangle")
+        }
+        if !device.isLive {
+            return ("Select an available iPhone to run instructions.", "info.circle")
+        }
+        if let reason = session.unavailableReason {
+            return (reason, "info.circle")
+        }
+        return (deviceManager.visionProvider.screenRequestDescription, "lock.shield")
+    }
+}
+
+/// The scrollable request history, shown above the pinned composer.
+struct DevicePromptHistory: View {
+    let device: Device
+
+    @Environment(DeviceManager.self) private var deviceManager
+
+    var body: some View {
+        let session = deviceManager.promptSession(for: device)
 
         if !session.entries.isEmpty {
             Section("Requests") {
@@ -134,22 +149,6 @@ struct DevicePromptView: View {
                 .frame(height: session.entries.contains(where: { !$0.steps.isEmpty }) ? 300 : min(230, CGFloat(session.entries.count) * 108))
             }
         }
-    }
-
-    private let examples = ["Open Safari", "Scroll down", "Go Home"]
-
-    private func canSubmit(_ session: DevicePromptSession) -> Bool {
-        device.isLive
-            && session.unavailableReason == nil
-            && !session.isRunning
-            && !session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var connectionHint: String? {
-        if !device.isLive {
-            return "Select an available iPhone to run instructions."
-        }
-        return deviceManager.promptSession(for: device).unavailableReason
     }
 
     private func requestRow(_ entry: DevicePromptEntry) -> some View {
