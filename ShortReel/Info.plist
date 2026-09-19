@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Engage</string>
+	<string>ShortReel</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -23,11 +23,11 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Engage uses Bluetooth to expose an AssistiveTouch HID controller for paired iPhones.</string>
+	<string>ShortReel uses Bluetooth to expose an AssistiveTouch HID controller for paired iPhones.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Engage reads the screen of your USB-connected iPhone so the agent can see the result of each action. macOS exposes this screen as a camera source.</string>
+	<string>ShortReel reads the screen of your USB-connected iPhone so the agent can see the result of each action. macOS exposes this screen as a camera source.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>macOS exposes a USB iPhone as a combined audio and video device. Engage opens it to read the phone’s screen; it does not record audio.</string>
+	<string>macOS exposes a USB iPhone as a combined audio and video device. ShortReel opens it to read the phone’s screen; it does not record audio.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

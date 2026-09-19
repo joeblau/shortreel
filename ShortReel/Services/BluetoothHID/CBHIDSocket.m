@@ -52,7 +52,7 @@ static NSError *CBHIDSocketError(NSInteger code, NSString *message) {
     _callbackQueue = callbackQueue;
     _onPacket = [onPacket copy];
     _onClose = [onClose copy];
-    _queue = dispatch_queue_create("com.joeblau.engage.hid.socket", DISPATCH_QUEUE_SERIAL);
+    _queue = dispatch_queue_create("com.joeblau.shortreel.hid.socket", DISPATCH_QUEUE_SERIAL);
     dispatch_queue_set_specific(_queue, CBHIDSocketQueueKey, (__bridge void *)self, NULL);
     _reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, duplicated, 0, _queue);
     __weak CBHIDSocket *weakSelf = self;

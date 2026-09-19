@@ -1,6 +1,6 @@
 import Foundation
 
-// swiftc -swift-version 6 Engage/Services/DevicePrompts/DevicePromptPlan.swift Engage/Services/DevicePrompts/DevicePromptPlanner.swift Engage/Services/DevicePrompts/PhoneVisionTypes.swift Engage/Services/DevicePrompts/PhoneHomeNavigator.swift Tests/PhoneHomeNavigatorTests.swift -o /tmp/engage-home-navigator-tests
+// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift ShortReel/Services/DevicePrompts/PhoneVisionTypes.swift ShortReel/Services/DevicePrompts/PhoneHomeNavigator.swift Tests/PhoneHomeNavigatorTests.swift -o /tmp/shortreel-home-navigator-tests
 @main @MainActor
 enum PhoneHomeNavigatorTests {
     enum Failure: Error { case assertion(String) }

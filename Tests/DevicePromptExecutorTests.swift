@@ -1,6 +1,6 @@
 import Foundation
 
-// swiftc -swift-version 6 Engage/Models/*.swift Engage/Services/DeviceHost.swift Engage/Services/DevicePrompts/DevicePromptPlan.swift Engage/Services/DevicePrompts/DevicePromptPlanner.swift Engage/Services/DevicePrompts/DevicePromptExecutor.swift Tests/DevicePromptExecutorTests.swift -o /tmp/engage-prompt-executor-tests
+// swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift ShortReel/Services/DevicePrompts/DevicePromptExecutor.swift Tests/DevicePromptExecutorTests.swift -o /tmp/shortreel-prompt-executor-tests
 @main
 enum DevicePromptExecutorTests {
     @MainActor

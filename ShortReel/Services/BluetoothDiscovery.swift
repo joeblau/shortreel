@@ -38,7 +38,7 @@ final class BluetoothDiscovery: NSObject, @preconcurrency IOBluetoothDevicePairD
     @ObservationIgnored private var timeout: Task<Void, Never>?
     @ObservationIgnored private var permissionManager: CBCentralManager?
     @ObservationIgnored private var awaitingBluetooth = false
-    private let log = Logger(subsystem: "com.joeblau.engage", category: "BluetoothDiscovery")
+    private let log = Logger(subsystem: "com.joeblau.shortreel", category: "BluetoothDiscovery")
 
     func startScan() {
         guard !isScanning, pairingAddress == nil else { return }
@@ -60,7 +60,7 @@ final class BluetoothDiscovery: NSObject, @preconcurrency IOBluetoothDevicePairD
             awaitingBluetooth = false
             beginInquiry()
         case .unauthorized:
-            fail("Allow Engage to use Bluetooth in System Settings › Privacy & Security › Bluetooth.")
+            fail("Allow ShortReel to use Bluetooth in System Settings › Privacy & Security › Bluetooth.")
         case .poweredOff:
             fail("Turn on Bluetooth on this Mac, then scan again.")
         case .unsupported:

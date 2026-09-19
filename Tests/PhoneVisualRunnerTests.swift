@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
-// swiftc -swift-version 6 Engage/Services/DevicePrompts/DevicePromptPlan.swift Engage/Services/DevicePrompts/DevicePromptPlanner.swift Engage/Services/DevicePrompts/PhoneVisionTypes.swift Engage/Services/DevicePrompts/PhoneVisualRunner.swift Tests/PhoneVisualRunnerTests.swift -o /tmp/engage-visual-runner-tests
+// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift ShortReel/Services/DevicePrompts/PhoneVisionTypes.swift ShortReel/Services/DevicePrompts/PhoneVisualRunner.swift Tests/PhoneVisualRunnerTests.swift -o /tmp/shortreel-visual-runner-tests
 @main @MainActor
 enum PhoneVisualRunnerTests {
     private enum TestError: LocalizedError {

@@ -1,7 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <sys/socket.h>
 #import <unistd.h>
-#import "../Engage/Services/BluetoothHID/CBHIDBridge.m"
+#import "../ShortReel/Services/BluetoothHID/CBHIDBridge.m"
 
 // No CoreBluetooth manager or IOBluetooth device is created in this test.
 // Real socket pairs exercise the bridge's channel readiness checks.
@@ -96,7 +96,7 @@ static void check(BOOL passed, NSString *reason) {
 @implementation ReconnectFixture
 - (id)init {
     if ((self = [super init])) {
-        _queue = dispatch_queue_create("engage.reconnect.test", DISPATCH_QUEUE_SERIAL);
+        _queue = dispatch_queue_create("shortreel.reconnect.test", DISPATCH_QUEUE_SERIAL);
         _bridge = [ReconnectBridge new]; _bridge.bonded = YES;
         _bridge.failures = [NSMutableArray array]; _bridge.states = [NSMutableArray array];
         _peer = [ReconnectPeer new]; _manager = [ReconnectManager new];

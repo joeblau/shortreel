@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 
-// swiftc -swift-version 6 Engage/Services/DevicePrompts/PhonePlannerProcess.swift Tests/PhonePlannerProcessTests.swift -o /tmp/engage-planner-process-tests
+// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/PhonePlannerProcess.swift Tests/PhonePlannerProcessTests.swift -o /tmp/shortreel-planner-process-tests
 @main
 enum PhonePlannerProcessTests {
     static func main() async throws {
@@ -9,7 +9,7 @@ enum PhonePlannerProcessTests {
             try childMode()
             return
         }
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("engage-process-tests-\(UUID().uuidString)")
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("shortreel-process-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let binary = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
@@ -17,7 +17,7 @@ enum PhonePlannerProcessTests {
         let literal = "spaces; $(unexecuted) `unexecuted` \"quotes\""
         let basic = try await PhonePlannerProcess.run(executable: binary,
             arguments: ["--child-basic", literal], directory: root,
-            input: Data([0, 255, 10, 128, 1]), environment: ["ENGAGE_PROCESS_TEST_VALUE": "inherited exactly"])
+            input: Data([0, 255, 10, 128, 1]), environment: ["SHORTREEL_PROCESS_TEST_VALUE": "inherited exactly"])
         expect(basic.exitCode == 7, "nonzero exit status must be returned")
         expect(basic.stdout == Data([0, 255, 10, 128, 1]), "stdin must preserve arbitrary binary bytes")
         let basicDetails = try JSONDecoder().decode([String: String].self, from: basic.stderr)
@@ -42,7 +42,7 @@ enum PhonePlannerProcessTests {
             arguments: ["--child-early-exit"], directory: root, input: Data(repeating: 42, count: 8_388_608),
             timeout: 3, maximumOutputBytes: 1024)
         expect(early.exitCode == 9 && early.stderr == Data("declined input".utf8),
-               "closed child stdin must not crash Engage or hide the child's error")
+               "closed child stdin must not crash ShortReel or hide the child's error")
 
         let cancelledPID = root.appendingPathComponent("cancelled.pid")
         let cancelled = Task {
@@ -115,7 +115,7 @@ enum PhonePlannerProcessTests {
             let bytes = FileHandle.standardInput.readDataToEndOfFile()
             writeAll(bytes, descriptor: STDOUT_FILENO)
             let metadata = ["argument": CommandLine.arguments[2],
-                "environment": ProcessInfo.processInfo.environment["ENGAGE_PROCESS_TEST_VALUE"] ?? "",
+                "environment": ProcessInfo.processInfo.environment["SHORTREEL_PROCESS_TEST_VALUE"] ?? "",
                 "directory": URL(fileURLWithPath: FileManager.default.currentDirectoryPath).resolvingSymlinksInPath().path]
             writeAll(try JSONEncoder().encode(metadata), descriptor: STDERR_FILENO)
             exit(7)

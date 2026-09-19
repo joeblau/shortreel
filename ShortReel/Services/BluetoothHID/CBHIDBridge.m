@@ -185,7 +185,7 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
         if (error) *error = [NSError errorWithDomain:@"CBHIDBridge" code:4 userInfo:@{NSLocalizedDescriptionKey: @"This macOS version does not provide the required Bluetooth HID channel callbacks."}];
         return NO;
     }
-    _queue = dispatch_queue_create("com.joeblau.engage.hid", DISPATCH_QUEUE_SERIAL);
+    _queue = dispatch_queue_create("com.joeblau.shortreel.hid", DISPATCH_QUEUE_SERIAL);
     dispatch_queue_set_specific(_queue, CBHIDBridgeQueueKey, (__bridge void *)self, NULL);
     _entries = [NSMutableDictionary dictionary];
     _connectionRequests = [NSMutableDictionary dictionary];

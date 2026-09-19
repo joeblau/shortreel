@@ -2,7 +2,7 @@ import CoreBluetooth
 import Foundation
 import OSLog
 
-private let log = Logger(subsystem: "com.joeblau.engage", category: "BluetoothHID")
+private let log = Logger(subsystem: "com.joeblau.shortreel", category: "BluetoothHID")
 
 /// Real device host: publishes this Mac as a Bluetooth Classic HID
 /// mouse + keyboard (the TapKit approach — see docs/tapkit-reverse-engineering.md)
@@ -322,7 +322,7 @@ final class BluetoothHIDHost: DeviceHost {
         // Permission can change after the bridge has already been initialized.
         try ensureBluetoothPermission()
         guard !started else { return }
-        let name = Host.current().localizedName ?? "Engage"
+        let name = Host.current().localizedName ?? "ShortReel"
         do {
             try bridge.start(withServiceName: name, serviceRecord: HIDServiceRecord.makeRecord(serviceName: name))
         } catch {
@@ -344,15 +344,15 @@ final class BluetoothHIDHost: DeviceHost {
         let message: String
         switch CBManager.authorization {
         case .denied:
-            message = "Bluetooth access is disabled for Engage. Allow Engage in System Settings → Privacy & Security → Bluetooth, then reconnect."
+            message = "Bluetooth access is disabled for ShortReel. Allow ShortReel in System Settings → Privacy & Security → Bluetooth, then reconnect."
         case .restricted:
-            message = "Bluetooth access is restricted on this Mac. Ask your Mac administrator to allow Bluetooth for Engage, then reconnect."
+            message = "Bluetooth access is restricted on this Mac. Ask your Mac administrator to allow Bluetooth for ShortReel, then reconnect."
         case .notDetermined, .allowedAlways:
             return
         @unknown default:
-            message = "macOS could not confirm Bluetooth permission for Engage. Check System Settings → Privacy & Security → Bluetooth, then reconnect."
+            message = "macOS could not confirm Bluetooth permission for ShortReel. Check System Settings → Privacy & Security → Bluetooth, then reconnect."
         }
-        throw NSError(domain: "Engage.BluetoothPermission", code: CBManager.authorization.rawValue,
+        throw NSError(domain: "ShortReel.BluetoothPermission", code: CBManager.authorization.rawValue,
                       userInfo: [NSLocalizedDescriptionKey: message])
     }
 

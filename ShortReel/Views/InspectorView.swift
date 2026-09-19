@@ -38,7 +38,7 @@ struct InspectorView: View {
     private func boundDeviceSection(for account: Account) -> some View {
         Section("Bound device") {
             if liveDevices.isEmpty {
-                Text("No devices connected to Engage yet.")
+                Text("No devices connected to ShortReel yet.")
                     .foregroundStyle(.secondary)
                 Button("Connect iPhone", action: onAddDevice)
             } else {

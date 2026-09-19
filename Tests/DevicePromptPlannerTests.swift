@@ -1,6 +1,6 @@
 import Foundation
 
-// swiftc Engage/Services/DevicePrompts/DevicePromptPlan.swift Engage/Services/DevicePrompts/DevicePromptPlanner.swift Tests/DevicePromptPlannerTests.swift -o /tmp/engage-prompt-tests
+// swiftc ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift Tests/DevicePromptPlannerTests.swift -o /tmp/shortreel-prompt-tests
 @main
 enum DevicePromptPlannerTests {
     static func main() throws {

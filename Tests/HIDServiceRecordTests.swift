@@ -1,8 +1,8 @@
 import Foundation
 
 // Run with:
-// swiftc Engage/Services/BluetoothHID/HIDServiceRecord.swift Tests/HIDServiceRecordTests.swift -o /tmp/engage-sdp-tests
-// /tmp/engage-sdp-tests
+// swiftc ShortReel/Services/BluetoothHID/HIDServiceRecord.swift Tests/HIDServiceRecordTests.swift -o /tmp/shortreel-sdp-tests
+// /tmp/shortreel-sdp-tests
 @main
 enum HIDServiceRecordTests {
     struct Element {
@@ -49,7 +49,7 @@ enum HIDServiceRecordTests {
 
     static func main() {
         // Exercise UTF-8 and lengths exceeding an 8-bit field.
-        for name in ["Engage", "Joe’s Mac", String(repeating: "M", count: 300)] {
+        for name in ["ShortReel", "Joe’s Mac", String(repeating: "M", count: 300)] {
             var reader = Reader(bytes: Array(HIDServiceRecord.makeRecord(serviceName: name)))
             let count = reader.littleEndian16()
             precondition(count == 22, "Wrong local-service attribute count/framing")

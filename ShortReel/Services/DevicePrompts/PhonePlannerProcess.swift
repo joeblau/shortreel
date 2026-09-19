@@ -65,7 +65,7 @@ enum PhonePlannerProcess {
 /// All mutable state and all pipe I/O are confined to `queue`. Dispatch handlers
 /// only transfer immutable values into that queue; hence unchecked Sendable.
 private final class PhonePlannerProcessRunner: @unchecked Sendable {
-    private let queue = DispatchQueue(label: "com.joeblau.engage.phone-planner-process", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "com.joeblau.shortreel.phone-planner-process", qos: .userInitiated)
     private let process = Process()
     private let outputPipe = Pipe()
     private let errorPipe = Pipe()
@@ -113,7 +113,7 @@ private final class PhonePlannerProcessRunner: @unchecked Sendable {
                 try makeNonblocking(errorPipe.fileHandleForReading.fileDescriptor)
                 try makeNonblocking(inputPipe.fileHandleForWriting.fileDescriptor)
                 // A planner may exit before consuming its stdin. Never let an
-                // EPIPE write deliver SIGPIPE to the Engage application itself.
+                // EPIPE write deliver SIGPIPE to the ShortReel application itself.
                 guard fcntl(inputPipe.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1) != -1 else {
                     throw PhonePlannerProcessError.pipeFailed(errno)
                 }

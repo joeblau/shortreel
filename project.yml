@@ -1,4 +1,4 @@
-name: Engage
+name: ShortReel
 options:
   bundleIdPrefix: com.joeblau
   deploymentTarget:
@@ -10,17 +10,17 @@ settings:
     CODE_SIGNING_ALLOWED: NO
 
 targets:
-  Engage:
+  ShortReel:
     type: application
     platform: macOS
     deploymentTarget: "15.0"
     sources:
-      - path: Engage
+      - path: ShortReel
     info:
-      path: Engage/Info.plist
+      path: ShortReel/Info.plist
       properties:
         CFBundleName: $(PRODUCT_NAME)
-        CFBundleDisplayName: Engage
+        CFBundleDisplayName: ShortReel
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleVersion: "1"
         CFBundleShortVersionString: "1.0"
@@ -28,17 +28,17 @@ targets:
         CFBundlePackageType: APPL
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         NSPrincipalClass: NSApplication
-        NSBluetoothAlwaysUsageDescription: "Engage uses Bluetooth to expose an AssistiveTouch HID controller for paired iPhones."
-        NSCameraUsageDescription: "Engage reads the screen of your USB-connected iPhone so the agent can see the result of each action. macOS exposes this screen as a camera source."
-        NSMicrophoneUsageDescription: "macOS exposes a USB iPhone as a combined audio and video device. Engage opens it to read the phone’s screen; it does not record audio."
+        NSBluetoothAlwaysUsageDescription: "ShortReel uses Bluetooth to expose an AssistiveTouch HID controller for paired iPhones."
+        NSCameraUsageDescription: "ShortReel reads the screen of your USB-connected iPhone so the agent can see the result of each action. macOS exposes this screen as a camera source."
+        NSMicrophoneUsageDescription: "macOS exposes a USB iPhone as a combined audio and video device. ShortReel opens it to read the phone’s screen; it does not record audio."
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.joeblau.engage
-        PRODUCT_NAME: Engage
+        PRODUCT_BUNDLE_IDENTIFIER: com.joeblau.shortreel
+        PRODUCT_NAME: ShortReel
         CODE_SIGNING_ALLOWED: NO
         SWIFT_VERSION: "6.0"
         ENABLE_HARDENED_RUNTIME: NO
-        SWIFT_OBJC_BRIDGING_HEADER: Engage/Services/BluetoothHID/Engage-Bridging-Header.h
+        SWIFT_OBJC_BRIDGING_HEADER: ShortReel/Services/BluetoothHID/ShortReel-Bridging-Header.h
     dependencies:
       - sdk: CoreBluetooth.framework
       - sdk: IOBluetooth.framework

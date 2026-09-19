@@ -1,6 +1,6 @@
 import Foundation
 
-// swiftc -swift-version 6 Engage/Services/PhoneScreenCapture/PhoneScreenSource.swift Engage/Services/PhoneScreenCapture/PhoneScreenAssociation.swift Tests/PhoneScreenAssociationTests.swift -o /tmp/engage-screen-association-tests
+// swiftc -swift-version 6 ShortReel/Services/PhoneScreenCapture/PhoneScreenSource.swift ShortReel/Services/PhoneScreenCapture/PhoneScreenAssociation.swift Tests/PhoneScreenAssociationTests.swift -o /tmp/shortreel-screen-association-tests
 @main
 enum PhoneScreenAssociationTests {
     private static let phoneID = "00008130-000161141E43001C"

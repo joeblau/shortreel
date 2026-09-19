@@ -1,8 +1,8 @@
 {
-  "name": "engage",
+  "name": "shortreel",
   "private": true,
   "type": "module",
   "scripts": {
-    "engage": "bun run scripts/engage.ts"
+    "shortreel": "bun run scripts/shortreel.ts"
   }
 }

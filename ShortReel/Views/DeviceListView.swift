@@ -25,7 +25,7 @@ struct DeviceListView: View {
             }
         }
         .listStyle(.sidebar)
-        .navigationTitle("Engage")
+        .navigationTitle("ShortReel")
         .overlay {
             if liveDevices.isEmpty {
                 VStack(spacing: 10) {

@@ -40,7 +40,7 @@ struct AddDeviceView: View {
                 .disabled(discovery.pairingAddress != nil || pairedDevice != nil)
             }
 
-            Text("Select your iPhone below. A USB cable lets Engage identify it and enable AssistiveTouch. For Bluetooth control, select this Mac in the iPhone’s AssistiveTouch › Devices › Bluetooth Devices settings.")
+            Text("Select your iPhone below. A USB cable lets ShortReel identify it and enable AssistiveTouch. For Bluetooth control, select this Mac in the iPhone’s AssistiveTouch › Devices › Bluetooth Devices settings.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 

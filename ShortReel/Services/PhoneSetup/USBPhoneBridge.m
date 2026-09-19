@@ -2,7 +2,7 @@
 #import <dlfcn.h>
 
 typedef void *USBMobileDeviceRef;
-static NSString * const USBPhoneErrorDomain = @"Engage.USBPhone";
+static NSString * const USBPhoneErrorDomain = @"ShortReel.USBPhone";
 
 typedef NS_ENUM(NSInteger, USBPhoneError) {
     USBPhoneErrorUnavailable = 1,
@@ -55,7 +55,7 @@ typedef struct {
 
 - (instancetype)init {
     if ((self = [super init])) {
-        _queue = dispatch_queue_create("com.joeblau.engage.usb-phone", DISPATCH_QUEUE_SERIAL);
+        _queue = dispatch_queue_create("com.joeblau.shortreel.usb-phone", DISPATCH_QUEUE_SERIAL);
     }
     return self;
 }

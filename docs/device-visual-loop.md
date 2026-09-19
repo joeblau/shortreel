@@ -12,14 +12,14 @@ The inspector selects its execution path when the user submits a request. Litera
 ## Setup
 
 - Connect the selected iPhone to the Mac by USB, unlock it, and trust the Mac.
-- Connect its Bluetooth AssistiveTouch input channels in Engage.
+- Connect its Bluetooth AssistiveTouch input channels in ShortReel.
 - In **Devices → Phone Screen**, allow screen access. A uniquely matched screen connects automatically when the Bluetooth phone is connected. With multiple phones, choose the appropriate screen. macOS exposes USB phone screens as camera sources, which is why Camera permission is required. The USB source is multiplexed audio/video; the app has a microphone usage description for opening that source, but only configures video output and does not record audio.
 - Write a goal in the right-hand inspector and press **⌘ Enter**. Stop cancels the current request.
 
 The inspector's **Planner** picker offers two clients:
 
 - **On this Mac** uses the macOS 27 Foundation Models image attachment API. It requires Apple Intelligence and a system model reporting both vision and guided-generation capabilities. Screenshots and recognized text remain on this Mac. The app still builds for macOS 15 and explains when the native planner is unavailable.
-- **Grok** uses the installed Grok CLI and its existing login. The request, bounded JPEG, OCR anchors, and recent attempted actions go to Grok. Each invocation uses a private temporary profile, disables tools and web search, and checks that plugins, hooks, MCP, language servers, and instruction files are inactive before sending the image. Engage accepts one validated JSON decision; Grok cannot execute shell commands or send phone input itself. Process cancellation, a 90-second deadline, output limits, and temporary-file cleanup bound each invocation.
+- **Grok** uses the installed Grok CLI and its existing login. The request, bounded JPEG, OCR anchors, and recent attempted actions go to Grok. Each invocation uses a private temporary profile, disables tools and web search, and checks that plugins, hooks, MCP, language servers, and instruction files are inactive before sending the image. ShortReel accepts one validated JSON decision; Grok cannot execute shell commands or send phone input itself. Process cancellation, a 90-second deadline, output limits, and temporary-file cleanup bound each invocation.
 
 Changing the planner cancels active requests. The picker is disabled while a request runs, and its disclosure identifies where screen data is processed.
 
@@ -57,8 +57,8 @@ The explicit Connect path also succeeded on the installed build: the bonded conn
 
 ## Verification
 
-Standalone tests in `Tests` cover capture source filtering and image encoding, visual loop order and post-action observation, malformed/stale/cross-device frames, model decision validation, cancellation, disconnects, limits, session history, and driver dispatch. The build/install command is `bun run engage`.
+Standalone tests in `Tests` cover capture source filtering and image encoding, visual loop order and post-action observation, malformed/stale/cross-device frames, model decision validation, cancellation, disconnects, limits, session history, and driver dispatch. The build/install command is `bun run shortreel`.
 
-The install script signs local builds with an available Apple Development identity so macOS can retain Bluetooth and camera permissions across updates. Set `ENGAGE_CODE_SIGN_IDENTITY` to choose a different local identity. Without a signing identity, updates may require granting those permissions again. Denied Bluetooth permission is reported immediately instead of waiting for a phone connection timeout.
+The install script signs local builds with an available Apple Development identity so macOS can retain Bluetooth and camera permissions across updates. Set `SHORTREEL_CODE_SIGN_IDENTITY` to choose a different local identity. Without a signing identity, updates may require granting those permissions again. Denied Bluetooth permission is reported immediately instead of waiting for a phone connection timeout.
 
 Apple references: [USB screen-capture device discovery](https://developer.apple.com/documentation/coremediaio/kcmiohardwarepropertyallowscreencapturedevices), [capture synchronization clock](https://developer.apple.com/documentation/avfoundation/avcapturesession/synchronizationclock), [Foundation Models attachments](https://developer.apple.com/documentation/foundationmodels/attachment), [WWDC26 Foundation Models vision](https://developer.apple.com/videos/play/wwdc2026/241/).

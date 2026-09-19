@@ -47,7 +47,7 @@ enum PhoneScreenCaptureError: LocalizedError, Sendable {
         case .discoveryFailed(let status):
             "Could not enable USB phone screen discovery (macOS error \(status))."
         case .permissionDenied:
-            "Allow Camera access for Engage in System Settings → Privacy & Security → Camera. macOS exposes the phone screen as a camera."
+            "Allow Camera access for ShortReel in System Settings → Privacy & Security → Camera. macOS exposes the phone screen as a camera."
         case .sourceUnavailable:
             "The selected iPhone screen is unavailable. Connect that phone by USB, unlock it, and tap Trust on the phone, then refresh."
         case .sourceChanged:

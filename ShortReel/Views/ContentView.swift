@@ -51,7 +51,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationTitle("Engage")
+            .navigationTitle("ShortReel")
             .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
         } detail: {
             switch section {

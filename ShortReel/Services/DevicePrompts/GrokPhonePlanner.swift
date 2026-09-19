@@ -4,7 +4,7 @@ import ImageIO
 import UniformTypeIdentifiers
 
 /// Optional remote vision planner using the user's existing Grok CLI login.
-/// It returns decisions only; Engage remains the sole device-input executor.
+/// It returns decisions only; ShortReel remains the sole device-input executor.
 @MainActor
 enum GrokPhonePlanner {
     static var unavailabilityReason: String? {
@@ -32,13 +32,13 @@ enum GrokPhonePlanner {
         try Task.checkCancellation()
 
         let fileManager = FileManager.default
-        let directory = fileManager.temporaryDirectory.appendingPathComponent("engage-grok-\(UUID().uuidString)", isDirectory: true)
+        let directory = fileManager.temporaryDirectory.appendingPathComponent("shortreel-grok-\(UUID().uuidString)", isDirectory: true)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         defer { try? fileManager.removeItem(at: directory) }
         let profile = directory.appendingPathComponent("profile", isDirectory: true)
         try fileManager.createDirectory(at: profile, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         // Only Grok reads its credential file through normal authentication. No
-        // credential content is copied into Engage or into a prompt.
+        // credential content is copied into ShortReel or into a prompt.
         try fileManager.createSymbolicLink(at: profile.appendingPathComponent("auth.json"), withDestinationURL: authenticationURL)
         try """
             [cli]

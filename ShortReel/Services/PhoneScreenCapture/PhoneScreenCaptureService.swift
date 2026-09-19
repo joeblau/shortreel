@@ -187,9 +187,9 @@ private final class PhoneScreenCaptureEngine: NSObject, AVCaptureVideoDataOutput
         case sourcesChanged
     }
 
-    private let queue = DispatchQueue(label: "com.joeblau.engage.phone-screen", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "com.joeblau.shortreel.phone-screen", qos: .userInitiated)
     private let context = CIContext(options: [.cacheIntermediates: false])
-    private let logger = Logger(subsystem: "com.joeblau.engage", category: "PhoneScreen")
+    private let logger = Logger(subsystem: "com.joeblau.shortreel", category: "PhoneScreen")
     private var session: AVCaptureSession?
     private var output: AVCaptureVideoDataOutput?
     private var sourceID: String?

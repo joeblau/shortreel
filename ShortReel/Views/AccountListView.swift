@@ -56,7 +56,7 @@ struct AccountListView: View {
             }
         }
         .listStyle(.sidebar)
-        .navigationTitle("Engage")
+        .navigationTitle("ShortReel")
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {

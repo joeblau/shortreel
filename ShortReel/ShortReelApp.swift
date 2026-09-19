@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 @main
-struct EngageApp: App {
+struct ShortReelApp: App {
     private let container: ModelContainer
     @State private var agent: WarmUpAgent
     @State private var deviceManager: DeviceManager

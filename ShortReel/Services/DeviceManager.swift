@@ -70,7 +70,7 @@ final class DeviceManager {
             listeners.append(listener)
         }
 
-        // An iPhone can reconnect from AssistiveTouch as soon as Engage opens,
+        // An iPhone can reconnect from AssistiveTouch as soon as ShortReel opens,
         // including before the user opens the scan sheet.
         do { try bluetoothHost.prepareForPairing() }
         catch { discovery.errorMessage = error.localizedDescription }

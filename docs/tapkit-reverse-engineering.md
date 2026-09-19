@@ -54,7 +54,7 @@ Public CoreBluetooth cannot do any of this. TapKit calls a private
 `CBClassicManager` that CoreBluetooth ships for Apple's own use, which is
 why it is not sandboxed and not in the App Store.
 
-### Engage service publication format
+### ShortReel service publication format
 
 `CBClassicManager.addServiceWithData:` takes a local serialization, not the
 SDP wire format. Verified against this Mac's `bluetoothd` implementation of
@@ -78,11 +78,11 @@ The HID profile version is `0x0101`; the USB HID parser version is `0x0111`.
 Run the record regression checks without Bluetooth hardware:
 
 ```sh
-swiftc Engage/Services/BluetoothHID/HIDServiceRecord.swift Tests/HIDServiceRecordTests.swift -o /tmp/engage-sdp-tests
-/tmp/engage-sdp-tests
+swiftc ShortReel/Services/BluetoothHID/HIDServiceRecord.swift Tests/HIDServiceRecordTests.swift -o /tmp/shortreel-sdp-tests
+/tmp/shortreel-sdp-tests
 ```
 
-After launching Engage, its `BluetoothHID` log must confirm the published
+After launching ShortReel, its `BluetoothHID` log must confirm the published
 HID service before attempting pairing from the phone.
 
 ### HID report descriptor (found at 0x1528780 in the arm64 slice)
@@ -141,19 +141,19 @@ then drags to `(500, 10)` with smoothstep interpolation over roughly
 0.7 seconds before release. Gesture execution is at `0x10002c4fc`.
 
 TapKit also has a `button3Home` onboarding stage, but that enum name alone
-does not describe the live Home closure. Engage's physical test confirmed
+does not describe the live Home closure. ShortReel's physical test confirmed
 that absolute pointer movement and a Back-button tap changed SOCIAL15PRO's
 screen, while its former Command-H Home input left Settings unchanged.
 The observed slow gesture changed this phone to App Switcher, and a shorter
 flick also failed to establish reliable Home behavior. With a verified USB
-screen, Engage therefore opens the AssistiveTouch menu, recognizes its exact
+screen, ShortReel therefore opens the AssistiveTouch menu, recognizes its exact
 Home label alongside other menu labels, taps that observed target, and captures
 again. The menu-to-Home path was physically verified on SOCIAL15PRO. A missing
 or ambiguous menu stops rather than falling back to another gesture.
 
 TapKit's `button3Home` setup configures a pointer button through the phone's
 Settings UI. No writable lockdown preference for that mapping was established;
-Engage does not assume the button is configured or write a guessed preference.
+ShortReel does not assume the button is configured or write a guessed preference.
 Its Bluetooth-only edge-gesture path remains unverified for reliable Home.
 Bluetooth report delivery is only evidence of sent input; the next screen
 establishes its effect.
@@ -184,13 +184,13 @@ external `AVCaptureDevice` whose video stream is the phone's screen. Frames
 are fed to the LLM as screenshots and, via Agora, streamed to a remote
 viewer. This part needs a cable; it does not work over Bluetooth.
 
-Engage capture readiness, checked September 16, 2026:
+ShortReel capture readiness, checked September 16, 2026:
 
 - The attached phone is exposed as an external, muxed `iOS Device` using an
   opaque AVFoundation UUID, rather than its MobileDevice USB UDID. Screen
   discovery and association therefore validate those identities separately.
 - `AVCaptureSession.startRunning()` can return with the capture graph running
-  before any usable image arrives. Engage keeps the screen in its starting
+  before any usable image arrives. ShortReel keeps the screen in its starting
   state until a JPEG frame from the selected source has a capture timestamp
   later than startup. If no such frame arrives within eight seconds, startup
   fails and closes that capture session instead of waiting indefinitely.
@@ -248,9 +248,9 @@ entitlement exist for this.
 | Updates | Sparkle |
 | Analytics / crash | PostHog |
 
-## What this means for Engage
+## What this means for ShortReel
 
-Engage's device picker now starts a Classic Bluetooth inquiry and saves the
+ShortReel's device picker now starts a Classic Bluetooth inquiry and saves the
 selected device's real address after bonding succeeds. The user confirms
 numeric comparison codes in the picker and on the phone. Previously paired
 devices are listed separately from live inquiry results. A Bluetooth bond
@@ -265,18 +265,18 @@ Scan cancellation drops late callbacks; pairing and HID connection attempts
 have separate timeouts. End-to-end iPhone bonding/control still requires a
 physical-device check.
 
-- `DeviceHost` in `Engage/Services/DeviceHost.swift` is the seam. A real
+- `DeviceHost` in `ShortReel/Services/DeviceHost.swift` is the seam. A real
   `BluetoothHIDHost` needs the private `CBClassicManager` API (headers must
   be reconstructed from class-dump of CoreBluetooth) and the descriptor
   above. `NormalizedPoint` already matches the absolute 0…32767 model.
-- Engage must run unsandboxed, like TapKit, and needs
+- ShortReel must run unsandboxed, like TapKit, and needs
   `NSBluetoothAlwaysUsageDescription`.
 - Screen feedback needs USB plus the CoreMediaIO screen-capture flag and
   `NSCameraUsageDescription`.
 - Turning AssistiveTouch on programmatically needs MobileDevice.framework
   over USB; otherwise the user does it once by hand.
 
-### Engage prompt routing and visual planners
+### ShortReel prompt routing and visual planners
 
 The Device inspector's Planner setting selects **On this Mac** or **Grok** for
 screen-based requests. The selection is saved on this Mac and defaults to the
@@ -317,14 +317,14 @@ Further disassembly of TapKit's HIDKit shim found three missing pieces:
   `handleL2CAPChannelOpened:` / `handleL2CAPChannelClosed:`. The framework's
   default dispatch discards these events until its outgoing peer state is
   connected; an incoming HID peripheral session can therefore lose them.
-  Engage now intercepts only its own manager's HID PSMs and leaves other
+  ShortReel now intercepts only its own manager's HID PSMs and leaves other
   peers/services on the original implementation.
 - TapKit duplicates each `CBL2CAPChannel.socketFD`, validates `SOCK_STREAM`,
   continuously reads with a dispatch source, and sends complete transactions
-  with `sendmsg` plus an empty `SOL_SOCKET/SCM_RIGHTS` control message. Engage
+  with `sendmsg` plus an empty `SOL_SOCKET/SCM_RIGHTS` control message. ShortReel
   now uses that socket transport. Its former `sendData:withCompletion:nil`
   call was invalid: the current framework explicitly requires a completion.
-- Engage now responds to report/protocol negotiation, tracks keyboard LED
+- ShortReel now responds to report/protocol negotiation, tracks keyboard LED
   output and last input reports, handles suspend/unplug, rejects invalid
   requests, and propagates failed writes. A peer is ready only when both
   channel sockets have opened successfully.
@@ -336,10 +336,10 @@ The record advertises report mode, so boot-mode requests are rejected.
 Run the dispatch/protocol/socket checks (no radio or phone needed):
 
 ```sh
-clang -fobjc-arc -Wall -Wno-nullability-completeness -framework Foundation -framework CoreBluetooth -framework IOBluetooth -I Engage/Services/BluetoothHID Tests/BluetoothHIDTransportTests.m Engage/Services/BluetoothHID/CBHIDSocket.m Engage/Services/BluetoothHID/HIDControlSession.m -o /tmp/engage-hid-transport-tests
-/tmp/engage-hid-transport-tests
-clang -fobjc-arc -Wall -Wno-nullability-completeness -framework Foundation -framework CoreBluetooth -framework IOBluetooth -I Engage/Services/BluetoothHID Tests/BluetoothHIDReconnectTests.m Engage/Services/BluetoothHID/CBHIDSocket.m Engage/Services/BluetoothHID/HIDControlSession.m -o /tmp/engage-hid-reconnect-tests
-/tmp/engage-hid-reconnect-tests
+clang -fobjc-arc -Wall -Wno-nullability-completeness -framework Foundation -framework CoreBluetooth -framework IOBluetooth -I ShortReel/Services/BluetoothHID Tests/BluetoothHIDTransportTests.m ShortReel/Services/BluetoothHID/CBHIDSocket.m ShortReel/Services/BluetoothHID/HIDControlSession.m -o /tmp/shortreel-hid-transport-tests
+/tmp/shortreel-hid-transport-tests
+clang -fobjc-arc -Wall -Wno-nullability-completeness -framework Foundation -framework CoreBluetooth -framework IOBluetooth -I ShortReel/Services/BluetoothHID Tests/BluetoothHIDReconnectTests.m ShortReel/Services/BluetoothHID/CBHIDSocket.m ShortReel/Services/BluetoothHID/HIDControlSession.m -o /tmp/shortreel-hid-reconnect-tests
+/tmp/shortreel-hid-reconnect-tests
 ```
 
 The new USB setup bridge uses Apple's `AMDCreateDeviceList` and MobileDevice
