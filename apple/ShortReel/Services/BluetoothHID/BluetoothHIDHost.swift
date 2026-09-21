@@ -208,13 +208,12 @@ final class BluetoothHIDHost: DeviceHost {
             throw DeviceHostError.unsupportedInput("This keyboard currently supports English letters, numbers, and punctuation. The text contains an unsupported character.")
         }
         defer { try? send(keyboardReport(modifiers: 0, keycode: 0), to: device) }
-        for character in text {
+        try await KeyboardTyping.run(text) { character in
             try Task.checkCancellation()
-            guard let key = HIDKeyMap.lookup(character) else { continue }
+            guard let key = HIDKeyMap.lookup(character) else { return }
             try send(keyboardReport(modifiers: key.shift ? 0x02 : 0, keycode: key.code), to: device)
-            try await Task.sleep(for: .milliseconds(8))
+            try await Task.sleep(for: .milliseconds(Int.random(in: 35...75)))
             try send(keyboardReport(modifiers: 0, keycode: 0), to: device)
-            try await Task.sleep(for: .milliseconds(8))
         }
     }
 

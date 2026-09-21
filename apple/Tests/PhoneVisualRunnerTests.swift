@@ -42,7 +42,50 @@ enum PhoneVisualRunnerTests {
         try await failedInputStopsLoop()
         try await stopNearlyIdenticalTapLoop()
         try await appSwitcherDiagnostic()
-        print("Phone visual runner tests passed (14 scenarios)")
+        try await tiktokPlaybackReview()
+        print("Phone visual runner tests passed (15 scenarios)")
+    }
+
+    private static func tiktokPlaybackReview() async throws {
+        var inputs: [PhonePromptAction] = []
+        var reviews = 0
+        var captures = 0
+        var firstFrameID: UUID?
+        let runner = PhoneVisualRunner(capture: { after in
+            captures += 1
+            let image = try frame(after: after, shade: captures.isMultiple(of: 2) ? 0 : 1)
+            if firstFrameID == nil { firstFrameID = image.id }
+            return image
+        }, decide: { _, _, history in
+            if history.last?.playbackReviewRequested == true {
+                reviews += 1
+                try expect(history.last?.playbackStartFrame?.id == firstFrameID,
+                    "Playback review lost the first waiting frame")
+                try expect(history.last!.executionFeedback.contains("PLAYBACK COMPLETION REVIEW"),
+                    "Playback review request never reaches the planner")
+                if reviews == 1 {
+                    try expect(inputs.isEmpty, "Advanced before completion was observed")
+                    return .wait(seconds: 0.25, reason: "Still playing the first time")
+                }
+                return .action(.swipe(.up), reason: "Same video visibly restarted; advance after completion")
+            }
+            if history.last?.input == .swipe(.up) {
+                try expect(history.last?.playbackStartFrame == nil, "Old video observation survived the swipe")
+                return .wait(seconds: 0.25, reason: "A different video is now playing")
+            }
+            if inputs.count == 1 {
+                try expect(history.last?.playbackStartFrame?.id != firstFrameID,
+                    "Next video reused the previous video's watching start")
+                return .finished("Next video verified; requested test limit reached")
+            }
+            return .wait(seconds: 0.25, reason: "Waiting for video completion")
+        }, perform: { inputs.append($0) }, blockedReason: { nil })
+        _ = try await runner.run(goal: "Warm Up\nPlatform: TikTok\nWatch within session limits", workflow: .warmUp,
+            onProgress: { _ in }, onStep: {
+                precondition($0.playbackStartFrame == nil, "UI history retained a full playback image")
+            })
+        try expect(reviews == 2 && inputs == [.swipe(.up)],
+            "Completion review must continue an unfinished video, then send exactly one upward swipe")
     }
 
     private static func appSwitcherDiagnostic() async throws {

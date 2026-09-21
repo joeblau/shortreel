@@ -29,6 +29,10 @@ struct PhoneVisionStep: Identifiable, Sendable, Equatable {
     /// Opt-in task memory for long stage workflows; ordinary requests exclude
     /// earlier planner reasoning from subsequent prompts.
     var progressNote: String? = nil
+    /// Retained across a run of waits so a video replay can be compared with
+    /// the start of observation instead of only the last two transitions.
+    var playbackStartFrame: PhoneScreenFrame? = nil
+    var playbackReviewRequested = false
 
     var executionFeedback: String {
         let command = input?.modelInputDescription ?? action
@@ -36,7 +40,9 @@ struct PhoneVisionStep: Identifiable, Sendable, Equatable {
             ? "Screen pixels changed; this does NOT establish that the intended action succeeded."
             : "Screen pixels did not materially change; the intended transition is unconfirmed." }
             ?? "No post-action observation available."
-        return "\(number). Sent input (coordinates are normalized 0...1): \(command). Result: \(result)"
+        let timing = "Screenshot captured at \(capturedAt.ISO8601Format())."
+        let review = playbackReviewRequested ? "\n" + PhoneSearchGuidance.playbackCompletionReview : ""
+        return "\(number). Sent input (coordinates are normalized 0...1): \(command). Result: \(result) \(timing)\(review)"
     }
 }
 

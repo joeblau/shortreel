@@ -1,6 +1,6 @@
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Models/*.swift PhoneRunnerShared/PhoneRunnerProtocol.swift ShortReel/Services/PhoneRunner/RunnerClient.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/PhoneRunner/RunnerDeviceHost.swift Tests/RunnerDeviceHostTests.swift -o /tmp/sr-devicehost-tests
+// swiftc -swift-version 6 ShortReel/Models/*.swift PhoneRunnerShared/PhoneRunnerProtocol.swift ShortReel/Services/PhoneRunner/RunnerClient.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/PhoneRunner/RunnerDeviceHost.swift ShortReel/Services/DevicePrompts/{WarmUpPlaybook,DeviceWorkflow,DevicePromptPlanner,DevicePromptPlan}.swift Tests/RunnerDeviceHostTests.swift -o /tmp/sr-devicehost-tests
 @main
 enum RunnerDeviceHostTests {
     @MainActor
@@ -69,9 +69,10 @@ enum RunnerDeviceHostTests {
         let host = RunnerDeviceHost(runner: runner)
         let literal = "  Keep CASE; then \"quotes\" & emoji 🎬\nNext line  "
         try await host.type(literal, on: device)
-        precondition(runner.types.count == 1)
-        precondition(runner.types[0].text == literal, "Type text was not preserved: \(runner.types[0].text)")
-        precondition(runner.types[0].target == .foreground && runner.types[0].settle == .idle)
+        precondition(runner.types.count == literal.count)
+        precondition(runner.types.allSatisfy { $0.text.count == 1 }, "Typing was sent as a bulk insert")
+        precondition(runner.types.map(\.text).joined() == literal, "Typed characters changed the literal text")
+        precondition(runner.types.allSatisfy { $0.target == .foreground && $0.settle == .idle })
     }
 
     @MainActor

@@ -32,6 +32,12 @@ enum PhonePlannerContext {
     static func images(frame: PhoneScreenFrame, history: [PhoneVisionStep]) -> [(String, PhoneScreenFrame)] {
         var result: [(String, PhoneScreenFrame)] = []
         var seen: Set<UUID> = [frame.id]
+        if let start = history.last?.playbackStartFrame,
+           start.sourceID == frame.sourceID, start.capturedAt < frame.capturedAt,
+           seen.insert(start.id).inserted {
+            let elapsed = Int(frame.capturedAt.timeIntervalSince(start.capturedAt))
+            result.append(("WATCHING START — \(elapsed) seconds before CURRENT; compare playback progress or replay", start))
+        }
         for step in history.suffix(2) {
             for (label, candidate) in [("BEFORE input \(step.number)", step.beforeFrame), ("AFTER input \(step.number)", step.afterFrame)] {
                 guard let candidate, candidate.sourceID == frame.sourceID,
@@ -44,6 +50,7 @@ enum PhonePlannerContext {
     }
 
     static let instructions = """
+        \(PhoneSearchGuidance.instructions)
         You are the screenshot planner for ShortReel. You observe ONE iPhone; ShortReel executes your chosen phone input. Return only JSON matching the supplied schema. Do not operate the Mac, use tools, inspect files, or execute commands. The attached images contain everything needed.
         First describe the CURRENT (last) image in screen: state, appCardsVisible, evidence. App preview cards exist only in appSwitcher. home means an app grid and dock; homeEditing has minus badges; spotlight is iPhone system search; foregroundApp is a full-screen app INCLUDING Safari or other browsers, regardless of website content. A Google search is foregroundApp, not an unknown layout. assistiveTouch means its open menu, not just a floating dot; dialog means a modal; unknown means genuinely unreadable. In inspection-only mode return just screen.
         Choose ONE decision toward the entire user goal. Inspect before acting, and use each next screenshot to verify the last action. History is attempted inputs, not proof of success. Screen pixels changing is not proof of success. Never repeat an unchanged input indefinitely; adjust the next input or explain the actual obstacle.

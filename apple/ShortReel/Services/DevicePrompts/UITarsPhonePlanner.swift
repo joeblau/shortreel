@@ -267,6 +267,12 @@ enum UITarsPhonePlanner {
                                  history: [PhoneVisionStep] = []) throws -> URLRequest {
         var images: [(String, PhoneScreenFrame)] = []
         var seen = Set<UUID>()
+        if let start = history.last?.playbackStartFrame,
+           start.sourceID == frame.sourceID, start.capturedAt < frame.capturedAt,
+           seen.insert(start.id).inserted {
+            let elapsed = Int(frame.capturedAt.timeIntervalSince(start.capturedAt))
+            images.append(("WATCHING START — \(elapsed) seconds before CURRENT; compare playback progress or replay", start))
+        }
         for step in history.suffix(2) {
             for (label, candidate) in [("BEFORE input \(step.number)", step.beforeFrame),
                                        ("AFTER input \(step.number)", step.afterFrame)] {
@@ -352,6 +358,7 @@ enum UITarsPhonePlanner {
     }
 
     static let instructions = """
+        \(PhoneSearchGuidance.instructions)
         You control one iPhone. Choose ONE next action from the CURRENT (last) screenshot.
         Output exactly:
         Thought: Brief visible evidence for this action.

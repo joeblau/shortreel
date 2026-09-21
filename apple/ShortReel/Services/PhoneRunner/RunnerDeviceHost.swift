@@ -57,7 +57,9 @@ final class RunnerDeviceHost: DeviceHost {
     }
 
     func type(_ text: String, on device: DeviceDescriptor) async throws {
-        try await runner.type(TypeRequest(text: text))
+        try await KeyboardTyping.run(text) { character in
+            try await runner.type(TypeRequest(text: String(character)))
+        }
     }
 
     func pressKey(_ key: DeviceKeyboardKey, on device: DeviceDescriptor) async throws {

@@ -8,6 +8,7 @@ final class Persona {
     /// Legacy label kept for stores created before `device` existed.
     var deviceName: String
     var narrative: String
+    var personalityBrief: String = ""
     var isActive: Bool
     var createdAt: Date
     /// Empty in older stores; preserve the first existing social profile's network.

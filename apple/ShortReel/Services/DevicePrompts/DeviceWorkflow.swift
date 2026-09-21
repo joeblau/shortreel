@@ -39,7 +39,7 @@ enum DeviceWorkflow: String, CaseIterable, Identifiable, Sendable {
             """
             Warm Up. Execute this warm-up session on the selected iPhone using one observed input at a time:
             \(details.trimmingCharacters(in: .whitespacesAndNewlines))
-            Follow the specified persona, platform, phase limits, and stopping criterion. Stay within the listed action caps and prohibitions. If these are missing, request input before acting. Do not invent likes, follows, comments, messages, purchases, or posts beyond what the brief allows. Finish only after observing the requested stopping point.
+            Start with the brief's account check: observe the signed-in handle in the app and confirm it matches the persona's handle before any browsing or engagement. If the handle is missing from the brief, cannot be observed, or does not match, request input; never sign in, sign out, switch accounts, or enter credentials. Then follow the specified persona, platform, phase limits, and stopping criterion. Stay within the listed action caps and prohibitions. If these are missing, request input before acting. Do not invent likes, follows, comments, messages, purchases, or posts beyond what the brief allows. Finish only after observing the requested stopping point.
             """
         case .createContent:
             """

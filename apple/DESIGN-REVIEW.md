@@ -1,102 +1,152 @@
-# Design Review — Inspector
+# Design Review — Stage Inspector
 
-Scope: the device inspector (`DevicePromptInspector`, `DevicePromptHistory`,
-`DevicePromptView`, `DeviceStageView`). SwiftUI/macOS, so the catalog's
-React greps were adapted (`Form`/`.formStyle(.grouped)` ≈ Card, `Divider`
-≈ `divide-y`, `.buttonStyle` ≈ variant). Screenshots in `design-review/`.
+Scope: the inspector's **Stage** segment (`DeviceStageView.swift`) plus the
+chrome it inherits from `DevicePromptInspector` / `DeviceInspectorHeader` in
+`DeviceGalleryView.swift:344-433`, and the two sheets it opens (Warm Up,
+Create Content). SwiftUI/macOS, so the catalog's React greps were adapted
+(`.buttonStyle` ≈ variant, `Form`/`.formStyle(.grouped)` ≈ Card, `prompt:` ≈
+placeholder, `.frame(width:height:)` ≈ fixed layout width).
+
+Screenshots in `design-review/`: `stage-inspector-dark.png`,
+`stage-inspector-light.png`, `stage-warmup-sheet.png`. The Create Content
+sheet was reviewed from code; it is structurally identical to Warm Up.
+
+The previous inspector review's Stage findings (grouped card, separators,
+segment hard-cut) are resolved — the list is now plain rows, and the
+segment swap has a 150 ms ease-out. This review starts from that baseline.
 
 ## Verdict
 
-The inspector's biggest lever is **containers and repetition**: the grouped
-Form draws a card around a device header that duplicates the gallery card,
-another card around the request list with a divider under every row, and
-every row ends in the same filled orange pill — so nothing in the pane is
-primary. Strip the containers, give each row a leading status glyph, and
-tier the composer's three controls, and the pane reads as one list plus one
-composer instead of boxes-in-boxes.
+The Stage panel's biggest lever is **state and hierarchy in the pipeline
+list**. The three rows are a sequence (clean → warm up → create), but they
+render as three identical rows with three identical 40 pt play circles —
+nothing is primary, nothing says what has run, and the last result is
+detached from its row in a text block below. Make the *next* stage the one
+prominent button, put each stage's last outcome on its own row, and the
+panel reads as a pipeline instead of a menu. Everything else is polish.
 
 ## Findings
 
 | # | Check | Where | Finding | Fix |
 |---|---|---|---|---|
-| 1 | LAY-1 / LAY-2 (P1) | `DeviceGalleryView.swift:279-338`, `inspector-dark-before.png` | Grouped Form renders 2 cards (device header, Requests) + a divider under every request row + the bordered composer: 4 non-list surfaces in a 360pt pane. | Plain scroll list, whitespace between rows, no dividers; keep the composer as the single emphasized surface. |
-| 2 | HIER-2 (P1) | `DeviceGalleryView.swift:281-311` | Device header card (icon + name + status) repeats the gallery card the user just clicked, and sits in its own card. | One compact header line (name · status dot) shared by both segments; drop the icon. |
-| 3 | HIER-3 / COL-4 (P1) | `DevicePromptView.swift:147-160`, screenshot: 4× "Needs clarification" pills | Status is a trailing filled capsule on every row; repeated it becomes noise and competes with the prompt text. No leading anchor to scan by. | Leading status glyph column (checkmark / question / xmark / spinner) in its semantic color; status word as the secondary line when there's no message, tooltip + accessibility label otherwise. |
-| 4 | BTN-1 tiers (P1) | `DevicePromptView.swift:48-88` | Composer row is three bordered controls of the same tier (example menu, planner picker, Run) — Run is prominent, but the other two aren't distinguished. | Example menu → tertiary icon-only borderless; planner picker stays secondary; Run stays the one prominent button. |
-| 5 | HIER-6 (P2) | `DevicePromptView.swift:73-78` | "⌘ Enter" text inside the Run button — macOS surfaces shortcuts via menus/tooltips, not inline. | Plain "Run" + `.help("… (⌘↩)")`. |
-| 6 | LAY-3 (P2) | `padding(10)`, `padding(9)`, `spacing: 5/6/7/10`, `7×7` dots, `horizontal 7 / vertical 3` | Off-grid one-offs. | Snap to 4/8/12/16. |
-| 7 | MOT-6 (P2) | `DevicePromptView.swift:135-137` | Empty history is a bare tertiary "No requests yet." | `ContentUnavailableView` with a symbol and a next-action hint. |
-| 8 | MOT-1 (P2) | `DeviceGalleryView.swift:265-270` | Stage ↔ Agent segment swap is a hard cut. | Context transition: `.transition(.opacity)` + 150ms ease-out on `segment`. |
-| 9 | LAY-1 (P2) | `DeviceStageView.swift:11-17` | Stage list is its own grouped card + separators for three rows. | Same plain-row treatment as the request list; empty state handled once in the inspector. |
+| 1 | HIER-1 / BTN-1 (P1) | `DeviceStageView.swift:26-49`, `stage-inspector-dark.png` | Three rows, same weight, same neutral button; no per-stage state. The header comment says cleanup is "the primary action" but nothing in the UI is primary. Last result renders as a separate block (`:59-80`), away from its row. | One `.borderedProminent` play on the next stage; `.bordered` on the rest. Leading glyph shows the stage's last outcome (done / failed / needs input) instead of only its number. Move the one-line status under the row title. |
+| 2 | FORM-2 (P1) | `DeviceStageView.swift:236` | Niche placeholder is `"What this persona browses, e.g. street photography"`. | `prompt: Text("Street photography")` — a bare example; the field already has a persistent "Niche" label. |
+| 3 | LAY-6 (P2) | `DeviceStageView.swift:274, 355`, `stage-warmup-sheet.png` | Sheets are hard-sized `540 × 660`. In a 765 pt window the sheet is clipped and the **Session** section — including the required Niche field — sits below the fold, while the footer says "stops at the limit above". | Fixed width only; let height follow content with a cap: `.frame(width: 540).frame(minHeight: 440, maxHeight: 660)` and drop the fixed 660. |
+| 4 | HIER-2 (P2) | `DeviceStageView.swift:195-202`, `stage-warmup-sheet.png` | When a persona is chosen the Platform segmented control is disabled but still shows four options — four dead segments to explain one fact. | When locked, render `LabeledContent("Platform", value: warmUp.platform.displayName)`; show the picker only when no persona is selected. |
+| 5 | IMG-2 (P2) | `DeviceStageView.swift:36-44` | Play buttons are `.controlSize(.large)` 40 pt circles; the leading number glyphs are body-size. The action column, not the anchor column, is what the eye lands on. | `.controlSize(.regular)` (28 pt) on the non-primary rows; keep `.large` only on the prominent one from #1. |
+| 6 | IMG-1 (P2) | `DeviceStageView.swift:213, 314` | Section headers mix styles: "Phase" and "Slideshow" carry a symbol, "Agent profile", "Session", "Content", "Details" don't. | Drop the two symbols — plain `Section("Phase")` — so one header style applies. |
+| 7 | LAY-3 (P2) | `DeviceStageView.swift:27` (`spacing: 10`), `:157, 296` (`spacing: 6`) | Off-grid one-offs. | 8 and 8 (or 4 for the title/subtitle pair). |
+| 8 | MOT-6 (P2) | `DeviceStageView.swift:52-57`, validation captions `:247, 351` | Unavailable / validation states are bare secondary captions. | `Label(reason, systemImage: "exclamationmark.triangle")` in the footer; in the list, a `ContentUnavailableView` when the phone is gone. |
+
+Verified clean: TYPE-1..4 (system text styles, no centering, no caps),
+LAY-1/2/4/5 (plain rows, no borders, sane grouping), COL-1..6 (system
+semantic colors only; dark/light parity confirmed in both screenshots; green
+reserved for the connection glyph), BTN-2..5 (verb labels "Run on SR1",
+"Create Draft", "Stop", "Cancel"; system button states), FORM-1/3/4 (grouped
+Form rows carry persistent labels), MODAL-1/2 and MOT-1..4 (system sheet,
+150 ms opacity context transition on the segment), HIER-3..6, IMG-3.
 
 ## P1 detail
 
-**1 — Whitespace over containers / borders.** `Form { … }.formStyle(.grouped)`
-on macOS draws a filled rounded card per Section and a separator between
-rows. Zander: borders make the eye see the border, not the content. Fix is
-a `ScrollView { LazyVStack }` with 16pt horizontal / 12pt vertical row
-padding and no separators; the composer keeps its `.bar` background and top
-`Divider` because it is a fixed, functionally distinct region.
-Sources: [2084623671444799847](https://x.com/zander_supafast/status/2084623671444799847),
-[2080000671781110136](https://x.com/zander_supafast/status/2080000671781110136).
+**1 — Hierarchy from state, one primary.** HIER-1: "size and color create
+in-group hierarchy; metrics sit in tight proximity to their subject." BTN-1:
+one primary per view. The panel has neither. The session already knows each
+workflow's last entry (`session.entries` carries `workflow` and `status`), so
+the row can own its outcome and the panel can decide which stage is next.
 
-**2 — Less content, stronger hierarchy.** The header card carries no
-information the gallery card doesn't; the only thing the pane needs is *which*
-phone. A single `headline` line with a status dot answers that in 20pt instead
-of a 64pt card. Source: [2053925539019165904](https://x.com/zander_supafast/status/2053925539019165904).
+```swift
+// DeviceStageView.body — replace the ForEach row
+let last = Dictionary(grouping: session.entries.filter { $0.workflow != nil },
+                      by: { $0.workflow! }).compactMapValues(\.last)
+let next = DeviceWorkflow.allCases.first { last[$0]?.status != .completed } ?? .createContent
 
-**3 — Visual anchoring.** Uber's ride list: a consistent leading glyph column
-lets the user recognize shape before reading. Failed / needs-input / done are
-exactly the states a user scans for. Red is reserved for `failed` (the moment
-it's a signal — COL-4); orange for `needsInput`; green for `completed`;
-secondary for `sent`/`cancelled`. Source:
-[1996927463679529069](https://x.com/zander_supafast/status/1996927463679529069),
-[1988234478452359457](https://x.com/zander_supafast/status/1988234478452359457).
+ForEach(Array(DeviceWorkflow.allCases.enumerated()), id: \.element.id) { index, workflow in
+    let entry = last[workflow]
+    HStack(spacing: 8) {
+        stageGlyph(index: index, status: entry?.status)
+            .frame(width: 20)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(workflow.title)
+            if let entry {
+                Text(entry.status.displayName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        Button { … } label: {
+            Image(systemName: "play.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .frame(width: 28, height: 28)
+        }
+        .buttonStyle(workflow == next ? AnyButtonStyle(.borderedProminent) : AnyButtonStyle(.bordered))
+        .buttonBorderShape(.circle)
+        .accessibilityLabel("Run \(workflow.title) on \(device.name)")
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 8)
+}
 
-**4 — Button tiers.** Primary: Run. Secondary: planner popup (neutral
-bordered). Tertiary: examples, as a borderless `lightbulb` icon with a
-tooltip — a first-run helper shouldn't share visual weight with the planner.
-Source: [1802684455670136954](https://x.com/zander_supafast/status/1802684455670136954).
+@ViewBuilder
+private func stageGlyph(index: Int, status: DevicePromptStatus?) -> some View {
+    switch status {
+    case .completed: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+    case .failed:    Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+    case .needsInput: Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange)
+    default:         Image(systemName: "\(index + 1).circle")
+    }
+}
+```
+
+(`AnyButtonStyle` is a small type-eraser, or use two `if` branches. Status
+colors follow the vocabulary the Agent history already uses, so red stays
+reserved for `failed` — COL-4.) The running-state block at `:59-80` then
+shrinks to the Stop button plus the current step line, since the title and
+status now live on the row.
+Sources: [1802939950645584131](https://x.com/zander_supafast/status/1802939950645584131),
+[1802684455670136954](https://x.com/zander_supafast/status/1802684455670136954).
+
+**2 — No "e.g." in placeholders.** "e.g." isn't recognized across languages
+and reads badly through VoiceOver ("enter e g street photography"). The Form
+row already shows "Niche" as a persistent label, so the placeholder's only job
+is an example.
+
+```diff
+- TextField("Niche", text: $warmUp.niche,
+-           prompt: Text("What this persona browses, e.g. street photography"))
++ TextField("Niche", text: $warmUp.niche, prompt: Text("Street photography"))
+```
+
+Source: [1879858975426122119](https://x.com/zander_supafast/status/1879858975426122119).
 
 ## Systemic recommendations
 
-- **Stop using `.formStyle(.grouped)` for lists in the inspector.** It's the
-  source of findings 1, 2 and 9 at once. Keep grouped forms for the settings
-  sheet (`DeviceDetailView`), where key/value sections are what the style is
-  for.
-- **Status vocabulary lives in one place.** `DevicePromptStatus` should own
-  its symbol and color (alongside `displayName`) so the history row, any
-  future toolbar badge, and the gallery card agree. Applied as private
-  helpers in `DevicePromptHistory` for now; promote to the enum if a second
-  consumer appears.
-- **Spacing scale: 4 / 8 / 12 / 16.** Inspector rows use 16/12; intra-row
-  4; control rows 8.
+- **Give `DevicePromptStatus` its symbol and color.** The prior review put
+  status glyph/color helpers privately in `DevicePromptHistory`. Finding #1
+  is the second consumer; promote them onto the enum so the Agent list, the
+  Stage rows, and any future gallery badge agree by construction.
+- **One sheet scaffold.** `warmUpConfiguration` and `contentConfiguration`
+  duplicate the title block, grouped Form, Divider, caption, validation line,
+  and Cancel/primary footer. A `WorkflowSheet(title:subtitle:caption:reason:primary:)`
+  wrapper fixes #3 (sizing), #6 (header style), #7 (spacing), and #8
+  (validation presentation) in one place and keeps the next workflow's sheet
+  consistent for free.
+- **Spacing scale stays 4 / 8 / 12 / 16 / 24.** The sheets already use 24
+  for their outer padding and 12 for the footer; the two `6`s and the `10`
+  are the only stragglers.
 
 ## Outside catalog (reviewer judgment)
 
-- The privacy/planner caption above the composer is two lines, always on.
-  It's a real disclosure (the Grok variant tells the user screenshots leave
-  the Mac), so it stays — but it's the heaviest text in the footer. Consider
-  showing it only when the provider changes or as the picker's popover.
-- `DeviceScreenCard` (gallery) shares the off-grid values (`spacing: 5`,
-  `7×7` dot, `Color.black.opacity(0.18)` literal) — out of scope here.
-- `.menuStyle(.borderlessButton)` is deprecated on macOS 14+; the gallery
-  card still uses it.
-
-## Verified clean
-
-TYPE-1 (only single-line centering), TYPE-2, TYPE-4 (all semantic text
-styles), COL-1/COL-2/COL-3 (system semantic colors, parity in both modes —
-`inspector-light-before.png`), FORM-2 (placeholder is a bare example),
-MODAL-1 (no confirmations in scope), BTN-2 (verb labels). FORM-1 is a
-chat-composer pattern (Messages/Mail have no visible label); accessibility
-label present — accepted as platform convention rather than flagged P0.
-
-## Applied
-
-All nine findings were applied in this pass and verified in a Release build
-(`bun shortreel`). After-captures: `design-review/inspector-dark-after.png`
-(Agent, empty history) and `design-review/inspector-stage-dark-after.png`.
-Request sessions are in-memory, so the relaunch cleared the history; the
-populated row layout (glyph column + prompt + secondary line) was not
-screenshotted to avoid driving the connected phones.
+- **Row 1 runs on the phone immediately; rows 2 and 3 open a form.** The
+  three buttons look identical, so the first click on "Clear Home Screen"
+  rearranges a real iPhone's Home Screen with no configuration step and no
+  confirmation. The catalog's MODAL-1 covers *how* to confirm, not *whether*;
+  I'd still treat this as the panel's most consequential inconsistency. Either
+  give cleanup a small sheet with the same footer pattern (Cancel / "Clear
+  Home Screen on SR1"), or make its button visually distinct from the two
+  that open forms. If #1 lands, the prominent-button-is-next convention at
+  least means a first-time user's default click is the intended one.
+- The persona narrative in the Warm Up sheet renders as a four-line caption
+  block inside the form (`:186-190`, `lineLimit(3)` isn't holding it to
+  three at this width). Two lines with a disclosure, or the first sentence
+  only, would keep the form scannable.

@@ -24,6 +24,7 @@
 		1DB1F5675B2598BE1974DCE2 /* UITarsScreenVerification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97C36C7E725C9CC83D4E592F /* UITarsScreenVerification.swift */; };
 		1E0E113A31DB1339E4FDAFBC /* Vision.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBCA529E1558823B04411D10 /* Vision.framework */; };
 		205D6A2126B2D1CD3FDAB54C /* RunnerCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F668CE7E19C9D09560F042 /* RunnerCoordinator.swift */; };
+		22F9B9A15CAE5CA5968777EB /* PersonalityGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09CE42F6446A9900386EED70 /* PersonalityGenerator.swift */; };
 		255B71F6514BC9376BEEF7F1 /* BluetoothDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14A5FC378EEB5A64EF4B363A /* BluetoothDiscovery.swift */; };
 		299273587E3AAD10ABA818FE /* DeviceWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C05D7A81AADE2C865D015F6 /* DeviceWorkflow.swift */; };
 		2B8F9749D95E36E51BED7A0D /* USBPhoneBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = DC240D89D8AA4B7D311E8776 /* USBPhoneBridge.m */; };
@@ -76,6 +77,7 @@
 		D0EC79E7497032E3D64B9DD1 /* DevicePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27CEE80EA70FFB83D8C4E2A /* DevicePromptView.swift */; };
 		D695B98064CD329C887FED3D /* ShortReelApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8383273757C8897157EF8F9E /* ShortReelApp.swift */; };
 		D77FEF162580FAFF23319D98 /* DevicePromptPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 318A73F3E800902771F9151D /* DevicePromptPlanner.swift */; };
+		DFE9D9A573F5F2D8CCEDAAF2 /* PersonalityEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B8024220078F28FDF842F8 /* PersonalityEditor.swift */; };
 		ED39EE96CE71B8FFC0F1E39C /* PhoneScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52749801244FE485B01392EB /* PhoneScreenView.swift */; };
 		F0D2548A4A0C773C75318E75 /* RunnerServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA87F5163C40AC259CFA7EF4 /* RunnerServer.swift */; };
 		F188BA69F1CDB7D98CF99F3A /* RunnerSupervisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9DBE6EB898E94C8ADA08CAB /* RunnerSupervisor.swift */; };
@@ -99,6 +101,7 @@
 /* Begin PBXFileReference section */
 		00DBDEC5B47D5F780C43220D /* CBHIDBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CBHIDBridge.m; sourceTree = "<group>"; };
 		0356F3AE9ED9B41A09ABB0F0 /* UITarsActionDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITarsActionDecoder.swift; sourceTree = "<group>"; };
+		09CE42F6446A9900386EED70 /* PersonalityGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalityGenerator.swift; sourceTree = "<group>"; };
 		0D734D644036D054B305A982 /* TimelineEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineEvent.swift; sourceTree = "<group>"; };
 		0F72ED0B08B7E9D51CBB7242 /* SimulatedDeviceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedDeviceController.swift; sourceTree = "<group>"; };
 		10541CA6BA27250DC0FE75BD /* UITarsPhonePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITarsPhonePlanner.swift; sourceTree = "<group>"; };
@@ -148,6 +151,7 @@
 		9CA70D82245585A3B68D8F2A /* HIDControlSession.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDControlSession.m; sourceTree = "<group>"; };
 		9CE65DBA70C8DF036D5D3321 /* CoreMediaIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMediaIO.framework; path = System/Library/Frameworks/CoreMediaIO.framework; sourceTree = SDKROOT; };
 		9EC3AD27C56EE36B44C0FD22 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
+		A1B8024220078F28FDF842F8 /* PersonalityEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalityEditor.swift; sourceTree = "<group>"; };
 		A3F668CE7E19C9D09560F042 /* RunnerCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerCoordinator.swift; sourceTree = "<group>"; };
 		A6EC6FA5D0DC40E74BEF0954 /* Persona.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persona.swift; sourceTree = "<group>"; };
 		A922E2906AE6731826F0E27E /* PhonePlannerEscalation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePlannerEscalation.swift; sourceTree = "<group>"; };
@@ -216,6 +220,7 @@
 				D786512C10AF9B1CD42FE18F /* DeviceControlling.swift */,
 				C0CCE706AB92F64CA0B3C31B /* DeviceHost.swift */,
 				D2317D5A658EBB9BE247789F /* DeviceManager.swift */,
+				09CE42F6446A9900386EED70 /* PersonalityGenerator.swift */,
 				0F72ED0B08B7E9D51CBB7242 /* SimulatedDeviceController.swift */,
 				78E9B0DFCB355E2CFEE12727 /* WarmUpAgent.swift */,
 				A8F2BA8F62771365C538529D /* BluetoothHID */,
@@ -408,6 +413,7 @@
 				B27CEE80EA70FFB83D8C4E2A /* DevicePromptView.swift */,
 				1A48F8C570BC14C7395B7D49 /* DeviceSettingsView.swift */,
 				25301F554B562932915EF030 /* DeviceStageView.swift */,
+				A1B8024220078F28FDF842F8 /* PersonalityEditor.swift */,
 				52749801244FE485B01392EB /* PhoneScreenView.swift */,
 			);
 			path = Views;
@@ -546,6 +552,8 @@
 				A3E995CDDCF1F8254D03B420 /* LocalUITarsServer.swift in Sources */,
 				B47989288B7C62003867E8EF /* PersistentModel+Live.swift in Sources */,
 				F7D6371B0E7A27FC5E42C611 /* Persona.swift in Sources */,
+				DFE9D9A573F5F2D8CCEDAAF2 /* PersonalityEditor.swift in Sources */,
+				22F9B9A15CAE5CA5968777EB /* PersonalityGenerator.swift in Sources */,
 				58CCEA02170CE6C37F739164 /* PhoneAutoLockConfigurator.swift in Sources */,
 				FBCBB2829B644BBA7FA093CB /* PhonePlannerContext.swift in Sources */,
 				C6934E0B9F9BC88E5D5DBF98 /* PhonePlannerEscalation.swift in Sources */,

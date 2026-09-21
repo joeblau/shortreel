@@ -60,7 +60,7 @@ enum WarmUpPlaybook {
                     activities: [.scrollFeed, .search, .like, .follow],
                     maxLikes: 8, maxFollows: 5, maxComments: 0, maxPosts: 0,
                     allowsDirectMessages: false,
-                    guidance: "Watch the For You feed like a real viewer: finish some videos, skip others quickly. Search the niche a few times so the feed starts matching it. Like sparingly and follow only a few real accounts. Do not post."
+                    guidance: "Watch each video to completion, then swipe up once to the next video. Search the niche a few times so the feed starts matching it. Like sparingly and follow only a few real accounts. Do not post."
                 ),
                 WarmUpPhasePlan(
                     title: "Days 4–7", firstDay: 4, lastDay: 7,
@@ -123,6 +123,23 @@ enum WarmUpPlaybook {
         }
     }
 
+    /// Where each app shows the signed-in account's handle, so the agent can
+    /// confirm it is driving the persona's account before any engagement.
+    static func accountLocation(for platform: Platform) -> String {
+        switch platform {
+        case .tikTok:
+            "Tap the Profile tab at the bottom right. The @username appears under the display name at the top of the profile."
+        case .instagram:
+            "Tap the profile avatar tab at the bottom right. The username appears at the top of the profile page."
+        case .x:
+            "Tap the account avatar at the top left to open the side menu. The display name and @handle appear at the top of the menu."
+        case .youtube:
+            "Tap the You tab at the bottom right. The channel name and @handle appear at the top of the page."
+        case .threads, .facebook:
+            "Open the profile tab and read the username shown at the top of the profile."
+        }
+    }
+
     static func phaseIndex(for platform: Platform, day: Int) -> Int {
         let plans = phases(for: platform)
         return plans.firstIndex(where: { $0.contains(day: day) }) ?? max(plans.count - 1, 0)
@@ -142,6 +159,23 @@ struct WarmUpConfiguration: Sendable {
 
     var hasProfile: Bool { !trim(profileName).isEmpty }
 
+    /// The handle as the app displays it: no surrounding whitespace or leading @.
+    var normalizedHandle: String {
+        var handle = trim(profileHandle)
+        while handle.hasPrefix("@") { handle.removeFirst() }
+        return handle
+    }
+
+    var hasHandle: Bool { !normalizedHandle.isEmpty }
+
+    /// The first thing the agent does: prove the phone is signed in as this
+    /// persona. Any other account, or a signed-out app, stops the run.
+    var accountCheck: String {
+        """
+        Account check, before anything else: open \(platform.displayName). \(WarmUpPlaybook.accountLocation(for: platform)) Confirm the signed-in handle is exactly @\(normalizedHandle) (ignore letter case). If the app shows a sign-in or sign-up screen, an account picker, no handle, or any other handle, STOP and request input; do not browse, like, follow, comment, search, or post. Never sign in, sign out, switch accounts, or enter credentials. Only after confirming the handle, return to the feed and start the session.
+        """
+    }
+
     var phase: WarmUpPhasePlan {
         let plans = WarmUpPlaybook.phases(for: platform)
         guard !plans.isEmpty else {
@@ -158,12 +192,16 @@ struct WarmUpConfiguration: Sendable {
     var brief: String {
         let plan = phase
         var lines: [String] = [
-            "Persona: \(trim(profileName)) (@\(trim(profileHandle))). \(trim(profileNarrative))",
+            "Persona: \(trim(profileName)) (@\(normalizedHandle)). \(trim(profileNarrative))",
             "Platform: \(platform.displayName)",
+            trim(accountCheck),
             "Warm-up phase: \(plan.title) of a new account. Niche: \(trim(niche)). Stay on content in this niche so the algorithm learns it.",
             "Session: about \(sessionMinutes) minutes. Stop after viewing \(itemsToView) videos or posts, or when the time is up — whichever comes first.",
             "Allowed actions and daily-look caps for this session: like at most \(plan.maxLikes), follow at most \(plan.maxFollows), comment at most \(plan.maxComments)\(plan.allowsPosting ? ", post at most \(plan.maxPosts)" : "").",
         ]
+        if platform == .tikTok {
+            lines.append("TikTok: choose a top-three search suggestion, then open a top-row video. Watch it to completion, swipe up once, and verify the next video starts. Repeat within session limits.")
+        }
         if !plan.guidance.isEmpty {
             lines.append("Phase guidance: \(plan.guidance)")
         }
@@ -174,12 +212,17 @@ struct WarmUpConfiguration: Sendable {
         if !prohibitions.isEmpty {
             lines.append("Do NOT do any of the following this phase: \(prohibitions.joined(separator: ", ")).")
         }
-        lines.append("Behave like a person: vary watch time, skip some content quickly, and pause between actions instead of repeating one action rapidly. Never mass-like or mass-follow.")
+        if platform == .tikTok {
+            lines.append("Watch each video to completion before swiping up once to the next. Pause between actions. Never mass-like or mass-follow.")
+        } else {
+            lines.append("Behave like a person: vary watch time, skip some content quickly, and pause between actions instead of repeating one action rapidly. Never mass-like or mass-follow.")
+        }
         return lines.joined(separator: "\n")
     }
 
     var validationMessage: String? {
         if !hasProfile { return "Choose an agent profile." }
+        if !hasHandle { return "Add the persona’s handle so the signed-in account can be verified." }
         if trim(niche).isEmpty { return "Add the niche this persona browses." }
         if DeviceWorkflow.warmUp.goal(details: brief).count > DevicePromptPlanner.maximumPromptLength {
             return "Shorten the warm-up details before running."
