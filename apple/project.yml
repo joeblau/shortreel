@@ -9,6 +9,9 @@ packages:
   FlyingFox:
     url: https://github.com/swhitty/FlyingFox
     from: 0.27.0
+  mlx-swift-lm:
+    url: https://github.com/ml-explore/mlx-swift-lm
+    from: 3.31.4
 
 settings:
   base:
@@ -52,6 +55,10 @@ targets:
       - sdk: AVFoundation.framework
       - sdk: CoreMediaIO.framework
       - sdk: Vision.framework
+      - package: mlx-swift-lm
+        product: MLXLLM
+      - package: mlx-swift-lm
+        product: MLXLMCommon
 
   ShortReelRunner:
     type: application
