@@ -176,19 +176,25 @@ struct SemanticIfEncodedPrompt: Sendable, Equatable {
 }
 
 /// One decision row. `state` keeps its JSON value (string, object, or array)
-/// with object key order preserved, exactly as Python's dict does.
-struct SemanticIfDecision: Sendable, Equatable {
-    struct Option: Sendable, Equatable {
-        var id: String
-        var description: String
+/// with object key order preserved, exactly as Python's dict does. Public so
+/// the parity harness (issue #13) can load fixture rows from another module.
+public struct SemanticIfDecision: Sendable, Equatable {
+    public struct Option: Sendable, Equatable {
+        public var id: String
+        public var description: String
+
+        public init(id: String, description: String) {
+            self.id = id
+            self.description = description
+        }
     }
 
-    var id: String
-    var state: SemanticIfJSON
-    var question: String
-    var options: [Option]
+    public var id: String
+    public var state: SemanticIfJSON
+    public var question: String
+    public var options: [Option]
 
-    init(id: String, state: SemanticIfJSON, question: String, options: [Option]) {
+    public init(id: String, state: SemanticIfJSON, question: String, options: [Option]) {
         self.id = id
         self.state = state
         self.question = question
@@ -198,7 +204,7 @@ struct SemanticIfDecision: Sendable, Equatable {
     /// Decodes one parsed JSONL row, performing validate_row's structural
     /// checks (fields present, `id`/`question` strings, options a list of
     /// `{id, description}` string pairs) and then the semantic checks.
-    init(json: SemanticIfJSON) throws {
+    public init(json: SemanticIfJSON) throws {
         guard case .object(let fields) = json else {
             throw SemanticIfPromptError.malformedJSON("Row must be a JSON object")
         }
@@ -287,8 +293,9 @@ enum SemanticIfPromptError: Error, Equatable {
 
 /// Ordered, Python-`json`-compatible JSON value. Object key order is document
 /// order, and integers stay distinct from doubles, so `pythonDumped` is
-/// byte-identical to `json.dumps(value, ensure_ascii=False)`.
-enum SemanticIfJSON: Sendable, Equatable {
+/// byte-identical to `json.dumps(value, ensure_ascii=False)`. Public so the
+/// parity harness (issue #13) can parse Semif's recorded result rows.
+public enum SemanticIfJSON: Sendable, Equatable {
     case null
     case bool(Bool)
     case integer(Int64)
@@ -297,7 +304,7 @@ enum SemanticIfJSON: Sendable, Equatable {
     case array([SemanticIfJSON])
     case object([(String, SemanticIfJSON)])
 
-    static func == (lhs: SemanticIfJSON, rhs: SemanticIfJSON) -> Bool {
+    public static func == (lhs: SemanticIfJSON, rhs: SemanticIfJSON) -> Bool {
         switch (lhs, rhs) {
         case (.null, .null):
             return true
@@ -389,7 +396,7 @@ enum SemanticIfJSON: Sendable, Equatable {
     /// arbitrary precision; wider literals degrade to Double here). Unlike
     /// Python, the non-standard literals NaN/Infinity are rejected up front —
     /// Semif would reject them in validation anyway.
-    static func parse(_ text: String) throws -> SemanticIfJSON {
+    public static func parse(_ text: String) throws -> SemanticIfJSON {
         var parser = Parser(text: text[...])
         let value = try parser.parseValue()
         parser.skipWhitespace()
