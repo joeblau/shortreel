@@ -14,6 +14,7 @@ final class PhoneVisualRunner {
     private let maximumDuration: TimeInterval
     private let inspect: ((PhoneScreenFrame) async throws -> PhoneScreenObservation)?
     private let prepareCleanupAction: ((PhonePromptAction, PhoneScreenFrame) async throws -> PhonePromptAction)?
+    private let validateSubmissionAction: (PhonePromptAction, PhoneScreenFrame, Bool) async throws -> Void
     private var isRunning = false
 
     init(capture: @escaping (Date) async throws -> PhoneScreenFrame,
@@ -23,7 +24,10 @@ final class PhoneVisualRunner {
          maximumSteps: Int = 30,
          maximumDuration: TimeInterval = 300,
          inspect: ((PhoneScreenFrame) async throws -> PhoneScreenObservation)? = nil,
-         prepareCleanupAction: ((PhonePromptAction, PhoneScreenFrame) async throws -> PhonePromptAction)? = nil) {
+         prepareCleanupAction: ((PhonePromptAction, PhoneScreenFrame) async throws -> PhonePromptAction)? = nil,
+         validateSubmissionAction: @escaping (PhonePromptAction, PhoneScreenFrame, Bool) async throws -> Void = {
+             try await PhoneSubmissionGuard.validate(action: $0, frame: $1, isFinalSubmission: $2)
+         }) {
         self.capture = capture
         self.decide = decide
         self.perform = perform
@@ -32,6 +36,7 @@ final class PhoneVisualRunner {
         self.maximumDuration = min(maximumDuration, 300)
         self.inspect = inspect
         self.prepareCleanupAction = prepareCleanupAction
+        self.validateSubmissionAction = validateSubmissionAction
     }
 
     /// A controlled input diagnostic, separate from model-chosen workflows.
@@ -80,10 +85,16 @@ final class PhoneVisualRunner {
         throw PhoneVisionError.limitReached
     }
 
-    func run(goal: String,
-             workflow: DeviceWorkflow? = nil,
-             onProgress: @escaping (String) -> Void,
-             onStep: @escaping (PhoneVisionStep) -> Void) async throws -> String {
+    func run(
+        goal: String,
+        workflow: DeviceWorkflow? = nil,
+        warmUpScript: WarmUpScript? = nil,
+        onScriptProgress: @escaping (String) -> Void = { _ in },
+        onScriptCheckpoint: @escaping (WarmUpScriptCheckpoint) throws -> Void = { _ in },
+        onSubmissionCheckpoint: @escaping (PhoneSubmissionCheckpoint) throws -> Void = { _ in },
+        onProgress: @escaping (String) -> Void,
+        onStep: @escaping (PhoneVisionStep) -> Void
+    ) async throws -> String {
         guard !isRunning else {
             throw PhoneVisionError.unavailable("A request is already running for this phone.")
         }
@@ -94,15 +105,45 @@ final class PhoneVisualRunner {
         }
         let goal = goal.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !goal.isEmpty, goal.count <= DevicePromptPlanner.maximumPromptLength else {
-            throw PhonePromptPlanningError.needsClarification("Describe what you want the phone to do in at most \(DevicePromptPlanner.maximumPromptLength) characters.")
+            throw PhonePromptPlanningError.needsClarification(
+                "Describe what you want the phone to do in at most \(DevicePromptPlanner.maximumPromptLength) characters."
+            )
         }
         if workflow == .clearHomeScreen, prepareCleanupAction == nil || inspect == nil {
             throw PhoneVisionError.unavailable("Home Screen cleanup needs screen inspection and removal checks.")
+        }
+        if let script = warmUpScript {
+            guard workflow == .warmUp else {
+                throw PhoneVisionError.invalidDecision("Invalid warm-up script limits.")
+            }
+            try script.validate()
         }
         isRunning = true
         defer { isRunning = false }
 
         let deadline = ContinuousClock.now + .seconds(maximumDuration)
+        let sessionDeadline = ContinuousClock.now + .seconds(warmUpScript?.duration ?? maximumDuration)
+        var scriptCursor = warmUpScript.map { WarmUpScriptCursor(script: $0) }
+        var submission: PhoneSubmissionCheckpoint?
+        func recordSubmission(_ state: PhoneSubmissionCheckpoint.State, detail: String) throws {
+            let checkpoint = PhoneSubmissionCheckpoint(
+                state: state,
+                activity: warmUpScript?.activity.rawValue ?? "", updatedAt: Date(), detail: detail)
+            try onSubmissionCheckpoint(checkpoint)
+            submission = checkpoint
+        }
+        defer {
+            // Keep the durable `submitting` record if recording uncertainty
+            // fails; either state requires review when the app reopens.
+            if submission?.state == .submitting {
+                try? recordSubmission(
+                    .uncertain,
+                    detail:
+                        "Submission may have been sent, but its result was not verified. Check the app before starting another run."
+                )
+            }
+        }
+        if let scriptCursor { try onScriptCheckpoint(scriptCursor.checkpoint) }
         var afterDate = Date()
         var sourceID: String?
         var frameIDs = Set<UUID>()
@@ -110,185 +151,311 @@ final class PhoneVisualRunner {
         var previousInput: InputFingerprint?
         var previousPixels: [UInt8]?
         var repeatedInputs = 0
-        let reviewsTikTokPlayback = workflow == .warmUp && goal.components(separatedBy: .newlines)
-            .contains { $0.trimmingCharacters(in: .whitespaces) == "Platform: TikTok" }
+        let reviewsTikTokPlayback =
+            workflow == .warmUp
+            && goal.components(separatedBy: .newlines)
+                .contains { $0.trimmingCharacters(in: .whitespaces) == "Platform: TikTok" }
         var consecutivePlaybackWaits = 0
         var playbackStartFrame: PhoneScreenFrame?
+        var playbackTracker = PhonePlaybackTracker()
 
-        for decisionNumber in 1...maximumSteps {
-            try checkAvailability(deadline: deadline)
-            onProgress("Reading the phone’s screen…")
-            let requestedAfter = afterDate
-            let frame = try await beforeDeadline(deadline) { [self] in
-                try await capture(requestedAfter)
-            }
-            try checkAvailability(deadline: deadline)
-            try validate(frame: frame, after: afterDate, sourceID: sourceID, usedIDs: frameIDs)
-            if sourceID == nil { sourceID = frame.sourceID }
-            frameIDs.insert(frame.id)
-
-            if let last = steps.indices.last, let before = steps[last].beforeFrame {
-                steps[last].afterFrame = frame
-                steps[last].screenChanged = !Self.sameScreen(Self.screenFingerprint(before.cgImage), Self.screenFingerprint(frame.cgImage))
-            }
-            // Keep only two transitions in memory, scoped to this phone/run.
-            for index in steps.indices.dropLast(2) {
-                steps[index].beforeFrame = nil
-                steps[index].afterFrame = nil
-                steps[index].playbackStartFrame = nil
-            }
-
-            onProgress("Choosing the next action…")
-            let history = steps
-            var decision: PhoneVisionDecision
-            do {
-                decision = try await beforeDeadline(deadline) { [self] in
-                    try await decide(goal, frame, history)
-                }.validated()
-            } catch let error as PhoneVisionError {
-                // A malformed model response is a dud roll, not a failed goal:
-                // ask once more with the same frame before giving up.
-                guard case .invalidDecision = error else { throw error }
-                onProgress("The model returned an unreadable action; asking again…")
-                decision = try await beforeDeadline(deadline) { [self] in
-                    try await decide(goal, frame, history)
-                }.validated()
-            }
-            try checkAvailability(deadline: deadline)
-            try checkFrameAge(frame)
-
-            if reviewsTikTokPlayback, case .wait = decision,
-               consecutivePlaybackWaits >= 2, consecutivePlaybackWaits % 3 == 2,
-               let last = history.indices.last {
-                onProgress("Checking whether the video finished or started replaying…")
-                var reviewHistory = history
-                reviewHistory[last].playbackReviewRequested = true
-                decision = try await beforeDeadline(deadline) { [self] in
-                    try await decide(goal, frame, reviewHistory)
-                }.validated()
-                try checkAvailability(deadline: deadline)
-                try checkFrameAge(frame)
-            }
-
-            if workflow == .clearHomeScreen {
-                let pixels = Self.screenFingerprint(frame.cgImage)
-                let candidate: InputFingerprint?
-                switch decision {
-                case .action(let action, _): candidate = .action(action)
-                case .wait: candidate = .wait
-                default: candidate = nil
-                }
-                if let candidate, let previousInput, let previousPixels,
-                   repeatedInputs >= 2, Self.similarInput(previousInput, candidate),
-                   Self.sameScreen(previousPixels, pixels) {
-                    onProgress("Checking another route through the Home Screen pages…")
-                    decision = try await beforeDeadline(deadline) { [self] in
-                        try await decide(goal + "\n\n" + DeviceWorkflow.cleanupStallRecovery, frame, history)
-                    }.validated()
-                }
-                if case .finished = decision {
-                    onProgress("Verifying one empty Home Screen page…")
-                    let coverage = Self.hasCleanupSweep(steps)
-                    let reviewGoal = goal + "\n\n" + DeviceWorkflow.cleanupCompletionReview
-                        + (coverage ? "" : "\nNo sweep in both directions since the last layout change is recorded. Return a navigation action to establish coverage.")
-                    decision = try await beforeDeadline(deadline) { [self] in
-                        try await decide(reviewGoal, frame, history)
-                    }.validated()
-                    if case .finished = decision, !coverage {
-                        throw PhonePromptPlanningError.needsClarification("Cleanup has not verified both page boundaries after the last layout change. One empty page does not prove that only one page remains.")
+        do {
+            for decisionNumber in 1...maximumSteps {
+                if warmUpScript != nil, ContinuousClock.now >= sessionDeadline {
+                    if warmUpScript?.activity != .watch {
+                        throw PhonePromptPlanningError.needsClarification(
+                            "The time limit was reached before the submission was verified. Check the phone before starting another run."
+                        )
                     }
+                    return "Time limit reached; stopped with \(scriptCursor?.itemsCompleted ?? 0) items viewed."
+                }
+                let deadline = min(deadline, sessionDeadline)
+                try checkAvailability(deadline: deadline)
+                if let scriptCursor { onScriptProgress(scriptCursor.progress) }
+                if let cursor = scriptCursor, cursor.step.id == .prepareSubmission, submission == nil {
+                    try recordSubmission(
+                        .preparing,
+                        detail: "Preparing one \(cursor.script.activity.rawValue); nothing has been submitted.")
+                }
+                onProgress("Reading the phone’s screen…")
+                let requestedAfter = afterDate
+                let frame = try await beforeDeadline(deadline) { [self] in
+                    try await capture(requestedAfter)
                 }
                 try checkAvailability(deadline: deadline)
-                try checkFrameAge(frame)
-            }
+                try validate(frame: frame, after: afterDate, sourceID: sourceID, usedIDs: frameIDs)
+                if sourceID == nil { sourceID = frame.sourceID }
+                frameIDs.insert(frame.id)
 
-            switch decision {
-            case .finished(let result):
-                if workflow == .clearHomeScreen, let inspect {
-                    let observation = try await beforeDeadline(deadline) { try await inspect(frame) }
+                if let last = steps.indices.last, let before = steps[last].beforeFrame {
+                    steps[last].afterFrame = frame
+                    steps[last].screenChanged = !Self.sameScreen(
+                        Self.screenFingerprint(before.cgImage), Self.screenFingerprint(frame.cgImage))
+                }
+                // Keep only two transitions in memory, scoped to this phone/run.
+                for index in steps.indices.dropLast(2) {
+                    steps[index].beforeFrame = nil
+                    steps[index].afterFrame = nil
+                    steps[index].playbackStartFrame = nil
+                }
+
+                onProgress("Choosing the next action…")
+                let goal = scriptCursor?.goal(goal) ?? goal
+                guard goal.count <= DevicePromptPlanner.maximumPromptLength else {
+                    throw PhonePromptPlanningError.needsClarification("Shorten the warm-up details before running.")
+                }
+                let reviewsPlayback =
+                    scriptCursor.map { $0.step.id == .consume && $0.script.usesVideo } ?? reviewsTikTokPlayback
+                var playbackEvidence: String?
+                if reviewsPlayback {
+                    let evidence = await playbackTracker.observe(
+                        frame: frame,
+                        platform: scriptCursor?.script.network.rawValue ?? "TikTok")
                     try checkAvailability(deadline: deadline)
                     try checkFrameAge(frame)
-                    guard observation.state == .home else {
-                        throw PhonePromptPlanningError.needsClarification("Cleanup could not be verified on Home. " + observation.evidence)
-                    }
+                    playbackEvidence = "CURRENT frame (\(frame.capturedAt.ISO8601Format())): \(evidence.summary)"
                 }
-                onProgress("Checked the result on the phone’s screen.")
-                return result
-            case .needsInput(let explanation):
-                throw PhonePromptPlanningError.needsClarification(explanation)
-            case .action(let proposedAction, let proposedReason):
-                consecutivePlaybackWaits = 0
-                playbackStartFrame = nil
-                var reason = proposedReason
-                let action: PhonePromptAction
-                if workflow == .clearHomeScreen, let prepareCleanupAction {
-                    do {
-                        action = try await beforeDeadline(deadline) { try await prepareCleanupAction(proposedAction, frame) }
-                    } catch let error as PhonePromptPlanningError {
-                        // A missed menu row is recoverable. Nothing was sent;
-                        // replan once with the guard's observed controls, then
-                        // subject the replacement to exactly the same guard.
-                        try checkAvailability(deadline: deadline)
-                        try checkFrameAge(frame)
-                        onProgress("Locating the safe removal option…")
-                        let instruction = "\n\nMENU CORRECTION: The proposed input was blocked. Inspect this same screenshot and choose one safe menu action. If Remove App is open, tap it, then inspect the next screenshot for Remove from Home Screen. Do not claim completion. Guard feedback: "
-                        let available = max(0, DevicePromptPlanner.maximumPromptLength - goal.count - instruction.count)
-                        let correctionGoal = goal + instruction + String(error.localizedDescription.prefix(available))
-                        let correction = try await beforeDeadline(deadline) { [self] in
-                            try await decide(correctionGoal, frame, history)
+                var history = steps
+                if let last = history.indices.last { history[last].playbackEvidence = playbackEvidence }
+                var decision: PhoneVisionDecision
+                do {
+                    decision = try await beforeDeadline(deadline) { [self] in
+                        try await decide(goal, frame, history)
+                    }.validated()
+                } catch let error as PhoneVisionError {
+                    // A malformed model response is a dud roll, not a failed goal:
+                    // ask once more with the same frame before giving up.
+                    guard case .invalidDecision = error else { throw error }
+                    onProgress("The model returned an unreadable action; asking again…")
+                    decision = try await beforeDeadline(deadline) { [self] in
+                        try await decide(goal, frame, history)
+                    }.validated()
+                }
+                try checkAvailability(deadline: deadline)
+                try checkFrameAge(frame)
+
+                if reviewsPlayback, case .wait = decision,
+                    consecutivePlaybackWaits >= 2, consecutivePlaybackWaits % 3 == 2,
+                    let last = history.indices.last
+                {
+                    onProgress("Checking whether the video finished or started replaying…")
+                    var reviewHistory = history
+                    reviewHistory[last].playbackReviewRequested = true
+                    decision = try await beforeDeadline(deadline) { [self] in
+                        try await decide(goal, frame, reviewHistory)
+                    }.validated()
+                    try checkAvailability(deadline: deadline)
+                    try checkFrameAge(frame)
+                }
+
+                if workflow == .clearHomeScreen {
+                    let pixels = Self.screenFingerprint(frame.cgImage)
+                    let candidate: InputFingerprint?
+                    switch decision {
+                    case .action(let action, _): candidate = .action(action)
+                    case .wait: candidate = .wait
+                    default: candidate = nil
+                    }
+                    if let candidate, let previousInput, let previousPixels,
+                        repeatedInputs >= 2, Self.similarInput(previousInput, candidate),
+                        Self.sameScreen(previousPixels, pixels)
+                    {
+                        onProgress("Checking another route through the Home Screen pages…")
+                        decision = try await beforeDeadline(deadline) { [self] in
+                            try await decide(goal + "\n\n" + DeviceWorkflow.cleanupStallRecovery, frame, history)
                         }.validated()
-                        try checkAvailability(deadline: deadline)
-                        try checkFrameAge(frame)
-                        guard case .action(let correctedAction, let correctedReason) = correction else { throw error }
-                        action = try await beforeDeadline(deadline) { try await prepareCleanupAction(correctedAction, frame) }
-                        reason = correctedReason
                     }
-                    _ = try PhoneVisionDecision.action(action, reason: reason).validated()
+                    if case .finished = decision {
+                        onProgress("Verifying one empty Home Screen page…")
+                        let coverage = Self.hasCleanupSweep(steps)
+                        let reviewGoal =
+                            goal + "\n\n" + DeviceWorkflow.cleanupCompletionReview
+                            + (coverage
+                                ? ""
+                                : "\nNo sweep in both directions since the last layout change is recorded. Return a navigation action to establish coverage.")
+                        decision = try await beforeDeadline(deadline) { [self] in
+                            try await decide(reviewGoal, frame, history)
+                        }.validated()
+                        if case .finished = decision, !coverage {
+                            throw PhonePromptPlanningError.needsClarification(
+                                "Cleanup has not verified both page boundaries after the last layout change. One empty page does not prove that only one page remains."
+                            )
+                        }
+                    }
                     try checkAvailability(deadline: deadline)
                     try checkFrameAge(frame)
-                } else {
-                    action = proposedAction
                 }
-                try checkRepeatedInput(.action(action), pixels: Self.screenFingerprint(frame.cgImage),
-                    previousInput: &previousInput, previousPixels: &previousPixels,
-                    repeatedInputs: &repeatedInputs)
-                let step = PhoneVisionStep(id: UUID(), number: decisionNumber,
-                    action: description(of: action), detail: reason, capturedAt: frame.capturedAt,
-                    input: action, beforeFrame: frame, progressNote: workflow == nil ? nil : reason)
-                onProgress("Step \(decisionNumber): \(step.action)")
-                var displayStep = step
-                displayStep.beforeFrame = nil
-                onStep(displayStep)
-                // UI callbacks can cancel the task or change the selected phone.
-                try checkAvailability(deadline: deadline)
-                try checkFrameAge(frame)
-                try await beforeDeadline(deadline) { [self] in try await perform(action) }
-                try checkAvailability(deadline: deadline)
-                steps.append(step)
-                afterDate = Date()
-            case .wait(let seconds, let reason):
-                if reviewsTikTokPlayback {
-                    if playbackStartFrame == nil { playbackStartFrame = frame }
-                    consecutivePlaybackWaits += 1
+
+                switch decision {
+                case .finished(let result):
+                    if var cursor = scriptCursor {
+                        let completedStep = cursor.step.title
+                        if cursor.step.id == .verifySubmission {
+                            guard submission?.state == .submitting else {
+                                throw PhonePromptPlanningError.needsClarification(
+                                    "No recorded submission is available to verify.")
+                            }
+                            try recordSubmission(.confirmed, detail: result)
+                        }
+                        try cursor.finishStep()
+                        scriptCursor = cursor
+                        try onScriptCheckpoint(cursor.checkpoint)
+                        let step = PhoneVisionStep(
+                            id: UUID(), number: decisionNumber,
+                            action: "Verified \(completedStep)", detail: result, capturedAt: frame.capturedAt,
+                            progressNote: "Script step verified: \(completedStep). \(result)",
+                            playbackEvidence: playbackEvidence)
+                        onStep(step)
+                        steps.append(step)
+                        onScriptProgress(cursor.progress)
+                        try checkAvailability(deadline: deadline)
+                        if cursor.isComplete { return "\(cursor.script.title) completed. \(result)" }
+                        consecutivePlaybackWaits = 0
+                        playbackStartFrame = nil
+                        playbackTracker.reset()
+                        previousInput = nil
+                        previousPixels = nil
+                        repeatedInputs = 0
+                        afterDate = Date()
+                        continue
+                    }
+                    if workflow == .clearHomeScreen, let inspect {
+                        let observation = try await beforeDeadline(deadline) { try await inspect(frame) }
+                        try checkAvailability(deadline: deadline)
+                        try checkFrameAge(frame)
+                        guard observation.state == .home else {
+                            throw PhonePromptPlanningError.needsClarification(
+                                "Cleanup could not be verified on Home. " + observation.evidence)
+                        }
+                    }
+                    onProgress("Checked the result on the phone’s screen.")
+                    return result
+                case .needsInput(let explanation):
+                    throw PhonePromptPlanningError.needsClarification(explanation)
+                case .action(let proposedAction, let proposedReason):
+                    try scriptCursor?.validate(proposedAction)
+                    if let cursor = scriptCursor, [.prepareSubmission, .submit].contains(cursor.step.id) {
+                        try await validateSubmissionAction(proposedAction, frame, cursor.step.id == .submit)
+                        try checkAvailability(deadline: deadline)
+                        try checkFrameAge(frame)
+                    }
+                    consecutivePlaybackWaits = 0
+                    playbackStartFrame = nil
+                    playbackTracker.reset()
+                    var reason = proposedReason
+                    let action: PhonePromptAction
+                    if workflow == .clearHomeScreen, let prepareCleanupAction {
+                        do {
+                            action = try await beforeDeadline(deadline) {
+                                try await prepareCleanupAction(proposedAction, frame)
+                            }
+                        } catch let error as PhonePromptPlanningError {
+                            // A missed menu row is recoverable. Nothing was sent;
+                            // replan once with the guard's observed controls, then
+                            // subject the replacement to exactly the same guard.
+                            try checkAvailability(deadline: deadline)
+                            try checkFrameAge(frame)
+                            onProgress("Locating the safe removal option…")
+                            let instruction =
+                                "\n\nMENU CORRECTION: The proposed input was blocked. Inspect this same screenshot and choose one safe menu action. If Remove App is open, tap it, then inspect the next screenshot for Remove from Home Screen. Do not claim completion. Guard feedback: "
+                            let available = max(
+                                0, DevicePromptPlanner.maximumPromptLength - goal.count - instruction.count)
+                            let correctionGoal =
+                                goal + instruction + String(error.localizedDescription.prefix(available))
+                            let correction = try await beforeDeadline(deadline) { [self] in
+                                try await decide(correctionGoal, frame, history)
+                            }.validated()
+                            try checkAvailability(deadline: deadline)
+                            try checkFrameAge(frame)
+                            guard case .action(let correctedAction, let correctedReason) = correction else {
+                                throw error
+                            }
+                            action = try await beforeDeadline(deadline) {
+                                try await prepareCleanupAction(correctedAction, frame)
+                            }
+                            reason = correctedReason
+                        }
+                        _ = try PhoneVisionDecision.action(action, reason: reason).validated()
+                        try checkAvailability(deadline: deadline)
+                        try checkFrameAge(frame)
+                    } else {
+                        action = proposedAction
+                    }
+                    try checkRepeatedInput(
+                        .action(action), pixels: Self.screenFingerprint(frame.cgImage),
+                        previousInput: &previousInput, previousPixels: &previousPixels,
+                        repeatedInputs: &repeatedInputs)
+                    let step = PhoneVisionStep(
+                        id: UUID(), number: decisionNumber,
+                        action: description(of: action), detail: reason, capturedAt: frame.capturedAt,
+                        input: action, beforeFrame: frame, progressNote: workflow == nil ? nil : reason,
+                        playbackEvidence: playbackEvidence)
+                    onProgress("Step \(decisionNumber): \(step.action)")
+                    var displayStep = step
+                    displayStep.beforeFrame = nil
+                    onStep(displayStep)
+                    // UI callbacks can cancel the task or change the selected phone.
+                    try checkAvailability(deadline: deadline)
+                    try checkFrameAge(frame)
+                    if scriptCursor?.step.id == .submit {
+                        guard submission?.state == .preparing else {
+                            throw PhonePromptPlanningError.needsClarification(
+                                "This submission is already pending or uncertain. Verify it before starting another run."
+                            )
+                        }
+                        try recordSubmission(
+                            .submitting,
+                            detail:
+                                "About to send the final submit input. Do not retry unless the published result is reconciled."
+                        )
+                        try checkAvailability(deadline: deadline)
+                        try checkFrameAge(frame)
+                    }
+                    try await beforeDeadline(deadline) { [self] in try await perform(action) }
+                    scriptCursor?.didPerform(action)
+                    if let scriptCursor { try onScriptCheckpoint(scriptCursor.checkpoint) }
+                    try checkAvailability(deadline: deadline)
+                    steps.append(step)
+                    afterDate = Date()
+                case .wait(let seconds, let reason):
+                    if reviewsPlayback {
+                        if playbackStartFrame == nil { playbackStartFrame = frame }
+                        consecutivePlaybackWaits += 1
+                    }
+                    try checkRepeatedInput(
+                        .wait, pixels: Self.screenFingerprint(frame.cgImage),
+                        previousInput: &previousInput, previousPixels: &previousPixels,
+                        repeatedInputs: &repeatedInputs)
+                    let step = PhoneVisionStep(
+                        id: UUID(), number: decisionNumber,
+                        action: "Wait for the screen", detail: reason, capturedAt: frame.capturedAt, beforeFrame: frame,
+                        progressNote: workflow == nil ? nil : reason,
+                        playbackStartFrame: playbackStartFrame, playbackEvidence: playbackEvidence)
+                    onProgress("Waiting for the phone’s screen to change…")
+                    var displayStep = step
+                    displayStep.beforeFrame = nil
+                    displayStep.playbackStartFrame = nil
+                    onStep(displayStep)
+                    try checkAvailability(deadline: deadline)
+                    try await beforeDeadline(deadline) { try await Task.sleep(for: .seconds(seconds)) }
+                    try checkAvailability(deadline: deadline)
+                    steps.append(step)
+                    afterDate = Date()
                 }
-                try checkRepeatedInput(.wait, pixels: Self.screenFingerprint(frame.cgImage),
-                    previousInput: &previousInput, previousPixels: &previousPixels,
-                    repeatedInputs: &repeatedInputs)
-                let step = PhoneVisionStep(id: UUID(), number: decisionNumber,
-                    action: "Wait for the screen", detail: reason, capturedAt: frame.capturedAt, beforeFrame: frame,
-                    progressNote: workflow == nil ? nil : reason,
-                    playbackStartFrame: playbackStartFrame)
-                onProgress("Waiting for the phone’s screen to change…")
-                var displayStep = step
-                displayStep.beforeFrame = nil
-                displayStep.playbackStartFrame = nil
-                onStep(displayStep)
-                try checkAvailability(deadline: deadline)
-                try await beforeDeadline(deadline) { try await Task.sleep(for: .seconds(seconds)) }
-                try checkAvailability(deadline: deadline)
-                steps.append(step)
-                afterDate = Date()
             }
+        } catch let error as PhoneVisionError {
+            if case .limitReached = error, let cursor = scriptCursor,
+                ContinuousClock.now >= sessionDeadline, !Task.isCancelled
+            {
+                if cursor.script.activity != .watch {
+                    throw PhonePromptPlanningError.needsClarification(
+                        "The time limit was reached before the submission was verified. Check the phone before starting another run."
+                    )
+                }
+                return
+                    "Session time limit reached. \(cursor.itemsCompleted) items viewed; stopped during \(cursor.step.title.lowercased()). The current step was not verified."
+            }
+            throw error
         }
         throw PhoneVisionError.limitReached
     }

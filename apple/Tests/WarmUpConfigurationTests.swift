@@ -1,7 +1,7 @@
 import Foundation
 
 // From apple/: swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift
-// ShortReel/Services/DevicePrompts/{WarmUpPlaybook,DeviceWorkflow,DevicePromptPlanner,DevicePromptPlan}.swift Tests/WarmUpConfigurationTests.swift
+// ShortReel/Services/DevicePrompts/{WarmUpScript,WarmUpPlaybook,DeviceWorkflow,DevicePromptPlanner,DevicePromptPlan}.swift Tests/WarmUpConfigurationTests.swift
 // -o /tmp/shortreel-warmup-tests && /tmp/shortreel-warmup-tests
 @main
 enum WarmUpConfigurationTests {
@@ -16,10 +16,36 @@ enum WarmUpConfigurationTests {
         try handleIsRequiredAndNormalized()
         try everyPlatformNamesWhereTheHandleIs()
         try goalRequiresTheCheckBeforeEngagement()
+        try activityLimits()
         var generatedPersonality = valid()
         generatedPersonality.profileNarrative = String(repeating: "a", count: 1_000)
         try expect(generatedPersonality.validationMessage == nil, "Playback guidance crowds out a typical generated personality")
-        print("Warm-up configuration tests passed (5 scenarios)")
+        print("Warm-up configuration tests passed (6 scenarios)")
+    }
+
+    static func activityLimits() throws {
+        for platform in WarmUpPlaybook.platforms {
+            var config = valid()
+            config.platform = platform
+            config.activity = .comment
+            if config.phase.maxComments == 0 {
+                try expect(config.validationMessage?.contains("Comments are unavailable") == true, "Early comments allowed")
+            }
+            config.phaseIndex = 1
+            try expect(config.validationMessage == nil && config.script?.itemLimit == 1, "Comment script should consume one item")
+            config.activity = .post
+            try expect(config.validationMessage?.contains("Describe the post") == true, "Post has no content instructions")
+            config.contentInstructions = "Use the existing street photography video from the Photos album Shoot 1."
+            try expect(config.validationMessage == nil, "Valid post was rejected")
+            config.phaseIndex = 0
+            try expect(config.validationMessage?.contains("Posting is unavailable") == true, "Early posting allowed")
+        }
+        var config = valid()
+        config.platform = .facebook
+        try expect(config.validationMessage != nil && config.script == nil, "Unsupported platform silently falls back")
+        config = valid()
+        config.sessionMinutes = 0
+        try expect(config.validationMessage != nil, "Zero duration accepted")
     }
 
     static func valid() -> WarmUpConfiguration {

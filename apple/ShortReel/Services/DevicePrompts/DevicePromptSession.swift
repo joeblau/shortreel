@@ -1,11 +1,13 @@
 import Foundation
 import Observation
 
-enum DevicePromptStatus: String, Sendable {
-    case planning, running, completed, failed, cancelled, needsInput
+enum DevicePromptStatus: String, Codable, Sendable {
+    case queued, planning, running, completed, failed, cancelled, needsInput, needsReview
 
     var displayName: String {
         switch self {
+        case .queued: "Queued"
+        case .needsReview: "Needs review"
         case .planning: "Understanding…"
         case .running: "Running…"
         case .completed: "Completed"
@@ -28,18 +30,34 @@ struct DevicePromptEntry: Identifiable, Sendable {
     /// frame-bound `steps` instead.
     var sentActions: [String] = []
     var workflow: DeviceWorkflow? = nil
+    var scriptTitle: String? = nil
+    var scriptProgress: String? = nil
+    var createdAt = Date()
+    var updatedAt = Date()
+    var reviewedAt: Date? = nil
+    var submission: PhoneSubmissionCheckpoint? = nil
+    var scriptCheckpoint: WarmUpScriptCheckpoint? = nil
+    var warmUpScript: WarmUpScript? = nil
+    var testAppSwitcher = false
 }
 
 /// One independent conversation and serial action task for each physical phone.
 /// Every request runs the same loop: capture the screen, let the selected model
-/// choose one action, execute it, capture again. No scripted prefixes, no
-/// parser shortcuts — a request finishes only after the model verifies the goal
-/// on a fresh screen.
+/// choose one action, execute it, capture again. Warm-up scripts track verified
+/// milestones while keeping every physical input grounded in a fresh screen.
 @Observable @MainActor
 final class DevicePromptSession {
     var draft = ""
     private(set) var entries: [DevicePromptEntry] = []
     private(set) var isRunning = false
+    private(set) var queuePaused = false
+    private(set) var persistenceError: String?
+    var hasUnreviewedRuns: Bool { entries.contains { $0.status == .needsReview && $0.reviewedAt == nil } }
+    var queuedCount: Int { entries.filter { $0.status == .queued }.count }
+
+    @ObservationIgnored private let journal: DeviceRunJournal?
+    @ObservationIgnored private var journalLoaded = true
+    @ObservationIgnored private var retired = false
 
     @ObservationIgnored private let deviceName: String
     @ObservationIgnored private let blockedReason: () -> String?
@@ -50,15 +68,33 @@ final class DevicePromptSession {
     @ObservationIgnored private var cancellationMessage = "Stopped. Input already sent to the phone cannot be undone."
 
     init(deviceName: String,
+         deviceIdentifier: String? = nil,
+         journal: DeviceRunJournal? = nil,
          blockedReason: @escaping () -> String?,
          visualRunner: PhoneVisualRunner? = nil,
          visualBlockedReason: @escaping () -> String? = { nil },
          onVisualStart: (() -> Void)? = nil) {
+        self.journal = journal ?? deviceIdentifier.map { DeviceRunJournal(deviceIdentifier: $0) }
         self.deviceName = deviceName
         self.blockedReason = blockedReason
         self.visualRunner = visualRunner
         self.visualBlockedReason = visualBlockedReason
         self.onVisualStart = onVisualStart
+        do {
+            entries = try self.journal?.load() ?? []
+            for index in entries.indices where entries[index].status.isActive
+                || (entries[index].submission?.requiresReview == true && entries[index].reviewedAt == nil) {
+                entries[index].status = .needsReview
+                entries[index].message = "Interrupted by an app restart. Check the phone before starting a new request; this run will not be retried."
+                entries[index].updatedAt = Date()
+            }
+            queuePaused = queuedCount > 0 || hasUnreviewedRuns
+            try persist()
+        } catch {
+            journalLoaded = false
+            persistenceError = error.localizedDescription
+            queuePaused = true
+        }
     }
 
     var unavailableReason: String? { blockedReason() }
@@ -67,15 +103,22 @@ final class DevicePromptSession {
         visualBlockedReason() ?? (visualRunner == nil ? "Connect a live phone screen before running an action." : nil)
     }
 
-    func submit(testAppSwitcher: Bool = false, workflow: DeviceWorkflow? = nil, details: String = "") {
+    func submit(testAppSwitcher: Bool = false, workflow: DeviceWorkflow? = nil, details: String = "",
+                warmUpScript: WarmUpScript? = nil) {
         let workflow = testAppSwitcher ? nil : workflow
+        let warmUpScript = workflow == .warmUp ? warmUpScript : nil
         let prompt = testAppSwitcher ? "Test App Switcher gesture"
-            : workflow?.goal(details: details) ?? draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !isRunning, !prompt.isEmpty else { return }
+            : warmUpScript != nil ? details : workflow?.goal(details: details) ?? draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !retired, !prompt.isEmpty else { return }
         let id = UUID()
-        entries.append(DevicePromptEntry(id: id, prompt: prompt, status: .planning,
-            message: "Understanding your request…", workflow: workflow))
-        if entries.count > 50 { entries.removeFirst(entries.count - 50) }
+        entries.append(DevicePromptEntry(id: id, prompt: prompt, status: .queued,
+            message: "Waiting for this phone…", workflow: workflow, scriptTitle: warmUpScript?.title,
+            warmUpScript: warmUpScript, testAppSwitcher: testAppSwitcher))
+        trimHistory()
+        guard journalLoaded else {
+            update(id, status: .failed, message: persistenceError ?? "Device history is unavailable.")
+            return
+        }
         if let workflow, workflow != .clearHomeScreen, details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             update(id, status: .needsInput, message: workflow.summary)
             return
@@ -84,18 +127,66 @@ final class DevicePromptSession {
             update(id, status: .failed, message: reason)
             return
         }
-        guard let runner = visualRunner, visualBlockedReason() == nil else {
+        guard visualRunner != nil, visualBlockedReason() == nil else {
             update(id, status: .failed,
                 message: visualBlockedReason() ?? "The selected model needs a live phone screen before it can choose an action.")
             return
         }
         if !testAppSwitcher && workflow == nil { draft = "" }
+        guard persistOrPause() else {
+            update(id, status: .failed, message: persistenceError ?? "Unable to save this request.")
+            return
+        }
+        startNext()
+    }
+
+    /// Explicitly resume only never-started jobs; interrupted jobs are never retried.
+    func resumeQueue() {
+        guard journalLoaded, !hasUnreviewedRuns, persistOrPause() else { return }
+        queuePaused = false
+        startNext()
+    }
+
+    func acknowledgeReview(id: UUID) {
+        guard let index = entries.firstIndex(where: { $0.id == id && $0.status == .needsReview }) else { return }
+        entries[index].reviewedAt = Date()
+        entries[index].updatedAt = Date()
+        persistOrPause()
+    }
+
+    func cancelQueued(id: UUID) {
+        guard let index = entries.firstIndex(where: { $0.id == id && $0.status == .queued }) else { return }
+        entries[index].status = .cancelled
+        entries[index].message = "Removed from the queue before starting."
+        entries[index].updatedAt = Date()
+        persistOrPause()
+    }
+
+    func cancelAllQueued() {
+        for id in entries.filter({ $0.status == .queued }).map(\.id) { cancelQueued(id: id) }
+    }
+
+    private func startNext() {
+        guard !retired, !isRunning, !queuePaused, !hasUnreviewedRuns,
+              let entry = entries.first(where: { $0.status == .queued }), let runner = visualRunner else { return }
+        let id = entry.id
+        let prompt = entry.prompt
+        let workflow = entry.workflow
+        let warmUpScript = entry.warmUpScript
+        let testAppSwitcher = entry.testAppSwitcher
+        if let reason = blockedReason() ?? visualBlockedReason() {
+            queuePaused = true
+            update(id, status: .queued, message: reason + " Resume the queue when ready.")
+            return
+        }
+        update(id, status: .planning, message: "Understanding your request…")
+        guard persistenceError == nil else { return }
         isRunning = true
         cancellationMessage = "Stopped. Input already sent to the phone cannot be undone."
         task = Task { [weak self] in
             guard let self else { return }
             var completed = 0
-            defer { self.isRunning = false; self.task = nil }
+            defer { self.isRunning = false; self.task = nil; self.startNext() }
             do {
                 // Overlap model warm-up with the first capture.
                 self.onVisualStart?()
@@ -103,13 +194,32 @@ final class DevicePromptSession {
                     self.update(id, status: .running, message: message)
                 }
                 let record: (PhoneVisionStep) -> Void = { step in
-                    guard let index = self.entries.firstIndex(where: { $0.id == id }) else { return }
+                    guard !self.retired, let index = self.entries.firstIndex(where: { $0.id == id }) else { return }
                     self.entries[index].steps.append(step)
                     completed += 1
+                    self.entries[index].updatedAt = Date()
+                    self.persistOrPause()
                 }
                 let summary = testAppSwitcher
                     ? try await runner.testAppSwitcher(onProgress: progress, onStep: record)
-                    : try await runner.run(goal: prompt, workflow: workflow, onProgress: progress, onStep: record)
+                    : try await runner.run(goal: prompt, workflow: workflow, warmUpScript: warmUpScript,
+                        onScriptProgress: { message in
+                            guard !self.retired, let index = self.entries.firstIndex(where: { $0.id == id }) else { return }
+                            self.entries[index].scriptProgress = message
+                            self.persistOrPause()
+                        }, onScriptCheckpoint: { checkpoint in
+                            guard !self.retired else { throw CancellationError() }
+                            guard let index = self.entries.firstIndex(where: { $0.id == id }) else { return }
+                            self.entries[index].scriptCheckpoint = checkpoint
+                            self.entries[index].updatedAt = Date()
+                            try self.persist()
+                        }, onSubmissionCheckpoint: { checkpoint in
+                            guard !self.retired else { throw CancellationError() }
+                            guard let index = self.entries.firstIndex(where: { $0.id == id }) else { return }
+                            self.entries[index].submission = checkpoint
+                            self.entries[index].updatedAt = Date()
+                            try self.persist()
+                        }, onProgress: progress, onStep: record)
                 try Task.checkCancellation()
                 self.update(id, status: .completed, message: summary)
             } catch is CancellationError {
@@ -136,14 +246,59 @@ final class DevicePromptSession {
     func cancel() { cancel(because: "Stopped. Input already sent to the phone cannot be undone.") }
 
     func cancel(because reason: String) {
+        queuePaused = queuedCount > 0
         guard isRunning else { return }
         cancellationMessage = reason
         task?.cancel()
     }
 
+    /// Freeze a discarded session before a replacement can load its journal.
+    /// Its cancelled task may still unwind, but must never overwrite newer work.
+    func retire(because reason: String) {
+        guard !retired else { return }
+        cancel(because: reason)
+        for id in entries.filter({ $0.status.isActive }).map(\.id) {
+            update(id, status: .cancelled, message: reason)
+        }
+        queuePaused = true
+        retired = true
+    }
+
+    private func trimHistory() {
+        // Keep all active, queued, and unresolved runs even if the history cap is exceeded.
+        let terminal = entries.filter { !$0.status.isActive && $0.status != .queued && !($0.status == .needsReview && $0.reviewedAt == nil) }
+        let remove = Set(terminal.prefix(max(0, entries.count - 50)).map(\.id))
+        entries.removeAll { remove.contains($0.id) }
+    }
+
+    private func persist() throws {
+        guard !retired else { throw CancellationError() }
+        guard journalLoaded else { throw DeviceRunJournal.JournalError.invalidData }
+        try journal?.save(entries)
+        persistenceError = nil
+    }
+
+    @discardableResult private func persistOrPause() -> Bool {
+        do { try persist(); return true }
+        catch {
+            persistenceError = "Could not save device history: " + error.localizedDescription
+            queuePaused = true
+            cancellationMessage = persistenceError!
+            task?.cancel()
+            return false
+        }
+    }
+
     private func update(_ id: UUID, status: DevicePromptStatus, message: String) {
-        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
-        entries[index].status = status
-        entries[index].message = message
+        guard !retired, let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        let unconfirmed = entries[index].submission.map { $0.state == .submitting || $0.state == .uncertain } ?? false
+        entries[index].status = !status.isActive && status != .queued && unconfirmed ? .needsReview : status
+        entries[index].message = unconfirmed && !status.isActive
+            ? message + " Submission may already have succeeded. Check the phone; do not retry automatically." : message
+        entries[index].updatedAt = Date()
+        if hasUnreviewedRuns { queuePaused = true }
+        if [.failed, .needsInput, .needsReview, .cancelled].contains(entries[index].status), queuedCount > 0 { queuePaused = true }
+        trimHistory()
+        persistOrPause()
     }
 }

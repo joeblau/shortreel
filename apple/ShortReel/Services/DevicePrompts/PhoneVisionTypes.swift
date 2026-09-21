@@ -33,6 +33,7 @@ struct PhoneVisionStep: Identifiable, Sendable, Equatable {
     /// the start of observation instead of only the last two transitions.
     var playbackStartFrame: PhoneScreenFrame? = nil
     var playbackReviewRequested = false
+    var playbackEvidence: String? = nil
 
     var executionFeedback: String {
         let command = input?.modelInputDescription ?? action
@@ -42,7 +43,8 @@ struct PhoneVisionStep: Identifiable, Sendable, Equatable {
             ?? "No post-action observation available."
         let timing = "Screenshot captured at \(capturedAt.ISO8601Format())."
         let review = playbackReviewRequested ? "\n" + PhoneSearchGuidance.playbackCompletionReview : ""
-        return "\(number). Sent input (coordinates are normalized 0...1): \(command). Result: \(result) \(timing)\(review)"
+        let playback = playbackEvidence.map { "\n" + $0 } ?? ""
+        return "\(number). Sent input (coordinates are normalized 0...1): \(command). Result: \(result) \(timing)\(review)\(playback)"
     }
 }
 

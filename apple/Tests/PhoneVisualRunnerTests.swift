@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner}.swift Tests/PhoneVisualRunnerTests.swift -o /tmp/shortreel-visual-runner-tests
+// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{WarmUpScript,PhonePlaybackTracker,PhoneSubmissionGuard,PhoneSubmissionCheckpoint,DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner}.swift Tests/PhoneVisualRunnerTests.swift -o /tmp/shortreel-visual-runner-tests
 @main @MainActor
 enum PhoneVisualRunnerTests {
     private enum TestError: LocalizedError {
@@ -43,7 +43,130 @@ enum PhoneVisualRunnerTests {
         try await stopNearlyIdenticalTapLoop()
         try await appSwitcherDiagnostic()
         try await tiktokPlaybackReview()
-        print("Phone visual runner tests passed (15 scenarios)")
+        try await scriptedWatchLoop()
+        try await scriptDeadline()
+        try await submissionJournalPrecedesInput()
+        try await submissionStorageFailureBlocksInput()
+        try await submissionCannotBeRepeatedDuringVerification()
+        print("Phone visual runner tests passed (20 scenarios)")
+    }
+
+    private static func submissionJournalPrecedesInput() async throws {
+        var decisions = 0
+        var states: [PhoneSubmissionCheckpoint.State] = []
+        var inputs = 0
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { goal, _, _ in
+                decisions += 1
+                switch decisions {
+                case 1: return .finished("Matching account visible")
+                case 2: return .finished("Requested text is ready in the composer")
+                case 3: return .action(.tap(0.8, 0.2), reason: "Visible Post button")
+                case 4:
+                    try expect(goal.contains("Verify"), "Submit did not immediately transition to verification")
+                    return .wait(seconds: 0.25, reason: "Upload in progress")
+                default: return .finished("Published post visible under the correct account")
+                }
+            }, perform: { _ in
+                try expect(states.last == .submitting, "Input was sent before the durable submission checkpoint")
+                inputs += 1
+            }, blockedReason: { nil }, validateSubmissionAction: { _, _, _ in })
+        let script = WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30)
+        _ = try await runner.run(goal: "Post supplied text", workflow: .warmUp, warmUpScript: script,
+            onSubmissionCheckpoint: { states.append($0.state) }, onProgress: { _ in }, onStep: { _ in })
+        try expect(inputs == 1 && states == [.preparing, .submitting, .confirmed], "Incorrect submission lifecycle")
+    }
+
+    private static func submissionStorageFailureBlocksInput() async throws {
+        var decisions = 0
+        var inputs = 0
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { _, _, _ in
+                decisions += 1
+                return decisions < 3 ? .finished("Verified preparation") : .action(.tap(0.8, 0.2), reason: "Post")
+            }, perform: { _ in inputs += 1 }, blockedReason: { nil }, validateSubmissionAction: { _, _, _ in })
+        do {
+            _ = try await runner.run(goal: "Post supplied text", workflow: .warmUp,
+                warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onSubmissionCheckpoint: { checkpoint in
+                    if checkpoint.state == .submitting { throw TestError.failed("Disk unavailable") }
+                }, onProgress: { _ in }, onStep: { _ in })
+            throw TestError.failed("Ignored submission journal failure")
+        } catch let error as TestError {
+            try expect(error.localizedDescription == "Disk unavailable", "Wrong journal error")
+        }
+        try expect(inputs == 0, "Publishing continued without a saved checkpoint")
+    }
+
+    private static func submissionCannotBeRepeatedDuringVerification() async throws {
+        var decisions = 0
+        var inputs = 0
+        var states: [PhoneSubmissionCheckpoint.State] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { _, _, _ in
+                decisions += 1
+                return decisions < 3 ? .finished("Verified preparation") : .action(.tap(0.8, 0.2), reason: "Try Post")
+            }, perform: { _ in inputs += 1 }, blockedReason: { nil }, validateSubmissionAction: { _, _, _ in })
+        do {
+            _ = try await runner.run(goal: "Post supplied text", workflow: .warmUp,
+                warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onSubmissionCheckpoint: { states.append($0.state) }, onProgress: { _ in }, onStep: { _ in })
+            throw TestError.failed("Allowed another tap during verification")
+        } catch is PhonePromptPlanningError { }
+        try expect(inputs == 1 && states == [.preparing, .submitting, .uncertain], "Ambiguous publish was retried or not flagged")
+    }
+
+    private static func scriptedWatchLoop() async throws {
+        let script = WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 2, duration: 30)
+        let decisions: [(String, PhoneVisionDecision)] = [
+            ("Verify account", .finished("Matching handle visible")),
+            ("Search niche", .finished("Two-word query and suggestions visible")),
+            ("Choose search result", .finished("Video grid visible")),
+            ("Open video", .finished("First video playing")),
+            ("Watch to completion", .wait(seconds: 0.25, reason: "Still playing")),
+            ("Watch to completion", .finished("First video visibly restarted")),
+            ("Next video", .action(.swipe(.up), reason: "Advance after verified completion")),
+            ("Next video", .wait(seconds: 0.25, reason: "Transition loading")),
+            ("Next video", .finished("Different video now playing")),
+            ("Watch to completion", .finished("Second video ending verified")),
+        ]
+        var index = 0
+        var inputs: [PhonePromptAction] = []
+        var progress: [String] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { goal, _, _ in
+                try expect(index < decisions.count, "Script continued after its item limit")
+                let (title, decision) = decisions[index]
+                try expect(goal.contains(": \(title)."), "Wrong active script step: \(title)")
+                if index == 7 { try expect(goal.contains("already sent"), "Advance input not retained") }
+                index += 1
+                return decision
+            }, perform: { inputs.append($0) }, blockedReason: { nil })
+        let result = try await runner.run(goal: "Platform: TikTok", workflow: .warmUp, warmUpScript: script,
+            onScriptProgress: { progress.append($0) }, onProgress: { _ in }, onStep: { _ in })
+        try expect(index == decisions.count && inputs == [.swipe(.up)], "Not exactly one swipe between two completed videos")
+        try expect(result.contains("completed") && progress.last?.contains("2/2 viewed") == true,
+            "Script progress did not reach the item limit")
+    }
+
+    private static func scriptDeadline() async throws {
+        var inputs = 0
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { _, _, _ in
+                try await Task.sleep(for: .seconds(1))
+                return .action(.swipe(.up), reason: "Too late")
+            }, perform: { _ in inputs += 1 }, blockedReason: { nil })
+        let script = WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 2, duration: 0.05)
+        let result = try await runner.run(goal: "Platform: TikTok", workflow: .warmUp, warmUpScript: script,
+            onProgress: { _ in }, onStep: { _ in })
+        try expect(inputs == 0 && result.contains("time limit"), "Script sent input after its deadline")
+        do {
+            _ = try await runner.run(goal: "Publish provided content", workflow: .warmUp,
+                warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 0.05),
+                onProgress: { _ in }, onStep: { _ in })
+            throw TestError.failed("Incomplete publication timed out as success")
+        } catch is PhonePromptPlanningError { }
+        try expect(inputs == 0, "Expired publication sent input")
     }
 
     private static func tiktokPlaybackReview() async throws {

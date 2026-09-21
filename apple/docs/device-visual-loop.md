@@ -244,6 +244,63 @@ All visual planners prefer a coordinate tap on the requested app’s visible Hom
 
 ## Bounds and limitations
 
+Warm Up is a group of independently runnable Watch, Comment, and Post activities.
+`WarmUpScript` supplies built-in milestones for TikTok, Instagram, YouTube, and X;
+the configuration sheet previews the selected script. Every script begins with the
+persona's signed-in account check. Each model `finished` response verifies only
+the active milestone. `WarmUpScriptCursor` advances it and records progress in the
+session; it never stores screen coordinates.
+
+Watch searches the niche, opens content, and loops through consume/advance steps.
+TikTok selects one of the first three search suggestions and then a top-row video.
+Instagram uses Reels, YouTube uses Shorts, and X reads posts. Video completion
+requires model-observed ending/progress/replay evidence; retained timestamped
+frames support that judgment. The runner rejects swipes during consumption,
+allows only one upward swipe during advancement, and requires a new observation
+before returning to consumption. It stops at the configured item/time limit.
+Perception and completion detection still depend on the selected visual model.
+
+`PhonePlaybackTracker` adds local Apple Vision timer measurements during video
+consumption. A replay candidate needs plausible forward progress, a near-end to
+near-zero reset, matching duration/position, and stable creator/caption anchors
+from the same phone. Paused timers, changing pixels, missing OCR, or elapsed wall
+time alone never count as completion. The model receives this evidence and still
+verifies the full-screen player. Hidden timers remain explicitly unconfirmed.
+
+Comment consumes one item and publishes one relevant comment/reply. Post requires
+content instructions (including existing media for video platforms), publishes
+one post, and verifies the result. Both respect the selected phase's permissions;
+Watch authorizes no publishing or engagement. Scripts do not automatically chain
+Watch into Comment or Post. Cancellation, source checks, and the existing 300-step
+ceiling apply to all three activities. Standalone script, runner, and configuration
+tests cover transitions, duplicate swipe rejection, activity permissions, item
+limits, and expiry during a pending model call; they do not verify live platform UI.
+
+Script definitions have stable identifiers, explicit versions, validated settings,
+and a Codable envelope containing the exact steps and retry policy. Unsupported
+versions or changed contracts are rejected rather than silently upgraded. Version
+one permits one preparation attempt and one submission attempt; it does not retry
+interrupted runs automatically.
+
+Comment/Post use separate prepare, submit, and verify milestones. The runner saves
+`preparing` and then durably saves `submitting` before dispatching the final tap.
+Submission validation blocks recognized publication controls during preparation,
+and final dispatch requires a recognized visible submit target. Verification sends
+no further input. A verified result becomes `confirmed`; any unverified exit after
+the submit boundary becomes `uncertain`. An unreadable final submit control stops
+for clarification. This still relies on screen interpretation and is not a server
+receipt or an exactly-once guarantee. Publication timeouts never report success.
+
+Each physical device has a serial FIFO queue. Its atomic JSON journal lives in
+Application Support/ShortReel/RunHistory, keyed by a hash of the stable device ID.
+It stores requests, versioned scripts, text-only step logs and playback evidence,
+cursor/submission checkpoints, statuses, and timestamps; it stores no screenshots.
+Successful runs drain the queue. Failure/stop pauses pending work. After relaunch,
+previously active runs require review and pending jobs wait for explicit Resume.
+Acknowledging a reviewed result never retries it. Storage failure stops execution;
+corrupt or unsupported journals are preserved rather than overwritten. Retiring a
+session freezes its journal writes before replacing its device connection.
+
 - One request runs per device. Ordinary messages allow at most 30 decisions and five minutes; Stage actions allow 300 decisions and one hour. A suspended capture or model cannot later dispatch a result after cancellation or timeout.
 - Repeating an equivalent input on a visually unchanged screen stops before the third dispatch. A small grayscale image comparison excludes the top and bottom edges and tolerates minor pixel changes; nearby taps count as equivalent. JPEG encoding noise and small pointer movements therefore do not reset the guard. Larger screen changes can still reset it; the overall limits remain in force.
 - Local Vision text recognition supplies per-frame text targets. OCR-selected taps use those anchors rather than model coordinates. The native planner requires explicit user coordinates for unlabeled targets. UI-TARS uses image-selected coordinates normalized using resized-image pixel bounds for version 1.5, or the 0–1000 convention for older models and accepts only the supported phone actions. Coordinate bounds and structured output checks cannot guarantee perception accuracy. The next fresh frame supplies feedback. Ambiguous or inconsistent decisions stop for clarification.
