@@ -13,6 +13,7 @@ struct DevicePromptView: View {
         @Bindable var session = deviceManager.promptSession(for: device)
 
         VStack(alignment: .leading, spacing: 8) {
+            DeviceRunQueueView(session: session)
             // Say why a message cannot be sent, or why the planner will not
             // see the screen, instead of silently disabling the button.
             if let notice = notice(session) {
@@ -166,7 +167,7 @@ private struct ChatTranscriptEntry: View {
             ChatBubble(.outgoing) {
                 if let workflow = entry.workflow {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(workflow.title)
+                        Text(entry.scriptTitle ?? workflow.title)
                         DisclosureGroup("Task details") { Text(entry.prompt).font(.caption) }
                     }
                 } else {
@@ -225,9 +226,10 @@ private struct ChatTranscriptEntry: View {
     private func statusColor(_ status: DevicePromptStatus) -> Color {
         switch status {
         case .planning, .running: .accentColor
+        case .queued: .secondary
         case .cancelled, .completed: .secondary
         case .failed: .red
-        case .needsInput: .orange
+        case .needsInput, .needsReview: .orange
         }
     }
 

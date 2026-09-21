@@ -12,6 +12,7 @@ struct DeviceStageView: View {
     @Query(sort: \Persona.displayName) private var personas: [Persona]
     @Query private var warmUpPlans: [WarmUpPlan]
     @State private var editingWorkflow: DeviceWorkflow?
+    @State private var warmUpActivity: WarmUpActivity = .watch
     @State private var warmUp = WarmUpConfiguration()
     @State private var warmUpPersona: Persona?
     @State private var showAddWarmUpPersona = false
@@ -23,31 +24,31 @@ struct DeviceStageView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(DeviceWorkflow.allCases.enumerated()), id: \.element.id) { index, workflow in
-                    Button {
-                        if workflow == .clearHomeScreen {
-                            run(.clearHomeScreen)
-                        } else {
-                            editingWorkflow = workflow
+                    if workflow == .warmUp {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Warm Up", systemImage: "2.circle")
+                                .font(.headline)
+                                .padding(.horizontal, 12)
+                            ForEach(WarmUpActivity.allCases) { activity in
+                                stageButton(activity.title, symbol: activity.symbol, session: session) {
+                                    warmUpActivity = activity
+                                    editingWorkflow = .warmUp
+                                }
+                            }
                         }
-                    } label: {
-                        HStack(spacing: 10) {
-                            Label(workflow.title, systemImage: "\(index + 1).circle")
-                            Spacer(minLength: 8)
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 12, weight: .semibold))
-                                .accessibilityHidden(true)
+                        .padding(12)
+                        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 20))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                    } else {
+                        stageButton(workflow.title, symbol: "\(index + 1).circle", session: session) {
+                            if workflow == .clearHomeScreen { run(.clearHomeScreen) }
+                            else { editingWorkflow = workflow }
                         }
-                        .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
-                        .contentShape(Rectangle())
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .help(workflow.summary)
                     }
-                    .buttonStyle(.bordered)
-                    .buttonBorderShape(.capsule)
-                    .controlSize(.regular)
-                    .accessibilityLabel("Run \(workflow.title) on \(device.name)")
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .disabled(session.isRunning || unavailableReason(session) != nil)
-                    .help(workflow.summary)
                 }
 
                 if let reason = unavailableReason(session) {
@@ -57,16 +58,23 @@ struct DeviceStageView: View {
                         .padding(16)
                 }
 
-                if let entry = session.entries.last {
+                DeviceRunQueueView(session: session)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
+                if let entry = session.entries.last(where: { $0.status.isActive }) ?? session.entries.last {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             if session.isRunning { ProgressView().controlSize(.small) }
-                            Text(entry.workflow?.title ?? "Agent request").font(.headline)
+                            Text(entry.scriptTitle ?? entry.workflow?.title ?? "Agent request").font(.headline)
                             Spacer()
                             if session.isRunning {
                                 Button("Stop") { session.cancel() }
                                     .keyboardShortcut(".", modifiers: .command)
                             }
+                        }
+                        if let progress = entry.scriptProgress {
+                            Text(progress).font(.callout)
                         }
                         Text(entry.status.displayName).font(.subheadline)
                         Text(entry.message).font(.callout).foregroundStyle(.secondary)
@@ -96,6 +104,26 @@ struct DeviceStageView: View {
         }
     }
 
+    private func stageButton(_ title: String, symbol: String, session: DevicePromptSession,
+                             action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Label(title, systemImage: symbol)
+                Spacer(minLength: 8)
+                Image(systemName: "play.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .controlSize(.regular)
+        .accessibilityLabel("\(session.isRunning ? "Queue" : "Run") \(title) on \(device.name)")
+        .disabled(unavailableReason(session) != nil)
+    }
+
     private func unavailableReason(_ session: DevicePromptSession) -> String? {
         if !device.isLive { return "This iPhone is no longer available." }
         return session.unavailableReason ?? session.screenUnavailableReason
@@ -118,6 +146,7 @@ struct DeviceStageView: View {
             ?? available.first
         warmUpPersona = persona
         warmUp = WarmUpConfiguration()
+        warmUp.activity = warmUpActivity
         applyWarmUpDefaults()
     }
 
@@ -158,8 +187,8 @@ struct DeviceStageView: View {
         let phases = WarmUpPlaybook.phases(for: warmUp.platform)
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Warm Up").font(.title2.bold())
-                Text("Build a human-looking history on \(device.name).")
+                Text("Warm Up · \(warmUpActivity.title)").font(.title2.bold())
+                Text("Run the \(warmUpActivity.title.lowercased()) script on \(device.name).")
                     .foregroundStyle(.secondary)
             }
             .padding(24)
@@ -215,17 +244,41 @@ struct DeviceStageView: View {
                     }
                 }
 
+                if let script = warmUp.script {
+                    Section("Script") {
+                        ForEach(Array(script.steps.enumerated()), id: \.offset) { index, step in
+                            Label(step.title, systemImage: "\(index + 1).circle")
+                                .font(.callout)
+                        }
+                        if warmUpActivity == .watch {
+                            Text("Repeat watching and advancing until the item or time limit is reached.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 Section("Session") {
                     Stepper(value: $warmUp.sessionMinutes, in: 5...60, step: 5) {
                         LabeledContent("Minutes", value: "\(warmUp.sessionMinutes)")
                             .monospacedDigit()
                     }
-                    Stepper(value: $warmUp.itemsToView, in: 3...50) {
-                        LabeledContent("Videos or posts to view", value: "\(warmUp.itemsToView)")
-                            .monospacedDigit()
+                    if warmUpActivity == .watch {
+                        Stepper(value: $warmUp.itemsToView, in: 3...50) {
+                            LabeledContent("Videos or posts to view", value: "\(warmUp.itemsToView)")
+                                .monospacedDigit()
+                        }
                     }
                     TextField("Niche", text: $warmUp.niche,
                               prompt: Text("What this persona browses, e.g. street photography"))
+                    if warmUpActivity != .watch {
+                        TextField(warmUpActivity == .post ? "Post instructions and media" : "Comment instructions (optional)",
+                                  text: $warmUp.contentInstructions, axis: .vertical)
+                            .lineLimit(3...6)
+                        Text(warmUpActivity == .post
+                             ? "Publishes one post. Describe the content and identify existing photos or video to use."
+                             : "Reads or watches one item, then publishes one relevant comment in this persona’s voice.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
             .formStyle(.grouped)
@@ -235,7 +288,7 @@ struct DeviceStageView: View {
                 Text("The agent first confirms the phone is signed in as @\(warmUp.normalizedHandle.isEmpty ? "handle" : warmUp.normalizedHandle), then stays within the phase caps and stops at the limit above.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                if let reason = unavailableReason(session) ?? (session.isRunning ? "Wait for the current task to finish before warming up." : warmUp.validationMessage) {
+                if let reason = unavailableReason(session) ?? warmUp.validationMessage {
                     Text(reason)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -244,15 +297,16 @@ struct DeviceStageView: View {
                     Button("Cancel", role: .cancel) { editingWorkflow = nil }
                         .keyboardShortcut(.cancelAction)
                     Spacer()
-                    Button("Run on \(device.name)") {
-                        guard warmUp.validationMessage == nil, !session.isRunning,
+                    Button("\(session.isRunning || session.queuePaused ? "Queue " : "")\(warmUpActivity.title) on \(device.name)") {
+                        guard warmUp.validationMessage == nil,
                               unavailableReason(session) == nil, let persona = warmUpPersona else { return }
                         saveWarmUpPlan(for: persona)
-                        run(.warmUp, details: warmUp.brief)
+                        deviceManager.prepareVisionProvider()
+                        session.submit(workflow: .warmUp, details: warmUp.scriptBrief, warmUpScript: warmUp.script)
                         editingWorkflow = nil
                     }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(warmUp.validationMessage != nil || session.isRunning || unavailableReason(session) != nil)
+                    .disabled(warmUp.validationMessage != nil || unavailableReason(session) != nil)
                 }
             }
             .padding(24)
@@ -339,7 +393,7 @@ struct DeviceStageView: View {
                 Text("Saved as a draft for you to review before publishing.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                if let reason = unavailableReason(session) ?? (session.isRunning ? "Wait for the current task to finish before creating a draft." : slideshow.validationMessage) {
+                if let reason = unavailableReason(session) ?? slideshow.validationMessage {
                     Text(reason)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -348,14 +402,14 @@ struct DeviceStageView: View {
                     Button("Cancel", role: .cancel) { editingWorkflow = nil }
                         .keyboardShortcut(.cancelAction)
                     Spacer()
-                    Button("Create Draft") {
-                        guard slideshow.validationMessage == nil, !session.isRunning,
+                    Button(session.isRunning || session.queuePaused ? "Queue Draft" : "Create Draft") {
+                        guard slideshow.validationMessage == nil,
                               unavailableReason(session) == nil else { return }
                         run(.createContent, details: slideshow.brief)
                         editingWorkflow = nil
                     }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(slideshow.validationMessage != nil || session.isRunning || unavailableReason(session) != nil)
+                    .disabled(slideshow.validationMessage != nil || unavailableReason(session) != nil)
                 }
             }
             .padding(24)

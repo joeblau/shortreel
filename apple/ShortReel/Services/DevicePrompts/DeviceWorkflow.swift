@@ -1,6 +1,7 @@
 import Foundation
 
-/// Reusable goals, not gesture scripts. Every input is still chosen from a fresh screen.
+/// Workflow goals. Warm-up can additionally use a script of verified milestones;
+/// every physical input is still chosen from a fresh screen.
 enum DeviceWorkflow: String, CaseIterable, Identifiable, Sendable {
     case clearHomeScreen, warmUp, createContent
 

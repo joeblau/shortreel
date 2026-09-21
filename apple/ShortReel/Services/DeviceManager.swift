@@ -125,7 +125,7 @@ final class DeviceManager {
         self.usbHost = usbHost ?? SimulatedDeviceHost()
         self.runnerProvider = { [weak phoneRunners] descriptor in phoneRunners?.client(for: descriptor.identifier) }
         self.phoneRunners.onAvailabilityChanged = { [weak self] identifier in
-            self?.promptSessions.removeValue(forKey: identifier)?.cancel(because: "The phone’s input connection changed. Run the request again.")
+            self?.promptSessions.removeValue(forKey: identifier)?.retire(because: "The phone’s input connection changed. Run the request again.")
         }
         self.visionProvider = UserDefaults.standard.string(forKey: PhoneVisionProvider.preferenceKey)
             .flatMap(PhoneVisionProvider.init(rawValue:)) ?? .defaultProvider
@@ -518,7 +518,7 @@ final class DeviceManager {
             }, prepareCleanupAction: { action, frame in
                 try await HomeScreenRemovalGuard.prepare(action, frame: frame)
             })
-        let session = DevicePromptSession(deviceName: descriptor.name, blockedReason: blockedReason,
+        let session = DevicePromptSession(deviceName: descriptor.name, deviceIdentifier: descriptor.identifier, blockedReason: blockedReason,
             visualRunner: runner, visualBlockedReason: visualBlockedReason,
             onVisualStart: { [weak self] in
                 guard let self, self.visionProvider == .onDevice else { return }
@@ -740,7 +740,7 @@ final class DeviceManager {
         screenConnectionAttempts[device.identifier] = nil
         screenConnectionStops[device.identifier] = nil
         screenConnectionErrors[device.identifier] = nil
-        promptSessions.removeValue(forKey: device.identifier)?.cancel(because: "Stopped because the device was removed.")
+        promptSessions.removeValue(forKey: device.identifier)?.retire(because: "Stopped because the device was removed.")
         if let screen = screenServices.removeValue(forKey: device.identifier) {
             Task { await screen.stop() }
         }

@@ -148,6 +148,8 @@ enum WarmUpPlaybook {
 
 /// Form values become the explicit brief for the phone warm-up workflow.
 struct WarmUpConfiguration: Sendable {
+    var activity: WarmUpActivity = .watch
+    var contentInstructions = ""
     var profileName = ""
     var profileHandle = ""
     var profileNarrative = ""
@@ -158,6 +160,23 @@ struct WarmUpConfiguration: Sendable {
     var niche = ""
 
     var hasProfile: Bool { !trim(profileName).isEmpty }
+
+    var script: WarmUpScript? {
+        guard let network = WarmUpScript.Network(rawValue: platform.displayName) else { return nil }
+        return try? WarmUpScriptRegistry.script(network: network, activity: activity,
+            itemLimit: activity == .watch ? itemsToView : 1, duration: Double(sessionMinutes) * 60)
+    }
+
+    var scriptBrief: String {
+        """
+        Persona: \(trim(profileName)) (@\(normalizedHandle)). \(trim(profileNarrative))
+        Platform: \(platform.displayName)
+        Account check: \(WarmUpPlaybook.accountLocation(for: platform)) Verify exactly @\(normalizedHandle), ignoring case. Stop on missing/mismatched handle or sign-in. Never sign in, sign out, switch accounts, or enter credentials.
+        Niche: \(trim(niche)). Phase: \(phase.title). Activity: \(activity.title) only. Limit: \(sessionMinutes) minutes, \(activity == .watch ? itemsToView : 1) items. No messages, links, likes, or follows.
+        \(activity == .watch ? "Do not comment or publish." : "Publish at most ONE \(activity == .comment ? "comment; do not publish a post" : "post; do not comment").")
+        \(contentInstructions.isEmpty ? "" : "\(activity.title) instructions: \(trim(contentInstructions))")
+        """
+    }
 
     /// The handle as the app displays it: no surrounding whitespace or leading @.
     var normalizedHandle: String {
@@ -223,8 +242,24 @@ struct WarmUpConfiguration: Sendable {
     var validationMessage: String? {
         if !hasProfile { return "Choose an agent profile." }
         if !hasHandle { return "Add the persona’s handle so the signed-in account can be verified." }
+        if !(5...60).contains(sessionMinutes) || !(3...50).contains(itemsToView) {
+            return "Choose 5–60 minutes and 3–50 items."
+        }
+        guard let script else { return "No warm-up script is available for this platform." }
+        if activity == .comment, phase.maxComments == 0 { return "Comments are unavailable in this phase. Choose a later phase or run Watch." }
+        if activity == .post, !phase.allowsPosting { return "Posting is unavailable in this phase. Choose a later phase or run Watch." }
+        if activity == .post, trim(contentInstructions).isEmpty { return "Describe the post and, for video platforms, which existing media to use." }
         if trim(niche).isEmpty { return "Add the niche this persona browses." }
-        if DeviceWorkflow.warmUp.goal(details: brief).count > DevicePromptPlanner.maximumPromptLength {
+        var cursor = WarmUpScriptCursor(script: script)
+        for _ in script.steps {
+            if cursor.goal(scriptBrief).count > DevicePromptPlanner.maximumPromptLength {
+                return "Shorten the warm-up details before running."
+            }
+            if cursor.step.id == .advance { cursor.didPerform(.swipe(.up)) }
+            if cursor.step.id == .submit { cursor.didPerform(.tap(0.5, 0.5)) }
+            else { try? cursor.finishStep() }
+        }
+        if scriptBrief.count > DevicePromptPlanner.maximumPromptLength {
             return "Shorten the warm-up details before running."
         }
         return nil
