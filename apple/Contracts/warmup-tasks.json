@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "source": "apple/ShortReel/Services/DevicePrompts/WarmUpScript.swift @ fd1c77f",
+  "source": "apple/ShortReel/Services/DevicePrompts/WarmUpScript.swift @ fd1c77f; SemIf scorer model: Qwen/Qwen3.5-4B @ 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a — verified 2026-09-21 to load as a text model via mlx-swift-lm 3.31.4 LLMModelFactory: Qwen35Model.sanitize drops all 297 model.visual.* tensors and remaps model.language_model.* -> language_model.model.* (0 vision parameters after load, 426 text parameters, verify:[.all] clean, forward-pass smoke test OK); no fallback checkpoint or sanitize shim needed (issue #11)",
   "purpose": "Deterministic warm-up contract: per platform × activity, the ordered steps with preconditions, success criteria, allowed/forbidden actions, failure modes with recoveries, and budgets. Checked against the Swift registry by Tests/WarmUpTasksContractTests.swift.",
   "invariants": [
     {
