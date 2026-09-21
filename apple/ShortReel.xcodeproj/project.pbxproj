@@ -75,6 +75,7 @@
 		C563500654CA3CE1FCE01CCB /* ShortReelRunnerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAECC86473EDD31CFD9C2AE5 /* ShortReelRunnerApp.swift */; };
 		C5E57AF79EA0A028EC360AE2 /* CBHIDSocket.m in Sources */ = {isa = PBXBuildFile; fileRef = FBAA473E22B8923DE467A629 /* CBHIDSocket.m */; };
 		C6934E0B9F9BC88E5D5DBF98 /* PhonePlannerEscalation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A922E2906AE6731826F0E27E /* PhonePlannerEscalation.swift */; };
+		C7592106C96566A01E64A3FE /* WarmUpStateTree.swift in Sources */ = {isa = PBXBuildFile; fileRef = 096C1D0DC92C4A3FB6FBE9FC /* WarmUpStateTree.swift */; };
 		C98A797041F4E614FF380BB2 /* AddDeviceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D748206D2366B27A440EAD2 /* AddDeviceView.swift */; };
 		CBA8001039A77B32122908F4 /* DevicePromptVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D6ECC8FEBC92DAF8C1ED91 /* DevicePromptVerifier.swift */; };
 		D0EC79E7497032E3D64B9DD1 /* DevicePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27CEE80EA70FFB83D8C4E2A /* DevicePromptView.swift */; };
@@ -107,6 +108,7 @@
 /* Begin PBXFileReference section */
 		00DBDEC5B47D5F780C43220D /* CBHIDBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CBHIDBridge.m; sourceTree = "<group>"; };
 		0356F3AE9ED9B41A09ABB0F0 /* UITarsActionDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITarsActionDecoder.swift; sourceTree = "<group>"; };
+		096C1D0DC92C4A3FB6FBE9FC /* WarmUpStateTree.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpStateTree.swift; sourceTree = "<group>"; };
 		09CE42F6446A9900386EED70 /* PersonalityGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalityGenerator.swift; sourceTree = "<group>"; };
 		0BE083C518ED9E400EA41ACB /* PhoneSubmissionGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneSubmissionGuard.swift; sourceTree = "<group>"; };
 		0D734D644036D054B305A982 /* TimelineEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineEvent.swift; sourceTree = "<group>"; };
@@ -366,6 +368,7 @@
 				97C36C7E725C9CC83D4E592F /* UITarsScreenVerification.swift */,
 				ACC04184FCB60567DE8ADA2F /* WarmUpPlaybook.swift */,
 				16C4D43E1780F3361DC26327 /* WarmUpScript.swift */,
+				096C1D0DC92C4A3FB6FBE9FC /* WarmUpStateTree.swift */,
 			);
 			path = DevicePrompts;
 			sourceTree = "<group>";
@@ -611,6 +614,7 @@
 				8D8358A2D72540F409B9B2F6 /* WarmUpPlan.swift in Sources */,
 				1288DDBA969AE1D8D2C2D71C /* WarmUpPlaybook.swift in Sources */,
 				2AB2E01753DEB24DBDAE7CB8 /* WarmUpScript.swift in Sources */,
+				C7592106C96566A01E64A3FE /* WarmUpStateTree.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -45,6 +45,18 @@ struct CodexPhonePlannerTests {
         let progress = PhonePlannerContext.progressNotes(notes)
         try check(progress.contains("1. Verified page 1") && progress.contains("40. Verified page 40"),
             "Long-task progress was lost beyond the eight recent inputs")
+        let routedNotes = notes.map { step in
+            var step = step
+            step.pageState = "videoPlayer"
+            step.decisionSource = "state tree"
+            return step
+        }
+        let routedProgress = PhonePlannerContext.progressNotes(routedNotes)
+        try check(routedProgress.components(separatedBy: "\n").count == 8
+            && routedProgress.hasPrefix("33.") && !routedProgress.contains("1. Verified page 1"),
+            "State-tree runs kept an unbounded reasoning history")
+        try check(routedNotes[0].executionFeedback.contains("Page: videoPlayer; decision: state tree"),
+            "Route evidence was omitted from planner feedback")
         try decoderTests()
         let schema = try JSONSerialization.jsonObject(with: PhonePlannerResponse.schema(inspectOnly: false)) as! [String: Any]
         let properties = schema["properties"] as! [String: Any]
@@ -149,8 +161,33 @@ struct CodexPhonePlannerTests {
             let data = try response(fields.merging(["reason": reason]) { _, new in new })
             try check(try PhonePlannerResponse.decision(from: data, goal: "Use the visible interface") == expected, "Action changed during decoding")
         }
+        // Percent and screenshot-pixel answers normalize to fractions instead of failing the step.
+        let size = CGSize(width: 480, height: 1040)
+        let units: [([String: Any], PhoneVisionDecision)] = [
+            (["kind": "tap", "x": 9, "y": 96], .action(.tap(0.09, 0.96), reason: reason)),
+            (["kind": "tap", "x": 48, "y": 988], .action(.tap(0.1, 0.95), reason: reason)),
+            (["kind": "longPress", "x": 240, "y": 520, "seconds": 0.6], .action(.longPress(0.5, 0.5, seconds: 0.6), reason: reason)),
+            (["kind": "drag", "x": 50, "y": 60, "endX": 50, "endY": 2, "duration": 0.16, "pressDuration": 0, "holdDuration": 0],
+             .action(.timedDrag(0.5, 0.6, 0.5, 0.02, duration: 0.16, pressDuration: 0, holdDuration: 0), reason: reason)),
+            (["kind": "drag", "x": 240, "y": 624, "endX": 240, "endY": 20.8, "duration": 0.16, "pressDuration": 0, "holdDuration": 0],
+             .action(.timedDrag(0.5, 0.6, 0.5, 0.02, duration: 0.16, pressDuration: 0, holdDuration: 0), reason: reason)),
+        ]
+        for (fields, expected) in units {
+            let data = try response(fields.merging(["reason": reason]) { _, new in new })
+            let decoded = try PhonePlannerResponse.decision(from: data, goal: "Use the visible interface", imageSize: size)
+            guard case .action(let action, _) = decoded, case .action(let wanted, _) = expected, action.isClose(to: wanted) else {
+                throw Failure.assertion("Coordinates in percent or pixels were not normalized: \(decoded)")
+            }
+        }
+        try check((try? PhonePlannerResponse.decision(from: response(["kind": "tap", "x": 48, "y": 988, "reason": reason]),
+            goal: "Use the visible interface")) == nil, "Pixel coordinates were accepted without an image size")
+        let schema = try JSONSerialization.jsonObject(with: PhonePlannerResponse.schema(inspectOnly: false)) as! [String: Any]
+        let tap = ((schema["properties"] as! [String: Any])["decision"] as! [String: Any])["anyOf"] as! [[String: Any]]
+        let coordinate = tap.compactMap { ($0["properties"] as! [String: Any])["x"] as? [String: Any] }.first
+        try check((coordinate?["description"] as? String)?.contains("0 to 1") == true, "Schema does not state the coordinate unit")
         let invalid: [[String: Any]] = [
-            ["kind": "openApp", "text": "TikTok"], ["kind": "tap", "x": 1.2, "y": 0.5],
+            ["kind": "openApp", "text": "TikTok"], ["kind": "tap", "x": -0.2, "y": 0.5],
+            ["kind": "tap", "x": 500, "y": 200], ["kind": "tap", "x": 40, "y": 2000],
             ["kind": "tap", "x": true, "y": 0.5], ["kind": "tap", "x": NSNull(), "y": 0.5], ["kind": "tap", "x": 0.5],
             ["kind": "home", "text": "unexpected extra action"], ["kind": "swipe", "direction": "north"],
             ["kind": "press", "key": "launchApp"], ["kind": "wait", "seconds": 20],
@@ -239,5 +276,18 @@ struct CodexPhonePlannerTests {
         let data = try inspectOnly ? response(state: "appSwitcher") : response(["kind": "press", "key": "assistiveTouch", "reason": directory])
         try data.write(to: output)
         print("Diagnostic stdout is not the final JSON response")
+    }
+}
+
+private extension PhonePromptAction {
+    func isClose(to other: PhonePromptAction) -> Bool {
+        func near(_ a: Double, _ b: Double) -> Bool { abs(a - b) < 0.001 }
+        switch (self, other) {
+        case (.tap(let x, let y), .tap(let x2, let y2)): return near(x, x2) && near(y, y2)
+        case (.longPress(let x, let y, let s), .longPress(let x2, let y2, let s2)): return near(x, x2) && near(y, y2) && near(s, s2)
+        case (.timedDrag(let x, let y, let ex, let ey, let d, let p, let h), .timedDrag(let x2, let y2, let ex2, let ey2, let d2, let p2, let h2)):
+            return near(x, x2) && near(y, y2) && near(ex, ex2) && near(ey, ey2) && near(d, d2) && near(p, p2) && near(h, h2)
+        default: return self == other
+        }
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{WarmUpScript,DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner,PhoneSubmissionCheckpoint,PhoneSubmissionGuard,PhonePlaybackTracker,DeviceRunJournal,DevicePromptSession}.swift Tests/DevicePromptSessionTests.swift -o /tmp/shortreel-prompt-session-tests
+// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{WarmUpScript,DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner,WarmUpStateTree,PhoneSubmissionCheckpoint,PhoneSubmissionGuard,PhonePlaybackTracker,DeviceRunJournal,DevicePromptSession}.swift Tests/DevicePromptSessionTests.swift -o /tmp/shortreel-prompt-session-tests
 @main @MainActor
 enum DevicePromptSessionTests {
     private enum TestError: LocalizedError {

@@ -1,0 +1,3403 @@
+{
+  "schemaVersion": 1,
+  "source": "apple/ShortReel/Services/DevicePrompts/WarmUpScript.swift @ fd1c77f",
+  "purpose": "Deterministic warm-up contract: per platform × activity, the ordered steps with preconditions, success criteria, allowed/forbidden actions, failure modes with recoveries, and budgets. Checked against the Swift registry by Tests/WarmUpTasksContractTests.swift.",
+  "invariants": [
+    {
+      "id": "INV-1",
+      "rule": "Every warm-up starts with the account step; no engagement action is valid before it finishes.",
+      "enforcedBy": "WarmUpScript.steps + WarmUpConfiguration.accountCheck"
+    },
+    {
+      "id": "INV-2",
+      "rule": "One planner decision executes at most one phone input, chosen from the CURRENT frame; history is never proof.",
+      "enforcedBy": "PhoneVisualRunner"
+    },
+    {
+      "id": "INV-3",
+      "rule": "The runner, not the planner, owns step transitions, item counts, and the advance gesture (exactly one swipe, then verification).",
+      "enforcedBy": "WarmUpScriptCursor.validate/finishStep"
+    },
+    {
+      "id": "INV-4",
+      "rule": "Irreversible submissions fail closed: checkpoint written before the tap, OCR-labeled control required, never resubmitted, uncertain → needsInput.",
+      "enforcedBy": "PhoneSubmissionGuard + PhoneSubmissionCheckpoint"
+    },
+    {
+      "id": "INV-5",
+      "rule": "Coordinates are fractions 0…1; percent and pixel answers are normalized, never rejected outright; one rejected answer is retried with the reason.",
+      "enforcedBy": "PhonePlannerResponse.normalized + PhoneVisualRunner retry"
+    },
+    {
+      "id": "INV-6",
+      "rule": "Every step has a decision and time budget; exhausting it ends in needsInput with the step id and last evidence, never a silent 300-step burn.",
+      "enforcedBy": "TASK-6 (pending)"
+    },
+    {
+      "id": "INV-7",
+      "rule": "Long videos (> maximumVideoDurationSeconds) are skipped with one swipe and never counted as viewed.",
+      "enforcedBy": "WarmUpScriptCursor.didPerform"
+    },
+    {
+      "id": "INV-8",
+      "rule": "Watch runs make zero likes, follows, comments, or messages; comment/post runs publish at most one item.",
+      "enforcedBy": "WarmUpScriptCursor.goal + PhoneSubmissionGuard"
+    }
+  ],
+  "platforms": {
+    "TikTok": {
+      "app": "TikTok",
+      "accountLocation": "Tap the Profile tab at the bottom right. The @username appears under the display name at the top of the profile.",
+      "usesVideo": true,
+      "activities": {
+        "watch": {
+          "scriptIdentifier": "warmup.tiktok.watch",
+          "version": 5,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 50
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "itemsCompleted reaches itemLimit with each item watched to completion on a verified distinct video; zero likes/follows/comments; run status completed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the Profile tab at the bottom right. The @username appears under the display name at the top of the profile.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "search",
+              "title": "Search niche",
+              "preconditions": [
+                "account step finished",
+                "app foreground"
+              ],
+              "successCriteria": [
+                "Open TikTok search; type the query; suggestions visible; do NOT submit",
+                "OCR shows the typed 1–2 word niche query in the search field"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "press:enter",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "swipe",
+                "longPress",
+                "like",
+                "follow"
+              ],
+              "failureModes": [
+                {
+                  "id": "search-not-focused",
+                  "detection": "typed text absent from OCR after typeText",
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                },
+                {
+                  "id": "query-too-long",
+                  "detection": "typed query > 2 words or > 32 chars",
+                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                },
+                {
+                  "id": "keyboard-locale",
+                  "detection": "typeText rejected for non-US characters",
+                  "recovery": "needsInput: persona niche must be plain ASCII",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 10,
+                "maxSeconds": 60
+              }
+            },
+            {
+              "id": "suggestion",
+              "title": "Choose search result",
+              "preconditions": [
+                "query visible with suggestion list beneath the field"
+              ],
+              "successCriteria": [
+                "tapped one of the TOP THREE suggestions using its displayed wording",
+                "video results grid (Videos tab) visible on the next frame"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "press:enter",
+                "swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "no-suggestions",
+                  "detection": "no suggestion rows under the field after 2 frames",
+                  "recovery": "press enter once, then verify the results grid"
+                },
+                {
+                  "id": "tapped-account-row",
+                  "detection": "profile opened instead of grid",
+                  "recovery": "back, re-tap a suggestion row"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 6,
+                "maxSeconds": 40
+              }
+            },
+            {
+              "id": "open",
+              "title": "Find video with >10K hearts",
+              "preconditions": [
+                "results visible"
+              ],
+              "successCriteria": [
+                "full-screen player is playing",
+                "HEART count next to the heart icon reads > 10,000 (10.1K / 25K / 1M qualify; 10K, 10.0K, 10,000 do not)",
+                "candidate chosen from the TOP of results, scrolling only if needed"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "swipe",
+                "press:back"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText"
+              ],
+              "failureModes": [
+                {
+                  "id": "opened-account-or-ad",
+                  "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                },
+                {
+                  "id": "no-qualifying-result",
+                  "detection": "results exhausted within step budget",
+                  "recovery": "needsInput; never lower a threshold or broaden the query",
+                  "terminal": true
+                },
+                {
+                  "id": "threshold-unreadable",
+                  "detection": "heart count not legible in player",
+                  "recovery": "go back; inspect the next relevant result"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 14,
+                "maxSeconds": 120
+              }
+            },
+            {
+              "id": "consume",
+              "title": "Watch to completion",
+              "preconditions": [
+                "player (or post) is foreground on the CURRENT frame"
+              ],
+              "successCriteria": [
+                "timestamped frames show progress to the end, an observed ending, or a verified replay (counted once)"
+              ],
+              "allowedActions": [
+                "wait",
+                "tap:play-control",
+                "swipe:up (only when too-long rule fires)"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText",
+                "swipe before completion"
+              ],
+              "failureModes": [
+                {
+                  "id": "paused",
+                  "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
+                  "recovery": "one tap on the observed play control, re-observe"
+                },
+                {
+                  "id": "stalled-wait-loop",
+                  "detection": "3 consecutive wait decisions with unchanged timer",
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                },
+                {
+                  "id": "too-long",
+                  "detection": "readable or estimated total > maximumVideoDurationSeconds",
+                  "recovery": "swipe up exactly once; do not count as viewed; cursor jumps to advance"
+                },
+                {
+                  "id": "navigated-away",
+                  "detection": "screen.state != foregroundApp or player chrome missing",
+                  "recovery": "openApp + re-run open step; do not count the item"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 40,
+                "maxSeconds": 240
+              },
+              "maximumVideoDurationSeconds": 60,
+              "allowsEstimatedDurationSkip": true
+            },
+            {
+              "id": "advance",
+              "title": "Next video",
+              "preconditions": [
+                "consume step finished and counted"
+              ],
+              "successCriteria": [
+                "a different video (caption/author changed) is playing after one upward swipe"
+              ],
+              "allowedActions": [
+                "swipe:up (exactly once)",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "tap",
+                "typeText",
+                "second swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "same-item",
+                  "detection": "identity tokens (caption/author) unchanged after swipe + wait",
+                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)"
+                },
+                {
+                  "id": "results-grid",
+                  "detection": "grid thumbnails visible instead of player",
+                  "recovery": "run open step again; do not swipe a grid"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 6,
+                "maxSeconds": 40
+              }
+            }
+          ],
+          "requiresPopularStartingVideo": true
+        },
+        "comment": {
+          "scriptIdentifier": "warmup.tiktok.comment",
+          "version": 2,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 1
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "one comment visible under the persona's handle beneath the watched video; checkpoint confirmed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the Profile tab at the bottom right. The @username appears under the display name at the top of the profile.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "search",
+              "title": "Search niche",
+              "preconditions": [
+                "account step finished",
+                "app foreground"
+              ],
+              "successCriteria": [
+                "Open TikTok search; type the query; suggestions visible; do NOT submit",
+                "OCR shows the typed 1–2 word niche query in the search field"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "press:enter",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "swipe",
+                "longPress",
+                "like",
+                "follow"
+              ],
+              "failureModes": [
+                {
+                  "id": "search-not-focused",
+                  "detection": "typed text absent from OCR after typeText",
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                },
+                {
+                  "id": "query-too-long",
+                  "detection": "typed query > 2 words or > 32 chars",
+                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                },
+                {
+                  "id": "keyboard-locale",
+                  "detection": "typeText rejected for non-US characters",
+                  "recovery": "needsInput: persona niche must be plain ASCII",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 10,
+                "maxSeconds": 60
+              }
+            },
+            {
+              "id": "suggestion",
+              "title": "Choose search result",
+              "preconditions": [
+                "query visible with suggestion list beneath the field"
+              ],
+              "successCriteria": [
+                "tapped one of the TOP THREE suggestions using its displayed wording",
+                "video results grid (Videos tab) visible on the next frame"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "press:enter",
+                "swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "no-suggestions",
+                  "detection": "no suggestion rows under the field after 2 frames",
+                  "recovery": "press enter once, then verify the results grid"
+                },
+                {
+                  "id": "tapped-account-row",
+                  "detection": "profile opened instead of grid",
+                  "recovery": "back, re-tap a suggestion row"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 6,
+                "maxSeconds": 40
+              }
+            },
+            {
+              "id": "open",
+              "title": "Find video with >10K hearts",
+              "preconditions": [
+                "results visible"
+              ],
+              "successCriteria": [
+                "full-screen player is playing",
+                "HEART count next to the heart icon reads > 10,000 (10.1K / 25K / 1M qualify; 10K, 10.0K, 10,000 do not)",
+                "candidate chosen from the TOP of results, scrolling only if needed"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "swipe",
+                "press:back"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText"
+              ],
+              "failureModes": [
+                {
+                  "id": "opened-account-or-ad",
+                  "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                },
+                {
+                  "id": "no-qualifying-result",
+                  "detection": "results exhausted within step budget",
+                  "recovery": "needsInput; never lower a threshold or broaden the query",
+                  "terminal": true
+                },
+                {
+                  "id": "threshold-unreadable",
+                  "detection": "heart count not legible in player",
+                  "recovery": "go back; inspect the next relevant result"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 14,
+                "maxSeconds": 120
+              }
+            },
+            {
+              "id": "consume",
+              "title": "Watch to completion",
+              "preconditions": [
+                "player (or post) is foreground on the CURRENT frame"
+              ],
+              "successCriteria": [
+                "timestamped frames show progress to the end, an observed ending, or a verified replay (counted once)"
+              ],
+              "allowedActions": [
+                "wait",
+                "tap:play-control"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText",
+                "swipe before completion"
+              ],
+              "failureModes": [
+                {
+                  "id": "paused",
+                  "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
+                  "recovery": "one tap on the observed play control, re-observe"
+                },
+                {
+                  "id": "stalled-wait-loop",
+                  "detection": "3 consecutive wait decisions with unchanged timer",
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                },
+                {
+                  "id": "navigated-away",
+                  "detection": "screen.state != foregroundApp or player chrome missing",
+                  "recovery": "openApp + re-run open step; do not count the item"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 40,
+                "maxSeconds": 240
+              }
+            },
+            {
+              "id": "prepareSubmission",
+              "title": "Prepare comment",
+              "preconditions": [
+                "consume step finished"
+              ],
+              "successCriteria": [
+                "ONE short relevant comment in the persona's voice about the video just watched",
+                "exact composed text and selected media are visible",
+                "send/publish control is visible but NOT tapped"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "wait",
+                "selectAll"
+              ],
+              "forbiddenActions": [
+                "tap on send/publish",
+                "swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "composer-missing",
+                  "detection": "no text field / caption area with OCR send label visible",
+                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                },
+                {
+                  "id": "media-not-found",
+                  "detection": "requested asset not identifiable in picker",
+                  "recovery": "needsInput; never substitute assets",
+                  "terminal": true
+                },
+                {
+                  "id": "wrong-target",
+                  "detection": "author/handle or thread differs from consumed item",
+                  "recovery": "needsInput",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 180
+              }
+            },
+            {
+              "id": "submit",
+              "title": "Submit once",
+              "preconditions": [
+                "prepared content and target verified",
+                "PhoneSubmissionCheckpoint.state == preparing"
+              ],
+              "successCriteria": [
+                "exactly one tap on a control whose OCR label ∈ submitControlLabels",
+                "checkpoint written as 'submitting' BEFORE the tap"
+              ],
+              "allowedActions": [
+                "tap (one)"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "repeated tap",
+                "keyboard activation"
+              ],
+              "failureModes": [
+                {
+                  "id": "unlabeled-control",
+                  "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
+                  "recovery": "fail closed: no input; needsInput with the required label",
+                  "terminal": true
+                },
+                {
+                  "id": "duplicate-tap",
+                  "detection": "cursor.submissionSent already true",
+                  "recovery": "reject action; verification step only",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 2,
+                "maxSeconds": 20
+              },
+              "submitControlLabels": [
+                "Post"
+              ],
+              "unlabeledControlRisk": true
+            },
+            {
+              "id": "verifySubmission",
+              "title": "Verify publication",
+              "preconditions": [
+                "cursor.submissionSent == true"
+              ],
+              "successCriteria": [
+                "the exact comment is visible under the persona's handle",
+                "checkpoint state == confirmed"
+              ],
+              "allowedActions": [
+                "wait"
+              ],
+              "forbiddenActions": [
+                "any input",
+                "resubmit"
+              ],
+              "failureModes": [
+                {
+                  "id": "unconfirmed",
+                  "detection": "no published item under persona after 3 fresh frames",
+                  "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
+                  "terminal": true
+                },
+                {
+                  "id": "error-banner",
+                  "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
+                  "recovery": "checkpoint uncertain; needsInput; never resubmit",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 8,
+                "maxSeconds": 90
+              }
+            }
+          ],
+          "requiresPopularStartingVideo": true
+        },
+        "post": {
+          "scriptIdentifier": "warmup.tiktok.post",
+          "version": 1,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 1
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "one post visible on the persona's profile grid; checkpoint confirmed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the Profile tab at the bottom right. The @username appears under the display name at the top of the profile.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "prepareSubmission",
+              "title": "Prepare post",
+              "preconditions": [
+                "account step finished"
+              ],
+              "successCriteria": [
+                "ONE native TikTok post from explicitly identified existing media",
+                "exact composed text and selected media are visible",
+                "send/publish control is visible but NOT tapped"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "wait",
+                "selectAll"
+              ],
+              "forbiddenActions": [
+                "tap on send/publish",
+                "swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "composer-missing",
+                  "detection": "no text field / caption area with OCR send label visible",
+                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                },
+                {
+                  "id": "media-not-found",
+                  "detection": "requested asset not identifiable in picker",
+                  "recovery": "needsInput; never substitute assets",
+                  "terminal": true
+                },
+                {
+                  "id": "wrong-target",
+                  "detection": "author/handle or thread differs from consumed item",
+                  "recovery": "needsInput",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 180
+              }
+            },
+            {
+              "id": "submit",
+              "title": "Submit once",
+              "preconditions": [
+                "prepared content and target verified",
+                "PhoneSubmissionCheckpoint.state == preparing"
+              ],
+              "successCriteria": [
+                "exactly one tap on a control whose OCR label ∈ submitControlLabels",
+                "checkpoint written as 'submitting' BEFORE the tap"
+              ],
+              "allowedActions": [
+                "tap (one)"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "repeated tap",
+                "keyboard activation"
+              ],
+              "failureModes": [
+                {
+                  "id": "unlabeled-control",
+                  "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
+                  "recovery": "fail closed: no input; needsInput with the required label",
+                  "terminal": true
+                },
+                {
+                  "id": "duplicate-tap",
+                  "detection": "cursor.submissionSent already true",
+                  "recovery": "reject action; verification step only",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 2,
+                "maxSeconds": 20
+              },
+              "submitControlLabels": [
+                "Post"
+              ],
+              "unlabeledControlRisk": false
+            },
+            {
+              "id": "verifySubmission",
+              "title": "Verify publication",
+              "preconditions": [
+                "cursor.submissionSent == true"
+              ],
+              "successCriteria": [
+                "the exact post is visible under the persona's handle",
+                "checkpoint state == confirmed"
+              ],
+              "allowedActions": [
+                "wait"
+              ],
+              "forbiddenActions": [
+                "any input",
+                "resubmit"
+              ],
+              "failureModes": [
+                {
+                  "id": "unconfirmed",
+                  "detection": "no published item under persona after 3 fresh frames",
+                  "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
+                  "terminal": true
+                },
+                {
+                  "id": "error-banner",
+                  "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
+                  "recovery": "checkpoint uncertain; needsInput; never resubmit",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 8,
+                "maxSeconds": 90
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Instagram": {
+      "app": "Instagram",
+      "accountLocation": "Tap the profile avatar tab at the bottom right. The username appears at the top of the profile page.",
+      "usesVideo": true,
+      "activities": {
+        "watch": {
+          "scriptIdentifier": "warmup.instagram.watch",
+          "version": 4,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 50
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "itemsCompleted reaches itemLimit with each item watched to completion on a verified distinct Reel; zero likes/follows/comments; run status completed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the profile avatar tab at the bottom right. The username appears at the top of the profile page.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "search",
+              "title": "Search niche",
+              "preconditions": [
+                "account step finished",
+                "app foreground"
+              ],
+              "successCriteria": [
+                "Search Instagram; submit; open the Reels results; Reel thumbnails visible",
+                "OCR shows the typed 1–2 word niche query in the search field"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "press:enter",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "swipe",
+                "longPress",
+                "like",
+                "follow"
+              ],
+              "failureModes": [
+                {
+                  "id": "search-not-focused",
+                  "detection": "typed text absent from OCR after typeText",
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                },
+                {
+                  "id": "query-too-long",
+                  "detection": "typed query > 2 words or > 32 chars",
+                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                },
+                {
+                  "id": "keyboard-locale",
+                  "detection": "typeText rejected for non-US characters",
+                  "recovery": "needsInput: persona niche must be plain ASCII",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 10,
+                "maxSeconds": 60
+              }
+            },
+            {
+              "id": "open",
+              "title": "Open video",
+              "preconditions": [
+                "results visible"
+              ],
+              "successCriteria": [
+                "a top-row Reel's full-screen player is playing (not a thumbnail preview or Story)"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "swipe",
+                "press:back"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText"
+              ],
+              "failureModes": [
+                {
+                  "id": "opened-account-or-ad",
+                  "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                },
+                {
+                  "id": "no-qualifying-result",
+                  "detection": "results exhausted within step budget",
+                  "recovery": "needsInput; never lower a threshold or broaden the query",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 14,
+                "maxSeconds": 120
+              }
+            },
+            {
+              "id": "consume",
+              "title": "Watch to completion",
+              "preconditions": [
+                "player (or post) is foreground on the CURRENT frame"
+              ],
+              "successCriteria": [
+                "progress to the end, an observed ending, or a verified replay"
+              ],
+              "allowedActions": [
+                "wait",
+                "tap:play-control",
+                "swipe:up (only when too-long rule fires)"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText",
+                "swipe before completion"
+              ],
+              "failureModes": [
+                {
+                  "id": "paused",
+                  "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
+                  "recovery": "one tap on the observed play control, re-observe"
+                },
+                {
+                  "id": "stalled-wait-loop",
+                  "detection": "3 consecutive wait decisions with unchanged timer",
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                },
+                {
+                  "id": "too-long",
+                  "detection": "readable or estimated total > maximumVideoDurationSeconds",
+                  "recovery": "swipe up exactly once; do not count as viewed; cursor jumps to advance"
+                },
+                {
+                  "id": "navigated-away",
+                  "detection": "screen.state != foregroundApp or player chrome missing",
+                  "recovery": "openApp + re-run open step; do not count the item"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 40,
+                "maxSeconds": 240
+              },
+              "maximumVideoDurationSeconds": 60,
+              "allowsEstimatedDurationSkip": true
+            },
+            {
+              "id": "advance",
+              "title": "Next video",
+              "preconditions": [
+                "consume step finished and counted"
+              ],
+              "successCriteria": [
+                "a different Reel is playing after one upward swipe"
+              ],
+              "allowedActions": [
+                "swipe:up (exactly once)",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "tap",
+                "typeText",
+                "second swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "same-item",
+                  "detection": "identity tokens (caption/author) unchanged after swipe + wait",
+                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)"
+                },
+                {
+                  "id": "results-grid",
+                  "detection": "grid thumbnails visible instead of player",
+                  "recovery": "run open step again; do not swipe a grid"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 6,
+                "maxSeconds": 40
+              }
+            }
+          ]
+        },
+        "comment": {
+          "scriptIdentifier": "warmup.instagram.comment",
+          "version": 1,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 1
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "one comment visible under the persona's handle on the watched Reel; checkpoint confirmed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the profile avatar tab at the bottom right. The username appears at the top of the profile page.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "search",
+              "title": "Search niche",
+              "preconditions": [
+                "account step finished",
+                "app foreground"
+              ],
+              "successCriteria": [
+                "Search Instagram; submit; open the Reels results; Reel thumbnails visible",
+                "OCR shows the typed 1–2 word niche query in the search field"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "press:enter",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "swipe",
+                "longPress",
+                "like",
+                "follow"
+              ],
+              "failureModes": [
+                {
+                  "id": "search-not-focused",
+                  "detection": "typed text absent from OCR after typeText",
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                },
+                {
+                  "id": "query-too-long",
+                  "detection": "typed query > 2 words or > 32 chars",
+                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                },
+                {
+                  "id": "keyboard-locale",
+                  "detection": "typeText rejected for non-US characters",
+                  "recovery": "needsInput: persona niche must be plain ASCII",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 10,
+                "maxSeconds": 60
+              }
+            },
+            {
+              "id": "open",
+              "title": "Open video",
+              "preconditions": [
+                "results visible"
+              ],
+              "successCriteria": [
+                "a top-row Reel's full-screen player is playing (not a thumbnail preview or Story)"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "swipe",
+                "press:back"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText"
+              ],
+              "failureModes": [
+                {
+                  "id": "opened-account-or-ad",
+                  "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                },
+                {
+                  "id": "no-qualifying-result",
+                  "detection": "results exhausted within step budget",
+                  "recovery": "needsInput; never lower a threshold or broaden the query",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 14,
+                "maxSeconds": 120
+              }
+            },
+            {
+              "id": "consume",
+              "title": "Watch to completion",
+              "preconditions": [
+                "player (or post) is foreground on the CURRENT frame"
+              ],
+              "successCriteria": [
+                "progress to the end, an observed ending, or a verified replay"
+              ],
+              "allowedActions": [
+                "wait",
+                "tap:play-control"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText",
+                "swipe before completion"
+              ],
+              "failureModes": [
+                {
+                  "id": "paused",
+                  "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
+                  "recovery": "one tap on the observed play control, re-observe"
+                },
+                {
+                  "id": "stalled-wait-loop",
+                  "detection": "3 consecutive wait decisions with unchanged timer",
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                },
+                {
+                  "id": "navigated-away",
+                  "detection": "screen.state != foregroundApp or player chrome missing",
+                  "recovery": "openApp + re-run open step; do not count the item"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 40,
+                "maxSeconds": 240
+              }
+            },
+            {
+              "id": "prepareSubmission",
+              "title": "Prepare comment",
+              "preconditions": [
+                "consume step finished"
+              ],
+              "successCriteria": [
+                "ONE short relevant comment on the Reel just watched",
+                "exact composed text and selected media are visible",
+                "send/publish control is visible but NOT tapped"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "wait",
+                "selectAll"
+              ],
+              "forbiddenActions": [
+                "tap on send/publish",
+                "swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "composer-missing",
+                  "detection": "no text field / caption area with OCR send label visible",
+                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                },
+                {
+                  "id": "media-not-found",
+                  "detection": "requested asset not identifiable in picker",
+                  "recovery": "needsInput; never substitute assets",
+                  "terminal": true
+                },
+                {
+                  "id": "wrong-target",
+                  "detection": "author/handle or thread differs from consumed item",
+                  "recovery": "needsInput",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 180
+              }
+            },
+            {
+              "id": "submit",
+              "title": "Submit once",
+              "preconditions": [
+                "prepared content and target verified",
+                "PhoneSubmissionCheckpoint.state == preparing"
+              ],
+              "successCriteria": [
+                "exactly one tap on a control whose OCR label ∈ submitControlLabels",
+                "checkpoint written as 'submitting' BEFORE the tap"
+              ],
+              "allowedActions": [
+                "tap (one)"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "repeated tap",
+                "keyboard activation"
+              ],
+              "failureModes": [
+                {
+                  "id": "unlabeled-control",
+                  "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
+                  "recovery": "fail closed: no input; needsInput with the required label",
+                  "terminal": true
+                },
+                {
+                  "id": "duplicate-tap",
+                  "detection": "cursor.submissionSent already true",
+                  "recovery": "reject action; verification step only",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 2,
+                "maxSeconds": 20
+              },
+              "submitControlLabels": [
+                "Post"
+              ],
+              "unlabeledControlRisk": false
+            },
+            {
+              "id": "verifySubmission",
+              "title": "Verify publication",
+              "preconditions": [
+                "cursor.submissionSent == true"
+              ],
+              "successCriteria": [
+                "the exact comment is visible under the persona's handle",
+                "checkpoint state == confirmed"
+              ],
+              "allowedActions": [
+                "wait"
+              ],
+              "forbiddenActions": [
+                "any input",
+                "resubmit"
+              ],
+              "failureModes": [
+                {
+                  "id": "unconfirmed",
+                  "detection": "no published item under persona after 3 fresh frames",
+                  "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
+                  "terminal": true
+                },
+                {
+                  "id": "error-banner",
+                  "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
+                  "recovery": "checkpoint uncertain; needsInput; never resubmit",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 8,
+                "maxSeconds": 90
+              }
+            }
+          ]
+        },
+        "post": {
+          "scriptIdentifier": "warmup.instagram.post",
+          "version": 1,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 1
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "one post visible on the persona's profile grid; checkpoint confirmed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the profile avatar tab at the bottom right. The username appears at the top of the profile page.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "prepareSubmission",
+              "title": "Prepare post",
+              "preconditions": [
+                "account step finished"
+              ],
+              "successCriteria": [
+                "ONE native Instagram post from explicitly identified existing media",
+                "exact composed text and selected media are visible",
+                "send/publish control is visible but NOT tapped"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "wait",
+                "selectAll"
+              ],
+              "forbiddenActions": [
+                "tap on send/publish",
+                "swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "composer-missing",
+                  "detection": "no text field / caption area with OCR send label visible",
+                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                },
+                {
+                  "id": "media-not-found",
+                  "detection": "requested asset not identifiable in picker",
+                  "recovery": "needsInput; never substitute assets",
+                  "terminal": true
+                },
+                {
+                  "id": "wrong-target",
+                  "detection": "author/handle or thread differs from consumed item",
+                  "recovery": "needsInput",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 180
+              }
+            },
+            {
+              "id": "submit",
+              "title": "Submit once",
+              "preconditions": [
+                "prepared content and target verified",
+                "PhoneSubmissionCheckpoint.state == preparing"
+              ],
+              "successCriteria": [
+                "exactly one tap on a control whose OCR label ∈ submitControlLabels",
+                "checkpoint written as 'submitting' BEFORE the tap"
+              ],
+              "allowedActions": [
+                "tap (one)"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "repeated tap",
+                "keyboard activation"
+              ],
+              "failureModes": [
+                {
+                  "id": "unlabeled-control",
+                  "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
+                  "recovery": "fail closed: no input; needsInput with the required label",
+                  "terminal": true
+                },
+                {
+                  "id": "duplicate-tap",
+                  "detection": "cursor.submissionSent already true",
+                  "recovery": "reject action; verification step only",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 2,
+                "maxSeconds": 20
+              },
+              "submitControlLabels": [
+                "Share",
+                "Post"
+              ],
+              "unlabeledControlRisk": false
+            },
+            {
+              "id": "verifySubmission",
+              "title": "Verify publication",
+              "preconditions": [
+                "cursor.submissionSent == true"
+              ],
+              "successCriteria": [
+                "the exact post is visible under the persona's handle",
+                "checkpoint state == confirmed"
+              ],
+              "allowedActions": [
+                "wait"
+              ],
+              "forbiddenActions": [
+                "any input",
+                "resubmit"
+              ],
+              "failureModes": [
+                {
+                  "id": "unconfirmed",
+                  "detection": "no published item under persona after 3 fresh frames",
+                  "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
+                  "terminal": true
+                },
+                {
+                  "id": "error-banner",
+                  "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
+                  "recovery": "checkpoint uncertain; needsInput; never resubmit",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 8,
+                "maxSeconds": 90
+              }
+            }
+          ]
+        }
+      }
+    },
+    "YouTube": {
+      "app": "YouTube",
+      "accountLocation": "Tap the You tab at the bottom right. The channel name and @handle appear at the top of the page.",
+      "usesVideo": true,
+      "activities": {
+        "watch": {
+          "scriptIdentifier": "warmup.youtube.watch",
+          "version": 4,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 50
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "itemsCompleted reaches itemLimit with each item watched to completion on a verified distinct Short; zero likes/follows/comments; run status completed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the You tab at the bottom right. The channel name and @handle appear at the top of the page.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "search",
+              "title": "Search niche",
+              "preconditions": [
+                "account step finished",
+                "app foreground"
+              ],
+              "successCriteria": [
+                "Search YouTube; submit; open the Shorts results; Short thumbnails visible",
+                "OCR shows the typed 1–2 word niche query in the search field"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "press:enter",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "swipe",
+                "longPress",
+                "like",
+                "follow"
+              ],
+              "failureModes": [
+                {
+                  "id": "search-not-focused",
+                  "detection": "typed text absent from OCR after typeText",
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                },
+                {
+                  "id": "query-too-long",
+                  "detection": "typed query > 2 words or > 32 chars",
+                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                },
+                {
+                  "id": "keyboard-locale",
+                  "detection": "typeText rejected for non-US characters",
+                  "recovery": "needsInput: persona niche must be plain ASCII",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 10,
+                "maxSeconds": 60
+              }
+            },
+            {
+              "id": "open",
+              "title": "Open video",
+              "preconditions": [
+                "results visible"
+              ],
+              "successCriteria": [
+                "the vertical Shorts player is playing (not an ad or long-form video)"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "swipe",
+                "press:back"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText"
+              ],
+              "failureModes": [
+                {
+                  "id": "opened-account-or-ad",
+                  "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                },
+                {
+                  "id": "no-qualifying-result",
+                  "detection": "results exhausted within step budget",
+                  "recovery": "needsInput; never lower a threshold or broaden the query",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 14,
+                "maxSeconds": 120
+              }
+            },
+            {
+              "id": "consume",
+              "title": "Watch to completion",
+              "preconditions": [
+                "player (or post) is foreground on the CURRENT frame"
+              ],
+              "successCriteria": [
+                "progress to the end, an observed ending, or a verified replay"
+              ],
+              "allowedActions": [
+                "wait",
+                "tap:play-control",
+                "swipe:up (only when too-long rule fires)"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText",
+                "swipe before completion"
+              ],
+              "failureModes": [
+                {
+                  "id": "paused",
+                  "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
+                  "recovery": "one tap on the observed play control, re-observe"
+                },
+                {
+                  "id": "stalled-wait-loop",
+                  "detection": "3 consecutive wait decisions with unchanged timer",
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                },
+                {
+                  "id": "too-long",
+                  "detection": "readable or estimated total > maximumVideoDurationSeconds",
+                  "recovery": "swipe up exactly once; do not count as viewed; cursor jumps to advance"
+                },
+                {
+                  "id": "navigated-away",
+                  "detection": "screen.state != foregroundApp or player chrome missing",
+                  "recovery": "openApp + re-run open step; do not count the item"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 40,
+                "maxSeconds": 240
+              },
+              "maximumVideoDurationSeconds": 60,
+              "allowsEstimatedDurationSkip": true
+            },
+            {
+              "id": "advance",
+              "title": "Next video",
+              "preconditions": [
+                "consume step finished and counted"
+              ],
+              "successCriteria": [
+                "a different Short is playing after one upward swipe"
+              ],
+              "allowedActions": [
+                "swipe:up (exactly once)",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "tap",
+                "typeText",
+                "second swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "same-item",
+                  "detection": "identity tokens (caption/author) unchanged after swipe + wait",
+                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)"
+                },
+                {
+                  "id": "results-grid",
+                  "detection": "grid thumbnails visible instead of player",
+                  "recovery": "run open step again; do not swipe a grid"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 6,
+                "maxSeconds": 40
+              }
+            }
+          ]
+        },
+        "comment": {
+          "scriptIdentifier": "warmup.youtube.comment",
+          "version": 1,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 1
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "one comment visible under the persona's handle on the watched Short; checkpoint confirmed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the You tab at the bottom right. The channel name and @handle appear at the top of the page.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "search",
+              "title": "Search niche",
+              "preconditions": [
+                "account step finished",
+                "app foreground"
+              ],
+              "successCriteria": [
+                "Search YouTube; submit; open the Shorts results; Short thumbnails visible",
+                "OCR shows the typed 1–2 word niche query in the search field"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "press:enter",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "swipe",
+                "longPress",
+                "like",
+                "follow"
+              ],
+              "failureModes": [
+                {
+                  "id": "search-not-focused",
+                  "detection": "typed text absent from OCR after typeText",
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                },
+                {
+                  "id": "query-too-long",
+                  "detection": "typed query > 2 words or > 32 chars",
+                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                },
+                {
+                  "id": "keyboard-locale",
+                  "detection": "typeText rejected for non-US characters",
+                  "recovery": "needsInput: persona niche must be plain ASCII",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 10,
+                "maxSeconds": 60
+              }
+            },
+            {
+              "id": "open",
+              "title": "Open video",
+              "preconditions": [
+                "results visible"
+              ],
+              "successCriteria": [
+                "the vertical Shorts player is playing (not an ad or long-form video)"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "swipe",
+                "press:back"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText"
+              ],
+              "failureModes": [
+                {
+                  "id": "opened-account-or-ad",
+                  "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                },
+                {
+                  "id": "no-qualifying-result",
+                  "detection": "results exhausted within step budget",
+                  "recovery": "needsInput; never lower a threshold or broaden the query",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 14,
+                "maxSeconds": 120
+              }
+            },
+            {
+              "id": "consume",
+              "title": "Watch to completion",
+              "preconditions": [
+                "player (or post) is foreground on the CURRENT frame"
+              ],
+              "successCriteria": [
+                "progress to the end, an observed ending, or a verified replay"
+              ],
+              "allowedActions": [
+                "wait",
+                "tap:play-control"
+              ],
+              "forbiddenActions": [
+                "like",
+                "follow",
+                "comment",
+                "share",
+                "typeText",
+                "swipe before completion"
+              ],
+              "failureModes": [
+                {
+                  "id": "paused",
+                  "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
+                  "recovery": "one tap on the observed play control, re-observe"
+                },
+                {
+                  "id": "stalled-wait-loop",
+                  "detection": "3 consecutive wait decisions with unchanged timer",
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                },
+                {
+                  "id": "navigated-away",
+                  "detection": "screen.state != foregroundApp or player chrome missing",
+                  "recovery": "openApp + re-run open step; do not count the item"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 40,
+                "maxSeconds": 240
+              }
+            },
+            {
+              "id": "prepareSubmission",
+              "title": "Prepare comment",
+              "preconditions": [
+                "consume step finished"
+              ],
+              "successCriteria": [
+                "ONE short relevant comment on the Short just watched",
+                "exact composed text and selected media are visible",
+                "send/publish control is visible but NOT tapped"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "wait",
+                "selectAll"
+              ],
+              "forbiddenActions": [
+                "tap on send/publish",
+                "swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "composer-missing",
+                  "detection": "no text field / caption area with OCR send label visible",
+                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                },
+                {
+                  "id": "media-not-found",
+                  "detection": "requested asset not identifiable in picker",
+                  "recovery": "needsInput; never substitute assets",
+                  "terminal": true
+                },
+                {
+                  "id": "wrong-target",
+                  "detection": "author/handle or thread differs from consumed item",
+                  "recovery": "needsInput",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 180
+              }
+            },
+            {
+              "id": "submit",
+              "title": "Submit once",
+              "preconditions": [
+                "prepared content and target verified",
+                "PhoneSubmissionCheckpoint.state == preparing"
+              ],
+              "successCriteria": [
+                "exactly one tap on a control whose OCR label ∈ submitControlLabels",
+                "checkpoint written as 'submitting' BEFORE the tap"
+              ],
+              "allowedActions": [
+                "tap (one)"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "repeated tap",
+                "keyboard activation"
+              ],
+              "failureModes": [
+                {
+                  "id": "unlabeled-control",
+                  "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
+                  "recovery": "fail closed: no input; needsInput with the required label",
+                  "terminal": true
+                },
+                {
+                  "id": "duplicate-tap",
+                  "detection": "cursor.submissionSent already true",
+                  "recovery": "reject action; verification step only",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 2,
+                "maxSeconds": 20
+              },
+              "submitControlLabels": [
+                "Comment",
+                "Post"
+              ],
+              "unlabeledControlRisk": true
+            },
+            {
+              "id": "verifySubmission",
+              "title": "Verify publication",
+              "preconditions": [
+                "cursor.submissionSent == true"
+              ],
+              "successCriteria": [
+                "the exact comment is visible under the persona's handle",
+                "checkpoint state == confirmed"
+              ],
+              "allowedActions": [
+                "wait"
+              ],
+              "forbiddenActions": [
+                "any input",
+                "resubmit"
+              ],
+              "failureModes": [
+                {
+                  "id": "unconfirmed",
+                  "detection": "no published item under persona after 3 fresh frames",
+                  "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
+                  "terminal": true
+                },
+                {
+                  "id": "error-banner",
+                  "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
+                  "recovery": "checkpoint uncertain; needsInput; never resubmit",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 8,
+                "maxSeconds": 90
+              }
+            }
+          ]
+        },
+        "post": {
+          "scriptIdentifier": "warmup.youtube.post",
+          "version": 1,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 1
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "one upload visible on the persona's channel; checkpoint confirmed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the You tab at the bottom right. The channel name and @handle appear at the top of the page.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "prepareSubmission",
+              "title": "Prepare post",
+              "preconditions": [
+                "account step finished"
+              ],
+              "successCriteria": [
+                "ONE native YouTube post from explicitly identified existing media",
+                "exact composed text and selected media are visible",
+                "send/publish control is visible but NOT tapped"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "wait",
+                "selectAll"
+              ],
+              "forbiddenActions": [
+                "tap on send/publish",
+                "swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "composer-missing",
+                  "detection": "no text field / caption area with OCR send label visible",
+                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                },
+                {
+                  "id": "media-not-found",
+                  "detection": "requested asset not identifiable in picker",
+                  "recovery": "needsInput; never substitute assets",
+                  "terminal": true
+                },
+                {
+                  "id": "wrong-target",
+                  "detection": "author/handle or thread differs from consumed item",
+                  "recovery": "needsInput",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 180
+              }
+            },
+            {
+              "id": "submit",
+              "title": "Submit once",
+              "preconditions": [
+                "prepared content and target verified",
+                "PhoneSubmissionCheckpoint.state == preparing"
+              ],
+              "successCriteria": [
+                "exactly one tap on a control whose OCR label ∈ submitControlLabels",
+                "checkpoint written as 'submitting' BEFORE the tap"
+              ],
+              "allowedActions": [
+                "tap (one)"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "repeated tap",
+                "keyboard activation"
+              ],
+              "failureModes": [
+                {
+                  "id": "unlabeled-control",
+                  "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
+                  "recovery": "fail closed: no input; needsInput with the required label",
+                  "terminal": true
+                },
+                {
+                  "id": "duplicate-tap",
+                  "detection": "cursor.submissionSent already true",
+                  "recovery": "reject action; verification step only",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 2,
+                "maxSeconds": 20
+              },
+              "submitControlLabels": [
+                "Upload",
+                "Post"
+              ],
+              "unlabeledControlRisk": false
+            },
+            {
+              "id": "verifySubmission",
+              "title": "Verify publication",
+              "preconditions": [
+                "cursor.submissionSent == true"
+              ],
+              "successCriteria": [
+                "the exact post is visible under the persona's handle",
+                "checkpoint state == confirmed"
+              ],
+              "allowedActions": [
+                "wait"
+              ],
+              "forbiddenActions": [
+                "any input",
+                "resubmit"
+              ],
+              "failureModes": [
+                {
+                  "id": "unconfirmed",
+                  "detection": "no published item under persona after 3 fresh frames",
+                  "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
+                  "terminal": true
+                },
+                {
+                  "id": "error-banner",
+                  "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
+                  "recovery": "checkpoint uncertain; needsInput; never resubmit",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 8,
+                "maxSeconds": 90
+              }
+            }
+          ]
+        }
+      }
+    },
+    "X": {
+      "app": "X",
+      "accountLocation": "Tap the account avatar at the top left to open the side menu. The display name and @handle appear at the top of the menu.",
+      "usesVideo": false,
+      "activities": {
+        "watch": {
+          "scriptIdentifier": "warmup.x.watch",
+          "version": 1,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 50
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "itemsCompleted reaches itemLimit with each item read to completion on a verified distinct post; zero likes/follows/comments; run status completed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the account avatar at the top left to open the side menu. The display name and @handle appear at the top of the menu.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "search",
+              "title": "Search niche",
+              "preconditions": [
+                "account step finished",
+                "app foreground"
+              ],
+              "successCriteria": [
+                "Search X; submit; relevant post results visible",
+                "OCR shows the typed 1–2 word niche query in the search field"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "press:enter",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "swipe",
+                "longPress",
+                "like",
+                "follow"
+              ],
+              "failureModes": [
+                {
+                  "id": "search-not-focused",
+                  "detection": "typed text absent from OCR after typeText",
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                },
+                {
+                  "id": "query-too-long",
+                  "detection": "typed query > 2 words or > 32 chars",
+                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                },
+                {
+                  "id": "keyboard-locale",
+                  "detection": "typeText rejected for non-US characters",
+                  "recovery": "needsInput: persona niche must be plain ASCII",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 10,
+                "maxSeconds": 60
+              }
+            },
+            {
+              "id": "open",
+              "title": "Find post",
+              "preconditions": [
+                "results feed visible"
+              ],
+              "successCriteria": [
+                "first relevant ORIGINAL post's text and author are readable; feed stays open"
+              ],
+              "allowedActions": [
+                "tap:tab",
+                "swipe",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "open external link",
+                "like",
+                "repost",
+                "follow"
+              ],
+              "failureModes": [
+                {
+                  "id": "promoted-or-link",
+                  "detection": "'Promoted'/'Ad' label or external link card is the first result",
+                  "recovery": "scroll once; pick the next original post"
+                },
+                {
+                  "id": "account-only-results",
+                  "detection": "only account rows visible",
+                  "recovery": "tap the Latest/Top tab once; re-verify posts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 10,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "consume",
+              "title": "Read post",
+              "preconditions": [
+                "post text and author readable"
+              ],
+              "successCriteria": [
+                "evidence names the specific post read; embedded video (if any) watched to completion"
+              ],
+              "allowedActions": [
+                "wait",
+                "tap:play-control"
+              ],
+              "forbiddenActions": [
+                "like",
+                "repost",
+                "reply",
+                "follow",
+                "scroll before evidence"
+              ],
+              "failureModes": [
+                {
+                  "id": "paused",
+                  "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
+                  "recovery": "one tap on the observed play control, re-observe"
+                },
+                {
+                  "id": "stalled-wait-loop",
+                  "detection": "3 consecutive wait decisions with unchanged timer",
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                },
+                {
+                  "id": "navigated-away",
+                  "detection": "screen.state != foregroundApp or player chrome missing",
+                  "recovery": "openApp + re-run open step; do not count the item"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 120
+              }
+            },
+            {
+              "id": "advance",
+              "title": "Next post",
+              "preconditions": [
+                "consume finished"
+              ],
+              "successCriteria": [
+                "a different relevant post's text and author are visible after one upward scroll"
+              ],
+              "allowedActions": [
+                "swipe:up (exactly once)",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "open external link",
+                "second swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "same-item",
+                  "detection": "identity tokens (caption/author) unchanged after swipe + wait",
+                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 6,
+                "maxSeconds": 40
+              }
+            }
+          ]
+        },
+        "comment": {
+          "scriptIdentifier": "warmup.x.comment",
+          "version": 1,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 1
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "one reply visible under the persona's handle beneath the read post; checkpoint confirmed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the account avatar at the top left to open the side menu. The display name and @handle appear at the top of the menu.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "search",
+              "title": "Search niche",
+              "preconditions": [
+                "account step finished",
+                "app foreground"
+              ],
+              "successCriteria": [
+                "Search X; submit; relevant post results visible",
+                "OCR shows the typed 1–2 word niche query in the search field"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "press:enter",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "swipe",
+                "longPress",
+                "like",
+                "follow"
+              ],
+              "failureModes": [
+                {
+                  "id": "search-not-focused",
+                  "detection": "typed text absent from OCR after typeText",
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                },
+                {
+                  "id": "query-too-long",
+                  "detection": "typed query > 2 words or > 32 chars",
+                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                },
+                {
+                  "id": "keyboard-locale",
+                  "detection": "typeText rejected for non-US characters",
+                  "recovery": "needsInput: persona niche must be plain ASCII",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 10,
+                "maxSeconds": 60
+              }
+            },
+            {
+              "id": "open",
+              "title": "Find post",
+              "preconditions": [
+                "results feed visible"
+              ],
+              "successCriteria": [
+                "first relevant ORIGINAL post's text and author are readable; feed stays open"
+              ],
+              "allowedActions": [
+                "tap:tab",
+                "swipe",
+                "wait"
+              ],
+              "forbiddenActions": [
+                "open external link",
+                "like",
+                "repost",
+                "follow"
+              ],
+              "failureModes": [
+                {
+                  "id": "promoted-or-link",
+                  "detection": "'Promoted'/'Ad' label or external link card is the first result",
+                  "recovery": "scroll once; pick the next original post"
+                },
+                {
+                  "id": "account-only-results",
+                  "detection": "only account rows visible",
+                  "recovery": "tap the Latest/Top tab once; re-verify posts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 10,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "consume",
+              "title": "Read post",
+              "preconditions": [
+                "post text and author readable"
+              ],
+              "successCriteria": [
+                "evidence names the specific post read; embedded video (if any) watched to completion"
+              ],
+              "allowedActions": [
+                "wait",
+                "tap:play-control"
+              ],
+              "forbiddenActions": [
+                "like",
+                "repost",
+                "reply",
+                "follow",
+                "scroll before evidence"
+              ],
+              "failureModes": [
+                {
+                  "id": "paused",
+                  "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
+                  "recovery": "one tap on the observed play control, re-observe"
+                },
+                {
+                  "id": "stalled-wait-loop",
+                  "detection": "3 consecutive wait decisions with unchanged timer",
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                },
+                {
+                  "id": "navigated-away",
+                  "detection": "screen.state != foregroundApp or player chrome missing",
+                  "recovery": "openApp + re-run open step; do not count the item"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 120
+              }
+            },
+            {
+              "id": "prepareSubmission",
+              "title": "Prepare comment",
+              "preconditions": [
+                "consume step finished"
+              ],
+              "successCriteria": [
+                "ONE short relevant reply to the post just read",
+                "exact composed text and selected media are visible",
+                "send/publish control is visible but NOT tapped"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "wait",
+                "selectAll"
+              ],
+              "forbiddenActions": [
+                "tap on send/publish",
+                "swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "composer-missing",
+                  "detection": "no text field / caption area with OCR send label visible",
+                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                },
+                {
+                  "id": "media-not-found",
+                  "detection": "requested asset not identifiable in picker",
+                  "recovery": "needsInput; never substitute assets",
+                  "terminal": true
+                },
+                {
+                  "id": "wrong-target",
+                  "detection": "author/handle or thread differs from consumed item",
+                  "recovery": "needsInput",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 180
+              }
+            },
+            {
+              "id": "submit",
+              "title": "Submit once",
+              "preconditions": [
+                "prepared content and target verified",
+                "PhoneSubmissionCheckpoint.state == preparing"
+              ],
+              "successCriteria": [
+                "exactly one tap on a control whose OCR label ∈ submitControlLabels",
+                "checkpoint written as 'submitting' BEFORE the tap"
+              ],
+              "allowedActions": [
+                "tap (one)"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "repeated tap",
+                "keyboard activation"
+              ],
+              "failureModes": [
+                {
+                  "id": "unlabeled-control",
+                  "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
+                  "recovery": "fail closed: no input; needsInput with the required label",
+                  "terminal": true
+                },
+                {
+                  "id": "duplicate-tap",
+                  "detection": "cursor.submissionSent already true",
+                  "recovery": "reject action; verification step only",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 2,
+                "maxSeconds": 20
+              },
+              "submitControlLabels": [
+                "Reply",
+                "Post"
+              ],
+              "unlabeledControlRisk": false
+            },
+            {
+              "id": "verifySubmission",
+              "title": "Verify publication",
+              "preconditions": [
+                "cursor.submissionSent == true"
+              ],
+              "successCriteria": [
+                "the exact comment is visible under the persona's handle",
+                "checkpoint state == confirmed"
+              ],
+              "allowedActions": [
+                "wait"
+              ],
+              "forbiddenActions": [
+                "any input",
+                "resubmit"
+              ],
+              "failureModes": [
+                {
+                  "id": "unconfirmed",
+                  "detection": "no published item under persona after 3 fresh frames",
+                  "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
+                  "terminal": true
+                },
+                {
+                  "id": "error-banner",
+                  "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
+                  "recovery": "checkpoint uncertain; needsInput; never resubmit",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 8,
+                "maxSeconds": 90
+              }
+            }
+          ]
+        },
+        "post": {
+          "scriptIdentifier": "warmup.x.post",
+          "version": 1,
+          "limits": {
+            "itemLimit": {
+              "min": 1,
+              "max": 1
+            },
+            "maxDurationSeconds": 3600
+          },
+          "retryPolicy": {
+            "maximumPreparationAttempts": 1,
+            "maximumSubmissionAttempts": 1,
+            "retriesUncertainSubmission": false,
+            "resumesInterruptedRun": false
+          },
+          "successCase": "one post visible on the persona's profile; checkpoint confirmed",
+          "steps": [
+            {
+              "id": "account",
+              "title": "Verify account",
+              "preconditions": [
+                "app foreground (screen.state == foregroundApp)",
+                "persona.handle non-empty (WarmUpConfiguration.hasHandle)"
+              ],
+              "successCriteria": [
+                "Tap the account avatar at the top left to open the side menu. The display name and @handle appear at the top of the menu.",
+                "OCR shows '@' + persona.handle (case-insensitive) in the profile header on the CURRENT frame",
+                "no sign-in / account-picker surface visible"
+              ],
+              "allowedActions": [
+                "tap",
+                "wait",
+                "press:assistiveTouch"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "longPress",
+                "any engagement"
+              ],
+              "failureModes": [
+                {
+                  "id": "signed-out",
+                  "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
+                  "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-mismatch",
+                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "recovery": "needsInput with both handles in the message",
+                  "terminal": true
+                },
+                {
+                  "id": "handle-unreadable",
+                  "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                },
+                {
+                  "id": "wrong-app",
+                  "detection": "screen.state == home or another app's chrome",
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 12,
+                "maxSeconds": 90
+              }
+            },
+            {
+              "id": "prepareSubmission",
+              "title": "Prepare post",
+              "preconditions": [
+                "account step finished"
+              ],
+              "successCriteria": [
+                "ONE original X post from the supplied instructions",
+                "exact composed text and selected media are visible",
+                "send/publish control is visible but NOT tapped"
+              ],
+              "allowedActions": [
+                "tap",
+                "typeText",
+                "wait",
+                "selectAll"
+              ],
+              "forbiddenActions": [
+                "tap on send/publish",
+                "swipe"
+              ],
+              "failureModes": [
+                {
+                  "id": "composer-missing",
+                  "detection": "no text field / caption area with OCR send label visible",
+                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                },
+                {
+                  "id": "media-not-found",
+                  "detection": "requested asset not identifiable in picker",
+                  "recovery": "needsInput; never substitute assets",
+                  "terminal": true
+                },
+                {
+                  "id": "wrong-target",
+                  "detection": "author/handle or thread differs from consumed item",
+                  "recovery": "needsInput",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 180
+              }
+            },
+            {
+              "id": "submit",
+              "title": "Submit once",
+              "preconditions": [
+                "prepared content and target verified",
+                "PhoneSubmissionCheckpoint.state == preparing"
+              ],
+              "successCriteria": [
+                "exactly one tap on a control whose OCR label ∈ submitControlLabels",
+                "checkpoint written as 'submitting' BEFORE the tap"
+              ],
+              "allowedActions": [
+                "tap (one)"
+              ],
+              "forbiddenActions": [
+                "typeText",
+                "swipe",
+                "repeated tap",
+                "keyboard activation"
+              ],
+              "failureModes": [
+                {
+                  "id": "unlabeled-control",
+                  "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
+                  "recovery": "fail closed: no input; needsInput with the required label",
+                  "terminal": true
+                },
+                {
+                  "id": "duplicate-tap",
+                  "detection": "cursor.submissionSent already true",
+                  "recovery": "reject action; verification step only",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 2,
+                "maxSeconds": 20
+              },
+              "submitControlLabels": [
+                "Post"
+              ],
+              "unlabeledControlRisk": false
+            },
+            {
+              "id": "verifySubmission",
+              "title": "Verify publication",
+              "preconditions": [
+                "cursor.submissionSent == true"
+              ],
+              "successCriteria": [
+                "the exact post is visible under the persona's handle",
+                "checkpoint state == confirmed"
+              ],
+              "allowedActions": [
+                "wait"
+              ],
+              "forbiddenActions": [
+                "any input",
+                "resubmit"
+              ],
+              "failureModes": [
+                {
+                  "id": "unconfirmed",
+                  "detection": "no published item under persona after 3 fresh frames",
+                  "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
+                  "terminal": true
+                },
+                {
+                  "id": "error-banner",
+                  "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
+                  "recovery": "checkpoint uncertain; needsInput; never resubmit",
+                  "terminal": true
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 8,
+                "maxSeconds": 90
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "tasks": [
+    {
+      "id": "TASK-1",
+      "title": "Contract parity test",
+      "status": "done",
+      "outcome": "This file cannot drift from the Swift registry: identifiers, versions, step order and titles are asserted per platform × activity.",
+      "files": [
+        "Tests/WarmUpTasksContractTests.swift",
+        "Contracts/warmup-tasks.json"
+      ],
+      "acceptance": [
+        "swiftc test passes for all 12 scripts",
+        "every step has ≥1 successCriteria and ≥1 failureMode with a recovery",
+        "task ids unique; dependsOn resolves"
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "TASK-2",
+      "title": "Coordinate unit normalization",
+      "status": "done",
+      "outcome": "Planner answers in pixels or percent are converted to fractions instead of failing the step.",
+      "files": [
+        "ShortReel/Services/DevicePrompts/PhonePlannerResponse.swift"
+      ],
+      "acceptance": [
+        "CodexPhonePlannerTests unit cases pass"
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "TASK-3",
+      "title": "Retry with rejection reason",
+      "status": "done",
+      "outcome": "One malformed answer is re-asked with the rejection text; all planners share the path.",
+      "files": [
+        "ShortReel/Services/DevicePrompts/PhoneVisualRunner.swift",
+        "ShortReel/Services/DevicePrompts/PhoneVisionTypes.swift"
+      ],
+      "acceptance": [
+        "PhoneVisualRunnerTests.retryNamesTheRejection passes"
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "TASK-4",
+      "title": "Load steps from this contract",
+      "status": "todo",
+      "outcome": "WarmUpScript.steps reads instructions, budgets and allowed/forbidden actions from the bundled JSON; the Swift string switch becomes the fallback only.",
+      "files": [
+        "ShortReel/Services/DevicePrompts/WarmUpScript.swift",
+        "project.yml (resources)"
+      ],
+      "acceptance": [
+        "WarmUpScriptTests pass with JSON-sourced steps",
+        "version bump required to change any step"
+      ],
+      "dependsOn": [
+        "TASK-1"
+      ]
+    },
+    {
+      "id": "TASK-5",
+      "title": "Local precondition observer per step",
+      "status": "todo",
+      "outcome": "Before each planner call the runner checks screen.state and the step's OCR anchors locally; a failed precondition routes to the step's failureModes instead of a free planner decision.",
+      "files": [
+        "ShortReel/Services/DevicePrompts/PhoneVisualRunner.swift",
+        "ShortReel/Services/DevicePrompts/PhonePlaybackTracker.swift"
+      ],
+      "acceptance": [
+        "each failureMode.id in this file maps to one recovery branch",
+        "runner test per failure id"
+      ],
+      "dependsOn": [
+        "TASK-4"
+      ]
+    },
+    {
+      "id": "TASK-6",
+      "title": "Per-step budgets",
+      "status": "todo",
+      "outcome": "Enforce budget.maxPlannerDecisions / maxSeconds per step id; exhaustion → needsInput naming the step and last evidence.",
+      "files": [
+        "ShortReel/Services/DevicePrompts/PhoneVisualRunner.swift",
+        "ShortReel/Services/DevicePrompts/WarmUpScript.swift"
+      ],
+      "acceptance": [
+        "INV-6 enforcedBy updated to code",
+        "runner test: budget exhaustion never sends input after the limit"
+      ],
+      "dependsOn": [
+        "TASK-4"
+      ]
+    },
+    {
+      "id": "TASK-7",
+      "title": "Deterministic navigation primitives",
+      "status": "todo",
+      "outcome": "openApp (Dock, else Spotlight), goHome (AssistiveTouch), openSearch per platform become scripted local sequences with verification frames, removing planner freedom for chrome navigation.",
+      "files": [
+        "ShortReel/Services/DevicePrompts/DevicePromptExecutor.swift",
+        "ShortReel/Services/DevicePrompts/PhoneHomeNavigator.swift"
+      ],
+      "acceptance": [
+        "primitive tests with golden frames",
+        "planner never asked to locate the Home tab or search icon"
+      ],
+      "dependsOn": [
+        "TASK-5"
+      ]
+    },
+    {
+      "id": "TASK-8",
+      "title": "Local OCR account check",
+      "status": "todo",
+      "outcome": "The account step compares the OCR'd '@' token to persona.handle on the Mac; the planner only navigates to the profile.",
+      "files": [
+        "ShortReel/Services/DevicePrompts/PhoneSubmissionGuard.swift",
+        "ShortReel/Services/DevicePrompts/WarmUpScript.swift"
+      ],
+      "acceptance": [
+        "mismatch and signed-out fixtures → needsInput with zero engagement input",
+        "match fixture → step finishes without a planner claim"
+      ],
+      "dependsOn": [
+        "TASK-5"
+      ]
+    },
+    {
+      "id": "TASK-9",
+      "title": "Submit-control label registry",
+      "status": "todo",
+      "outcome": "submitControlLabels per platform drive PhoneSubmissionGuard; unlabeledControlRisk platforms (TikTok/YouTube comment send icons) get a glyph template match or stay needsInput.",
+      "files": [
+        "ShortReel/Services/DevicePrompts/PhoneSubmissionGuard.swift"
+      ],
+      "acceptance": [
+        "guard rejects any label not in the registry",
+        "fixtures per platform"
+      ],
+      "dependsOn": [
+        "TASK-4"
+      ]
+    },
+    {
+      "id": "TASK-10",
+      "title": "Golden screenshot fixtures",
+      "status": "todo",
+      "outcome": "One frame per platform × step (success and each failure id) checked into Tests/Fixtures for offline verification of TASK-5/7/8/9.",
+      "files": [
+        "Tests/Fixtures/"
+      ],
+      "acceptance": [
+        "every step id in this file has ≥1 fixture",
+        "fixtures are <300 KB each"
+      ],
+      "dependsOn": [
+        "TASK-5"
+      ]
+    },
+    {
+      "id": "TASK-11",
+      "title": "Per-step journal outcomes",
+      "status": "todo",
+      "outcome": "DeviceRunJournal records step id, attempt count, failureMode id and evidence so a failed run names the step, not just 'Failed'.",
+      "files": [
+        "ShortReel/Services/DevicePrompts/DeviceRunJournal.swift",
+        "ShortReel/Views/DeviceStageView.swift"
+      ],
+      "acceptance": [
+        "Stage row shows last step id + failure id",
+        "journal round-trips through WarmUpScriptCheckpoint"
+      ],
+      "dependsOn": [
+        "TASK-6"
+      ]
+    },
+    {
+      "id": "TASK-12",
+      "title": "Cross-platform parity gate",
+      "status": "todo",
+      "outcome": "CI-equivalent script runs TASK-1 plus every planner/runner suite; a platform missing any step, budget, or recovery fails the build.",
+      "files": [
+        "apple/scripts/test.ts"
+      ],
+      "acceptance": [
+        "bun run test exits non-zero on any parity or suite failure"
+      ],
+      "dependsOn": [
+        "TASK-1",
+        "TASK-5",
+        "TASK-6"
+      ]
+    }
+  ]
+}

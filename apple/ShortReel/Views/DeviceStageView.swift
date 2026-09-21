@@ -251,7 +251,9 @@ struct DeviceStageView: View {
                                 .font(.callout)
                         }
                         if warmUpActivity == .watch {
-                            Text("Repeat watching and advancing until the item or time limit is reached.")
+                            Text(script.maximumVideoDurationSeconds == nil
+                                 ? "Repeat watching and advancing until the item or time limit is reached."
+                                 : "Skip videos longer than \(script.maximumVideoDurationSeconds ?? 60) seconds. Skipped videos do not count toward the viewing limit.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }

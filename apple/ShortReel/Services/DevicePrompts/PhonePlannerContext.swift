@@ -20,7 +20,8 @@ enum PhonePlannerContext {
 
     /// Preserve page/folder coverage across long tasks without retaining old images.
     static func progressNotes(_ history: [PhoneVisionStep]) -> String {
-        history.suffix(300).compactMap { step -> String? in
+        let limit = history.last?.pageState == nil ? 300 : 8
+        return history.suffix(limit).compactMap { step -> String? in
             guard let progressNote = step.progressNote else { return nil }
             let note = progressNote.components(separatedBy: .whitespacesAndNewlines)
                 .filter { !$0.isEmpty }.joined(separator: " ")

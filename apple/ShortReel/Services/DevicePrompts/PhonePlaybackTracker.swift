@@ -8,6 +8,8 @@ import Vision
 struct PhonePlaybackEvidence: Sendable, Equatable {
     let summary: String
     let replayCandidate: Bool
+    var durationSeconds: Int? = nil
+    var isAdvancing = false
 }
 
 struct PhonePlaybackTracker: Sendable {
@@ -44,7 +46,11 @@ struct PhonePlaybackTracker: Sendable {
     }
 
     mutating func observe(frame: PhoneScreenFrame, platform: String) async -> PhonePlaybackEvidence {
-        let observation = await Task.detached(priority: .utility) {
+        observe(await Self.read(frame: frame, platform: platform))
+    }
+
+    static func read(frame: PhoneScreenFrame, platform: String) async -> Observation {
+        await Task.detached(priority: .utility) {
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.recognitionLanguages = ["en-US"]
@@ -64,7 +70,6 @@ struct PhonePlaybackTracker: Sendable {
                     platform: platform, regions: [])
             }
         }.value
-        return observe(observation)
     }
 
     mutating func observe(_ observation: Observation) -> PhonePlaybackEvidence {
@@ -111,7 +116,7 @@ struct PhonePlaybackTracker: Sendable {
               identity.count >= 2, identity.contains(where: { $0.first == "@" }),
               previous.identity == identity else {
             observedForwardProgress = false
-            return .init(summary: measured + " Same-video continuity is unconfirmed. A timer alone does not prove this is the active player or that playback completed.", replayCandidate: false)
+            return .init(summary: measured + " Same-video continuity is unconfirmed. A timer alone does not prove this is the active player or that playback completed.", replayCandidate: false, durationSeconds: current.total)
         }
 
         let resetFromEnd = observedForwardProgress
@@ -119,7 +124,7 @@ struct PhonePlaybackTracker: Sendable {
             && current.elapsed <= max(1, Int(Double(current.total) * 0.10))
         if resetFromEnd {
             observedForwardProgress = false
-            return .init(summary: measured + " Previously advanced to \(Self.clock(previous.elapsed))/\(Self.clock(previous.total)), then reset near zero while creator/caption anchors and timer position stayed the same. This is a replay candidate: visually confirm the same full-screen video completed before marking it watched and swiping up once. Seeking, overlays, or a different video can also reset a timer.", replayCandidate: true)
+            return .init(summary: measured + " Previously advanced to \(Self.clock(previous.elapsed))/\(Self.clock(previous.total)), then reset near zero while creator/caption anchors and timer position stayed the same. This is a replay candidate: visually confirm the same full-screen video completed before marking it watched and swiping up once. Seeking, overlays, or a different video can also reset a timer.", replayCandidate: true, durationSeconds: current.total)
         }
         if current.elapsed > previous.elapsed {
             // Reject jumps faster than plausible playback; an OCR error or seek
@@ -129,7 +134,7 @@ struct PhonePlaybackTracker: Sendable {
         } else if current.elapsed < previous.elapsed {
             observedForwardProgress = false
         }
-        return .init(summary: measured + " No completion established. A static, paused, or near-end timer is not a completed viewing.", replayCandidate: false)
+        return .init(summary: measured + " No completion established. A static, paused, or near-end timer is not a completed viewing.", replayCandidate: false, durationSeconds: current.total, isAdvancing: current.elapsed > previous.elapsed && observedForwardProgress)
     }
 
     private static let controlLabels = ["add comment", "add a comment", "write a comment", "search", "suggested", "for you", "following", "subscribe", "share", "log in", "sign in", "people also"]

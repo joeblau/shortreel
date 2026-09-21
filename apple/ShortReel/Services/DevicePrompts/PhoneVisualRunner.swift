@@ -15,6 +15,7 @@ final class PhoneVisualRunner {
     private let inspect: ((PhoneScreenFrame) async throws -> PhoneScreenObservation)?
     private let prepareCleanupAction: ((PhonePromptAction, PhoneScreenFrame) async throws -> PhonePromptAction)?
     private let validateSubmissionAction: (PhonePromptAction, PhoneScreenFrame, Bool) async throws -> Void
+    private let readText: (PhoneScreenFrame, String) async -> PhonePlaybackTracker.Observation
     private var isRunning = false
 
     init(capture: @escaping (Date) async throws -> PhoneScreenFrame,
@@ -25,9 +26,13 @@ final class PhoneVisualRunner {
          maximumDuration: TimeInterval = 300,
          inspect: ((PhoneScreenFrame) async throws -> PhoneScreenObservation)? = nil,
          prepareCleanupAction: ((PhonePromptAction, PhoneScreenFrame) async throws -> PhonePromptAction)? = nil,
+         readText: @escaping (PhoneScreenFrame, String) async -> PhonePlaybackTracker.Observation = {
+             await PhonePlaybackTracker.read(frame: $0, platform: $1)
+         },
          validateSubmissionAction: @escaping (PhonePromptAction, PhoneScreenFrame, Bool) async throws -> Void = {
              try await PhoneSubmissionGuard.validate(action: $0, frame: $1, isFinalSubmission: $2)
          }) {
+        self.readText = readText
         self.capture = capture
         self.decide = decide
         self.perform = perform
@@ -158,6 +163,8 @@ final class PhoneVisualRunner {
         var consecutivePlaybackWaits = 0
         var playbackStartFrame: PhoneScreenFrame?
         var playbackTracker = PhonePlaybackTracker()
+        var stateTree = WarmUpStateTree()
+        let brief = goal
 
         do {
             for decisionNumber in 1...maximumSteps {
@@ -199,45 +206,75 @@ final class PhoneVisualRunner {
                     steps[index].playbackStartFrame = nil
                 }
 
-                onProgress("Choosing the next action…")
-                let goal = scriptCursor?.goal(goal) ?? goal
+                let usesStateTree = scriptCursor?.script.network == .tikTok && scriptCursor?.script.activity == .watch
+                let reviewsPlayback =
+                    scriptCursor.map { $0.step.id == .consume && $0.script.usesVideo } ?? reviewsTikTokPlayback
+                var textObservation: PhonePlaybackTracker.Observation?
+                if usesStateTree || reviewsPlayback {
+                    onProgress("Recognizing the current page…")
+                    let platform = scriptCursor?.script.network.rawValue ?? "TikTok"
+                    textObservation = try await beforeDeadline(deadline) { [self] in await readText(frame, platform) }
+                    try checkAvailability(deadline: deadline)
+                    try checkFrameAge(frame)
+                }
+                var playbackEvidence: String?
+                var observedVideoDuration: Int?
+                var playback: PhonePlaybackEvidence?
+                if reviewsPlayback, let textObservation {
+                    let evidence = playbackTracker.observe(textObservation)
+                    playback = evidence
+                    playbackEvidence = "CURRENT frame (\(frame.capturedAt.ISO8601Format())): \(evidence.summary)"
+                    observedVideoDuration = evidence.durationSeconds
+                }
+                var route: WarmUpStateTree.Route?
+                var pageState: String?
+                if usesStateTree, let cursor = scriptCursor, let textObservation {
+                    let page = WarmUpPage.detect(textObservation)
+                    pageState = page.kind.rawValue
+                    route = stateTree.route(cursor: cursor, page: page, playback: playback, brief: brief)
+                }
+                let goal = (scriptCursor?.goal(brief) ?? brief) + (route.map { "\n" + $0.context } ?? "")
                 guard goal.count <= DevicePromptPlanner.maximumPromptLength else {
                     throw PhonePromptPlanningError.needsClarification("Shorten the warm-up details before running.")
                 }
-                let reviewsPlayback =
-                    scriptCursor.map { $0.step.id == .consume && $0.script.usesVideo } ?? reviewsTikTokPlayback
-                var playbackEvidence: String?
-                if reviewsPlayback {
-                    let evidence = await playbackTracker.observe(
-                        frame: frame,
-                        platform: scriptCursor?.script.network.rawValue ?? "TikTok")
-                    try checkAvailability(deadline: deadline)
-                    try checkFrameAge(frame)
-                    playbackEvidence = "CURRENT frame (\(frame.capturedAt.ISO8601Format())): \(evidence.summary)"
-                }
+                onProgress(route?.decision == nil ? "Choosing the next action…" : "Following the \(pageState ?? "current") page route…")
                 var history = steps
                 if let last = history.indices.last { history[last].playbackEvidence = playbackEvidence }
+                let preparesPlaybackReview = usesStateTree && route?.decision == nil && reviewsPlayback
+                    && consecutivePlaybackWaits >= 2 && consecutivePlaybackWaits % 3 == 2
+                if preparesPlaybackReview, let last = history.indices.last {
+                    history[last].playbackReviewRequested = true
+                }
                 var decision: PhoneVisionDecision
-                do {
-                    decision = try await beforeDeadline(deadline) { [self] in
-                        try await decide(goal, frame, history)
-                    }.validated()
-                } catch let error as PhoneVisionError {
-                    // A malformed model response is a dud roll, not a failed goal:
-                    // ask once more with the same frame before giving up.
-                    guard case .invalidDecision = error else { throw error }
-                    onProgress("The model returned an unreadable action; asking again…")
-                    decision = try await beforeDeadline(deadline) { [self] in
-                        try await decide(goal, frame, history)
-                    }.validated()
+                var decisionSource = preparesPlaybackReview ? "model review" : "model"
+                if let routed = route?.decision {
+                    decision = try routed.validated()
+                    decisionSource = "state tree"
+                } else {
+                    do {
+                        decision = try await beforeDeadline(deadline) { [self] in
+                            try await decide(goal, frame, history)
+                        }.validated()
+                    } catch let error as PhoneVisionError {
+                        // A malformed model response is a dud roll, not a failed goal:
+                        // ask once more with the same frame, naming the rejection so
+                        // the model can correct it instead of repeating it.
+                        guard case .invalidDecision(let rejection) = error else { throw error }
+                        onProgress("The model returned an unreadable action; asking again…")
+                        let correction = goal + "\n\nPREVIOUS RESPONSE REJECTED: \(rejection) Return one corrected decision for the same CURRENT screenshot. Coordinates are fractions of the image from 0 to 1, never pixels or percent."
+                        decision = try await beforeDeadline(deadline) { [self] in
+                            try await decide(correction, frame, history)
+                        }.validated()
+                    }
                 }
                 try checkAvailability(deadline: deadline)
                 try checkFrameAge(frame)
 
-                if reviewsPlayback, case .wait = decision,
+                if reviewsPlayback, !preparesPlaybackReview, case .wait = decision,
                     consecutivePlaybackWaits >= 2, consecutivePlaybackWaits % 3 == 2,
                     let last = history.indices.last
                 {
+                    decisionSource = "model review"
                     onProgress("Checking whether the video finished or started replaying…")
                     var reviewHistory = history
                     reviewHistory[last].playbackReviewRequested = true
@@ -304,7 +341,7 @@ final class PhoneVisualRunner {
                             id: UUID(), number: decisionNumber,
                             action: "Verified \(completedStep)", detail: result, capturedAt: frame.capturedAt,
                             progressNote: "Script step verified: \(completedStep). \(result)",
-                            playbackEvidence: playbackEvidence)
+                            playbackEvidence: playbackEvidence, pageState: pageState, decisionSource: decisionSource)
                         onStep(step)
                         steps.append(step)
                         onScriptProgress(cursor.progress)
@@ -332,8 +369,9 @@ final class PhoneVisualRunner {
                     return result
                 case .needsInput(let explanation):
                     throw PhonePromptPlanningError.needsClarification(explanation)
-                case .action(let proposedAction, let proposedReason):
-                    try scriptCursor?.validate(proposedAction)
+                case .action(let plannerAction, let proposedReason):
+                    let proposedAction = scriptCursor?.normalizedAction(plannerAction) ?? plannerAction
+                    try scriptCursor?.validate(proposedAction, observedVideoDuration: observedVideoDuration)
                     if let cursor = scriptCursor, [.prepareSubmission, .submit].contains(cursor.step.id) {
                         try await validateSubmissionAction(proposedAction, frame, cursor.step.id == .submit)
                         try checkAvailability(deadline: deadline)
@@ -389,7 +427,7 @@ final class PhoneVisualRunner {
                         id: UUID(), number: decisionNumber,
                         action: description(of: action), detail: reason, capturedAt: frame.capturedAt,
                         input: action, beforeFrame: frame, progressNote: workflow == nil ? nil : reason,
-                        playbackEvidence: playbackEvidence)
+                        playbackEvidence: playbackEvidence, pageState: pageState, decisionSource: decisionSource)
                     onProgress("Step \(decisionNumber): \(step.action)")
                     var displayStep = step
                     displayStep.beforeFrame = nil
@@ -430,7 +468,7 @@ final class PhoneVisualRunner {
                         id: UUID(), number: decisionNumber,
                         action: "Wait for the screen", detail: reason, capturedAt: frame.capturedAt, beforeFrame: frame,
                         progressNote: workflow == nil ? nil : reason,
-                        playbackStartFrame: playbackStartFrame, playbackEvidence: playbackEvidence)
+                        playbackStartFrame: playbackStartFrame, playbackEvidence: playbackEvidence, pageState: pageState, decisionSource: decisionSource)
                     onProgress("Waiting for the phone’s screen to change…")
                     var displayStep = step
                     displayStep.beforeFrame = nil

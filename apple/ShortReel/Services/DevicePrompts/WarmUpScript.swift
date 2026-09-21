@@ -35,8 +35,8 @@ struct WarmUpScript: Codable, Equatable, Sendable {
     let itemLimit: Int
     let duration: TimeInterval
 
-    init(network: Network, activity: WarmUpActivity, itemLimit: Int, duration: TimeInterval, version: Int = 1) {
-        self.version = version
+    init(network: Network, activity: WarmUpActivity, itemLimit: Int, duration: TimeInterval, version: Int? = nil) {
+        self.version = version ?? Self.currentVersion(network: network, activity: activity)
         self.network = network
         self.activity = activity
         self.itemLimit = itemLimit
@@ -46,10 +46,27 @@ struct WarmUpScript: Codable, Equatable, Sendable {
     var identifier: String { "warmup.\(network.rawValue.lowercased()).\(activity.rawValue)" }
     var retryPolicy: RetryPolicy { .versionOne }
 
+    static func currentVersion(network: Network, activity: WarmUpActivity) -> Int {
+        if activity == .watch, network != .x { return network == .tikTok ? 5 : 4 }
+        return network == .tikTok && activity != .post ? 2 : 1
+    }
+
+    var requiresPopularStartingVideo: Bool { network == .tikTok && activity != .post && version >= 2 }
+    var maximumVideoDurationSeconds: Int? {
+        guard activity == .watch, usesVideo, version >= (network == .tikTok ? 3 : 2) else { return nil }
+        return version >= (network == .tikTok ? 5 : 4) ? 60 : 120
+    }
+
+    var allowsEstimatedDurationSkip: Bool {
+        maximumVideoDurationSeconds != nil && version >= (network == .tikTok ? 4 : 3)
+    }
+
     /// Saved contracts fail before device input when their version or limits
     /// cannot be supported by this build.
     func validate() throws {
-        guard version == 1 else { throw PhonePromptPlanningError.needsClarification("Unsupported warm-up script version: \(version).") }
+        guard (1...Self.currentVersion(network: network, activity: activity)).contains(version) else {
+            throw PhonePromptPlanningError.needsClarification("Unsupported warm-up script version: \(version).")
+        }
         guard (1...50).contains(itemLimit), activity == .watch || itemLimit == 1 else {
             throw PhonePromptPlanningError.needsClarification("Watch supports 1–50 items; Comment and Post permit exactly one submission.")
         }
@@ -82,7 +99,11 @@ struct WarmUpScript: Codable, Equatable, Sendable {
         switch network {
         case .tikTok:
             search = "Open TikTok search and type a simple 1–2 word niche query using typeText. Finish when the query and suggested searches are visible; do not submit yet."
-            open = "Open a VIDEO FROM THE TOP ROW of the results grid, preferring top left. Use the Videos tab if needed. Do not scroll the grid or open an account/ad. Finish when the full-screen video is playing."
+            if requiresPopularStartingVideo {
+                open = "Starting at the TOP of the search results, find a relevant video with MORE THAN 10,000 hearts (likes). Open a candidate and verify the count next to the HEART in its full-screen player; grid view/play counts do not qualify. 10.1K, 25K, or 1M hearts qualify; 10K, 10.0K, or 10,000 do not prove more than 10,000. If below the threshold or unreadable, go back and inspect the next relevant result, scrolling results if needed. Never tap the heart. Finish only when a qualifying video is playing, and report its observed heart count as evidence. Do not count rejected candidates as watched. If none qualify within the session limit, request input; never lower the threshold. This filter selects the starting video only; subsequent videos follow the watch/advance loop."
+            } else {
+                open = "Open a VIDEO FROM THE TOP ROW of the results grid, preferring top left. Use the Videos tab if needed. Do not scroll the grid or open an account/ad. Finish when the full-screen video is playing."
+            }
             consume = "Watch the current full-screen video TO COMPLETION. Compare timestamped frames and playback progress; an observed ending or verified replay counts once. Resume if paused. A delay or changing pixels alone is not completion. Do not swipe yet."
             advance = "Swipe UP EXACTLY ONCE within the full-screen player to the next video. Then wait and verify a different video is playing. Never scroll a results grid."
         case .instagram:
@@ -106,8 +127,14 @@ struct WarmUpScript: Codable, Equatable, Sendable {
             result.append(Step(id: .suggestion, title: "Choose search result", instruction:
                 "Tap one of the TOP THREE relevant suggestions beneath the search field. Finish only when the video results grid is visible. A suggestion is not a video."))
         }
-        result += [Step(id: .open, title: usesVideo ? "Open video" : "Find post", instruction: open),
-                   Step(id: .consume, title: usesVideo ? "Watch to completion" : "Read post", instruction: consume)]
+        let exactDurationRule = maximumVideoDurationSeconds == nil ? "" : " Check total video duration before and during viewing. If visibly LONGER THAN 2:00 (more than 120 seconds), skip immediately: return swipe UP EXACTLY ONCE with the observed total duration in your reason. Do not finish this step or count the skipped video as watched. The runner verifies the next video before watching again. Videos exactly 2:00 or shorter must be watched to completion. Unknown duration or elapsed wall time is not evidence a video is too long. This duration exception overrides the instruction not to swipe before completion."
+        let durationClock = maximumVideoDurationSeconds == 60 ? "1:00" : "2:00"
+        let durationWords = maximumVideoDurationSeconds == 60 ? "one minute" : "two minutes"
+        let durationRule = allowsEstimatedDurationSkip
+            ? " Check video length before and during viewing. If it looks LONGER THAN \(durationClock), swipe UP EXACTLY ONCE immediately; an exact duration label is not required. Prefer a readable total duration. Otherwise estimate from visible playback progress across timestamped frames of the same continuously playing video (for example, about 10% advancement in 20 seconds suggests roughly 200 seconds total). State the observed cues and approximate duration in your reason. Do not wait \(durationWords) just to confirm or repeatedly inspect for an exact timer when progress already indicates a long video. A readable total of \(durationClock) or less overrides an estimate: watch it to completion. Pauses, buffering, seeking, scene changes, or elapsed wall time alone do not establish length; if no useful cues exist, continue observing playback. Do not finish this step or count a skipped video as watched. The runner verifies the next video before watching again. This duration exception overrides the instruction not to swipe before completion."
+            : exactDurationRule
+        result += [Step(id: .open, title: requiresPopularStartingVideo ? "Find video with >10K hearts" : usesVideo ? "Open video" : "Find post", instruction: open),
+                   Step(id: .consume, title: usesVideo ? "Watch to completion" : "Read post", instruction: consume + durationRule)]
         if activity == .comment {
             result += submissionSteps
         } else {
@@ -159,10 +186,36 @@ struct WarmUpScriptCursor: Sendable {
         Return finished with visible evidence when THIS STEP is verified, not when the entire session finishes. The runner owns step transitions and item counts. Do not execute future steps. Account verification remains valid after its step; stop if the app changes account or requests sign-in.
         \(script.activity == .watch ? "Watch only: no likes, follows, comments, messages, or publishing." : "Only the selected activity is authorized: no unrelated engagement, messages, likes, or follows. Publish at most one \(script.activity == .post ? "post" : "comment") in this run.")
         \(advanceSent ? "The advance gesture was already sent. Verify the new item now; do not send another gesture. If the transition failed, request input." : "")
+        \(step.id == .advance && !advanceSent ? "The previous viewing is already complete. Send action swipe with direction up now; do not tap to pause/resume or mark this step finished before sending the swipe." : "")
         """
     }
 
-    func validate(_ action: PhonePromptAction) throws {
+    /// Planners can encode the same feed gesture as a swipe or a coordinate
+    /// drag. Dispatch one canonical swipe so validation and checkpoints agree.
+    func normalizedAction(_ action: PhonePromptAction) -> PhonePromptAction {
+        guard step.id == .advance || (step.id == .consume && script.maximumVideoDurationSeconds != nil) else {
+            return action
+        }
+        let startX: Double, startY: Double, endX: Double, endY: Double
+        switch action {
+        case .drag(let x, let y, let toX, let toY):
+            (startX, startY, endX, endY) = (x, y, toX, toY)
+        case .timedDrag(let x, let y, let toX, let toY, let duration, let press, let hold):
+            guard duration > 0, duration <= 1.5, press >= 0, press <= 0.2,
+                  hold >= 0, hold <= 0.2 else { return action }
+            (startX, startY, endX, endY) = (x, y, toX, toY)
+        default: return action
+        }
+        // Only a substantial vertical movement inside the player, not a
+        // progress-bar scrub, edge gesture, horizontal drag, or long hold.
+        guard [startX, endX].allSatisfy({ (0.15...0.85).contains($0) }),
+              [startY, endY].allSatisfy({ (0.1...0.85).contains($0) }),
+              startY - endY >= 0.2, abs(endX - startX) <= 0.15 else { return action }
+        return .swipe(.up)
+    }
+
+    func validate(_ proposedAction: PhonePromptAction, observedVideoDuration: Int? = nil) throws {
+        let action = normalizedAction(proposedAction)
         try script.validate()
         guard !isComplete else {
             throw PhonePromptPlanningError.needsClarification("This script is already complete.")
@@ -181,6 +234,12 @@ struct WarmUpScriptCursor: Sendable {
             }
         }
         if step.id == .consume {
+            if let limit = script.maximumVideoDurationSeconds, action == .swipe(.up) {
+                if let observedVideoDuration, observedVideoDuration <= limit {
+                    throw PhonePromptPlanningError.needsClarification("This video is \(limit) seconds or shorter. Watch it to completion before advancing.")
+                }
+                return
+            }
             switch action {
             case .swipe, .drag, .timedDrag:
                 throw PhonePromptPlanningError.needsClarification("Verify the current item is complete before advancing to the next one.")
@@ -189,7 +248,15 @@ struct WarmUpScriptCursor: Sendable {
         }
     }
 
-    mutating func didPerform(_ action: PhonePromptAction) {
+    mutating func didPerform(_ proposedAction: PhonePromptAction) {
+        let action = normalizedAction(proposedAction)
+        if step.id == .consume, script.maximumVideoDurationSeconds != nil, action == .swipe(.up) {
+            // Skipping a long video is not a completed viewing. Reuse the
+            // advance verification step so another swipe cannot race loading.
+            index = script.steps.firstIndex { $0.id == .advance }!
+            advanceSent = true
+            return
+        }
         if step.id == .advance, action == .swipe(.up) { advanceSent = true }
         if step.id == .submit, !submissionSent, case .tap = action {
             submissionSent = true
@@ -261,7 +328,7 @@ enum WarmUpScriptRegistry {
     }
 
     static func script(network: WarmUpScript.Network, activity: WarmUpActivity,
-                       itemLimit: Int, duration: TimeInterval, version: Int = 1) throws -> WarmUpScript {
+                       itemLimit: Int, duration: TimeInterval, version: Int? = nil) throws -> WarmUpScript {
         let script = WarmUpScript(network: network, activity: activity, itemLimit: itemLimit, duration: duration, version: version)
         try script.validate()
         return script

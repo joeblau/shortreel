@@ -219,7 +219,7 @@ struct WarmUpConfiguration: Sendable {
             "Allowed actions and daily-look caps for this session: like at most \(plan.maxLikes), follow at most \(plan.maxFollows), comment at most \(plan.maxComments)\(plan.allowsPosting ? ", post at most \(plan.maxPosts)" : "").",
         ]
         if platform == .tikTok {
-            lines.append("TikTok: choose a top-three search suggestion, then open a top-row video. Watch it to completion, swipe up once, and verify the next video starts. Repeat within session limits.")
+            lines.append("TikTok: choose a top-three search suggestion, then start from a relevant top result with more than 10,000 hearts verified in the player (not views). Watch it to completion, swipe up once, and verify the next video starts. Repeat within session limits.")
         }
         if !plan.guidance.isEmpty {
             lines.append("Phase guidance: \(plan.guidance)")

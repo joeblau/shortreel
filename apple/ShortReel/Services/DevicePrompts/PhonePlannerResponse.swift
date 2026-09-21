@@ -26,6 +26,34 @@ enum PhonePlannerResponse {
         var x: Double?, y: Double?, endX: Double?, endY: Double?
         var seconds: Double?, duration: Double?, pressDuration: Double?, holdDuration: Double?
         var text: String?, key: String?, direction: String?
+
+        mutating func normalizeCoordinates(imageSize: CGSize?) {
+            let width = imageSize.map { Double($0.width) } ?? 0
+            let height = imageSize.map { Double($0.height) } ?? 0
+            var pairs: [(value: Double, extent: Double)] = []
+            for (value, extent) in [(x, width), (y, height), (endX, width), (endY, height)] {
+                guard let value else { continue }
+                pairs.append((value, extent))
+            }
+            guard !pairs.isEmpty, let converted = PhonePlannerResponse.normalized(pairs) else { return }
+            var next = converted.makeIterator()
+            if x != nil { x = next.next() }
+            if y != nil { y = next.next() }
+            if endX != nil { endX = next.next() }
+            if endY != nil { endY = next.next() }
+        }
+    }
+
+    /// Vision models habitually answer in the screenshot's pixels or in
+    /// percent even when asked for fractions. When every coordinate fits one
+    /// of those units, convert instead of rejecting the whole step.
+    private static func normalized(_ coordinates: [(value: Double, extent: Double)]) -> [Double]? {
+        let values = coordinates.map(\.value)
+        guard values.allSatisfy({ $0.isFinite && $0 >= 0 }) else { return nil }
+        if values.allSatisfy({ $0 <= 1 }) { return values }
+        if values.allSatisfy({ $0 <= 100 }) { return values.map { $0 / 100 } }
+        guard coordinates.allSatisfy({ $0.extent > 100 && $0.value <= $0.extent }) else { return nil }
+        return coordinates.map { $0.value / $0.extent }
     }
 
     static func schema(inspectOnly: Bool) throws -> Data {
@@ -34,6 +62,8 @@ enum PhonePlannerResponse {
         }
         let text: [String: Any] = ["type": "string"]
         let number: [String: Any] = ["type": "number"]
+        let coordinate: [String: Any] = ["type": "number", "description":
+            "Fraction of the CURRENT image, 0 to 1, with (0,0) at the top-left. Never pixels or percent."]
         var properties: [String: Any] = ["screen": object([
             "state": ["type": "string", "enum": ["home", "homeEditing", "appSwitcher", "foregroundApp", "spotlight", "assistiveTouch", "dialog", "unknown"]],
             "appCardsVisible": ["type": "boolean"], "evidence": text
@@ -48,6 +78,7 @@ enum PhonePlannerResponse {
                     case "text": fields[field] = text
                     case "key": fields[field] = ["type": "string", "enum": PhoneKey.allCases.map(\.rawValue)]
                     case "direction": fields[field] = ["type": "string", "enum": PhoneSwipeDirection.allCases.map(\.rawValue)]
+                    case "x", "y", "endX", "endY": fields[field] = coordinate
                     default: fields[field] = number
                     }
                 }
@@ -62,18 +93,19 @@ enum PhonePlannerResponse {
         return try screen(root["screen"])
     }
 
-    static func decision(from data: Data, goal: String) throws -> PhoneVisionDecision {
+    static func decision(from data: Data, goal: String, imageSize: CGSize? = nil) throws -> PhoneVisionDecision {
         let root = try object(data, keys: ["screen", "decision"])
         let observation = try screen(root["screen"])
         guard let value = root["decision"] as? [String: Any],
               let name = value["kind"] as? String, let kind = Kind(rawValue: name),
               Set(value.keys) == Set(["kind", "reason"] + kind.fields),
-              let payload = try? JSONDecoder().decode(Payload.self, from: JSONSerialization.data(withJSONObject: value)) else {
+              var payload = try? JSONDecoder().decode(Payload.self, from: JSONSerialization.data(withJSONObject: value)) else {
             throw invalid("one complete phone action")
         }
         // Required properties may not be null, even though Codable's optional
         // fields cover the different action variants.
         guard value.values.allSatisfy({ !($0 is NSNull) }) else { throw invalid("non-null action fields") }
+        payload.normalizeCoordinates(imageSize: imageSize)
         func number(_ value: Double?) throws -> Double {
             guard let value, value.isFinite else { throw invalid("finite input coordinates and timing") }
             return value

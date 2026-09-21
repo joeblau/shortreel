@@ -56,19 +56,27 @@ final class DeviceManager {
 
     private var visionModels = UserDefaults.standard.dictionary(forKey: PhoneVisionProvider.modelPreferenceKey) as? [String: String] ?? [:]
 
+    /// The model the current planner will use.
     var visionModel: String {
-        get {
-            if let saved = visionModels[visionProvider.rawValue], PhoneVisionProvider.isValidModel(saved) { return saved }
-            return visionProvider.defaultModel ?? ""
-        }
-        set {
-            let model = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard visionProvider.defaultModel != nil, PhoneVisionProvider.isValidModel(model), model != visionModel else { return }
-            visionModels[visionProvider.rawValue] = model
-            UserDefaults.standard.set(visionModels, forKey: PhoneVisionProvider.modelPreferenceKey)
-            for session in promptSessions.values where session.isRunning {
-                session.cancel(because: "Stopped because the model changed. Run the request again to use the selected model.")
-            }
+        get { visionModel(for: visionProvider) }
+        set { setVisionModel(newValue, for: visionProvider) }
+    }
+
+    /// Each planner remembers its own model, so the menu can show every
+    /// planner's choice without switching to it first.
+    func visionModel(for provider: PhoneVisionProvider) -> String {
+        if let saved = visionModels[provider.rawValue], PhoneVisionProvider.isValidModel(saved) { return saved }
+        return provider.defaultModel ?? ""
+    }
+
+    func setVisionModel(_ newValue: String, for provider: PhoneVisionProvider) {
+        let model = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard provider.defaultModel != nil, PhoneVisionProvider.isValidModel(model), model != visionModel(for: provider) else { return }
+        visionModels[provider.rawValue] = model
+        UserDefaults.standard.set(visionModels, forKey: PhoneVisionProvider.modelPreferenceKey)
+        guard provider == visionProvider else { return }
+        for session in promptSessions.values where session.isRunning {
+            session.cancel(because: "Stopped because the model changed. Run the request again to use the selected model.")
         }
     }
 

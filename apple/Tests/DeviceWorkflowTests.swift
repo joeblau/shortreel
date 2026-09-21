@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner,DevicePromptSession,HomeScreenRemovalGuard}.swift Tests/DeviceWorkflowTests.swift -o /tmp/shortreel-workflow-tests
+// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{WarmUpScript,PhonePlaybackTracker,PhoneSubmissionGuard,PhoneSubmissionCheckpoint,DeviceRunJournal,DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner,WarmUpStateTree,DevicePromptSession,HomeScreenRemovalGuard}.swift Tests/DeviceWorkflowTests.swift -o /tmp/shortreel-workflow-tests
 @main @MainActor
 enum DeviceWorkflowTests {
     enum Failure: Error { case assertion(String) }

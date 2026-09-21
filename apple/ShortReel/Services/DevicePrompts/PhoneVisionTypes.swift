@@ -35,6 +35,9 @@ struct PhoneVisionStep: Identifiable, Sendable, Equatable {
     var playbackReviewRequested = false
     var playbackEvidence: String? = nil
 
+    var pageState: String? = nil
+    var decisionSource: String? = nil
+
     var executionFeedback: String {
         let command = input?.modelInputDescription ?? action
         let result = screenChanged.map { $0
@@ -44,7 +47,8 @@ struct PhoneVisionStep: Identifiable, Sendable, Equatable {
         let timing = "Screenshot captured at \(capturedAt.ISO8601Format())."
         let review = playbackReviewRequested ? "\n" + PhoneSearchGuidance.playbackCompletionReview : ""
         let playback = playbackEvidence.map { "\n" + $0 } ?? ""
-        return "\(number). Sent input (coordinates are normalized 0...1): \(command). Result: \(result) \(timing)\(review)\(playback)"
+        let route = pageState.map { " Page: \($0); decision: \(decisionSource ?? "model")." } ?? ""
+        return "\(number). Sent input (coordinates are normalized 0...1): \(command). Result: \(result) \(timing)\(route)\(review)\(playback)"
     }
 }
 
@@ -69,7 +73,10 @@ enum PhoneVisionDecision: Sendable, Equatable {
                 }
             default: break
             }
-            try DevicePromptPlanner.validate(.init(actions: [action]))
+            // Every rejection is a malformed model answer, whichever planner
+            // produced it, so the runner can retry once with the reason.
+            do { try DevicePromptPlanner.validate(.init(actions: [action])) }
+            catch { throw PhoneVisionError.invalidDecision(error.localizedDescription) }
         case .wait(let seconds, let reason):
             try Self.requireDescription(reason)
             guard seconds.isFinite, (0.25...3).contains(seconds) else {

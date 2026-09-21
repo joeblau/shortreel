@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{WarmUpScript,PhonePlaybackTracker,PhoneSubmissionGuard,PhoneSubmissionCheckpoint,DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner}.swift Tests/PhoneVisualRunnerTests.swift -o /tmp/shortreel-visual-runner-tests
+// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{WarmUpScript,PhonePlaybackTracker,PhoneSubmissionGuard,PhoneSubmissionCheckpoint,DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner,WarmUpStateTree}.swift Tests/PhoneVisualRunnerTests.swift -o /tmp/shortreel-visual-runner-tests
 @main @MainActor
 enum PhoneVisualRunnerTests {
     private enum TestError: LocalizedError {
@@ -34,6 +34,7 @@ enum PhoneVisualRunnerTests {
         try await rejectMalformedImages()
         try await stopRepeatedInput()
         try await rejectMalformedDecisions()
+        try await retryNamesTheRejection()
         try await requireClarification()
         try await disconnectBeforeDispatch()
         try await cancelledModelCannotDispatch()
@@ -44,11 +45,14 @@ enum PhoneVisualRunnerTests {
         try await appSwitcherDiagnostic()
         try await tiktokPlaybackReview()
         try await scriptedWatchLoop()
+        try await scriptedLongVideoSkip()
+        try await stateTreeBypassesModel()
+        try await stateTreeDisconnectBlocksInput()
         try await scriptDeadline()
         try await submissionJournalPrecedesInput()
         try await submissionStorageFailureBlocksInput()
         try await submissionCannotBeRepeatedDuringVerification()
-        print("Phone visual runner tests passed (20 scenarios)")
+        print("Phone visual runner tests passed (24 scenarios)")
     }
 
     private static func submissionJournalPrecedesInput() async throws {
@@ -122,10 +126,10 @@ enum PhoneVisualRunnerTests {
             ("Verify account", .finished("Matching handle visible")),
             ("Search niche", .finished("Two-word query and suggestions visible")),
             ("Choose search result", .finished("Video grid visible")),
-            ("Open video", .finished("First video playing")),
+            ("Find video with >10K hearts", .finished("First video playing with 25K hearts visible")),
             ("Watch to completion", .wait(seconds: 0.25, reason: "Still playing")),
             ("Watch to completion", .finished("First video visibly restarted")),
-            ("Next video", .action(.swipe(.up), reason: "Advance after verified completion")),
+            ("Next video", .action(.timedDrag(0.5, 0.8, 0.5, 0.2, duration: 0.4, pressDuration: 0, holdDuration: 0), reason: "Advance after verified completion")),
             ("Next video", .wait(seconds: 0.25, reason: "Transition loading")),
             ("Next video", .finished("Different video now playing")),
             ("Watch to completion", .finished("Second video ending verified")),
@@ -167,6 +171,94 @@ enum PhoneVisualRunnerTests {
             throw TestError.failed("Incomplete publication timed out as success")
         } catch is PhonePromptPlanningError { }
         try expect(inputs == 0, "Expired publication sent input")
+    }
+
+    private static func stateTreeBypassesModel() async throws {
+        func text(_ label: String, _ x: Double, _ y: Double) -> PhonePlaybackTracker.TextRegion {
+            .init(text: label, confidence: 1, bounds: CGRect(x: x, y: y, width: 0.1, height: 0.02))
+        }
+        let navigation = [text("Home", 0.05, 0.94), text("Inbox", 0.65, 0.94), text("Profile", 0.85, 0.94)]
+        let feed = navigation + [text("For You", 0.5, 0.07), text("Following", 0.25, 0.07)]
+        let profile = navigation + [text("@test", 0.3, 0.2), text("Edit profile", 0.2, 0.4),
+                                    text("Followers", 0.4, 0.3), text("Following", 0.2, 0.3)]
+        let results = [text("Search", 0.8, 0.08), text("Top", 0.1, 0.16), text("Videos", 0.3, 0.16), text("Users", 0.6, 0.16)]
+        let player = [text("Search", 0.8, 0.08), text("Add comment...", 0.1, 0.93),
+                      text("A caption for this video", 0.05, 0.83),
+                      text("64.3K", 0.9, 0.5), text("783", 0.9, 0.6), text("1463", 0.9, 0.7)]
+        let screens = [feed, profile, profile, [], results, player, player, player, player, player]
+        var observations = 0
+        var modelCalls = 0
+        var inputs: [PhonePromptAction] = []
+        var logged: [PhoneVisionStep] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) }, decide: { goal, _, _ in
+            modelCalls += 1
+            try expect(goal.contains("STATE TREE:"), "Fallback lost current page context")
+            if goal.contains("Advance sent: true") {
+                return .finished("Different creator and caption verify the next video")
+            }
+            return .finished("Current milestone verified from the screenshot")
+        }, perform: { inputs.append($0) }, blockedReason: { nil }, readText: { frame, platform in
+            try! expect(observations < screens.count, "State tree exceeded expected route length")
+            let regions = screens[observations]
+            observations += 1
+            return .init(sourceID: frame.sourceID, capturedAt: frame.capturedAt, platform: platform, regions: regions)
+        })
+        let result = try await runner.run(goal: "Account check: Verify exactly @test, ignoring case.", workflow: .warmUp,
+            warmUpScript: .init(network: .tikTok, activity: .watch, itemLimit: 2, duration: 60),
+            onProgress: { _ in }, onStep: { logged.append($0) })
+        try expect(observations == 10 && modelCalls == 5, "Known pages failed to bypass model calls")
+        try expect(inputs.count == 3 && inputs.last == .swipe(.up), "Navigation or advance was duplicated")
+        try expect(logged.filter { $0.decisionSource == "state tree" }.count == 5, "Local decisions were not recorded")
+        try expect(result.contains("completed"), "State tree did not finish the viewing goal")
+    }
+
+    private static func stateTreeDisconnectBlocksInput() async throws {
+        var blocked = false
+        var inputs = 0
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { _, _, _ in throw TestError.failed("Recognized feed unexpectedly invoked model") },
+            perform: { _ in inputs += 1 }, blockedReason: { blocked ? "Disconnected" : nil },
+            readText: { frame, platform in
+                let labels: [(String, Double, Double)] = [("Home", 0.05, 0.94), ("Inbox", 0.65, 0.94),
+                    ("Profile", 0.85, 0.94), ("For You", 0.5, 0.07), ("Following", 0.25, 0.07)]
+                return .init(sourceID: frame.sourceID, capturedAt: frame.capturedAt, platform: platform,
+                    regions: labels.map { .init(text: $0.0, confidence: 1,
+                        bounds: CGRect(x: $0.1, y: $0.2, width: 0.1, height: 0.02)) })
+            })
+        do {
+            _ = try await runner.run(goal: "Watch", workflow: .warmUp,
+                warmUpScript: .init(network: .tikTok, activity: .watch, itemLimit: 1, duration: 60),
+                onProgress: { if $0.hasPrefix("Following the feed") { blocked = true } }, onStep: { _ in })
+            throw TestError.failed("Disconnected local route continued")
+        } catch PhoneVisionError.unavailable { }
+        try expect(inputs == 0, "Local route bypassed availability checks")
+    }
+
+    private static func scriptedLongVideoSkip() async throws {
+        var decisions = 0
+        var inputs: [PhonePromptAction] = []
+        var checkpoints: [WarmUpScriptCheckpoint] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { goal, _, _ in
+                decisions += 1
+                switch decisions {
+                case 1...4: return .finished("Account, search, and qualifying starting video verified")
+                case 5:
+                    try expect(goal.contains("LONGER THAN 1:00"), "Duration exception never reached the planner")
+                    return .action(.drag(0.5, 0.8, 0.5, 0.2), reason: "No readable total; same playing video advanced about 10% in 8 seconds, suggesting 80 seconds; skip without counting")
+                case 6:
+                    try expect(goal.contains("already sent"), "Skip must verify the new item before more input")
+                    return .finished("Different video is now playing")
+                default: return .finished("New 30-second video completed")
+                }
+            }, perform: { inputs.append($0) }, blockedReason: { nil })
+        _ = try await runner.run(goal: "Watch one video", workflow: .warmUp,
+            warmUpScript: WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 1, duration: 60),
+            onScriptCheckpoint: { checkpoints.append($0) }, onProgress: { _ in }, onStep: { _ in })
+        try expect(inputs == [.swipe(.up)] && checkpoints.contains { $0.advanceSent && $0.itemsCompleted == 0 },
+            "Long video was counted or skip dispatched more than once")
+        try expect(checkpoints.last?.itemsCompleted == 1 && checkpoints.last?.isComplete == true,
+            "Short video after the skip did not complete the viewing target")
     }
 
     private static func tiktokPlaybackReview() async throws {
@@ -386,6 +478,29 @@ enum PhoneVisualRunnerTests {
             try await expectFailure(.invalid) { try await runner.run(goal: "Open settings", onProgress: { _ in }, onStep: { _ in }) }
             try expect(inputs == 0, "Malformed decision sent input")
         }
+    }
+
+    /// One malformed answer is retried with the rejection spelled out, so the
+    /// model can fix the unit instead of repeating the same mistake.
+    private static func retryNamesTheRejection() async throws {
+        var asks = 0
+        var inputs: [PhonePromptAction] = []
+        let runner = PhoneVisualRunner(capture: { try frame(after: $0) }, decide: { goal, _, _ in
+            asks += 1
+            switch asks {
+            case 1:
+                try expect(!goal.contains("PREVIOUS RESPONSE REJECTED"), "First ask already carried a rejection")
+                return .action(.tap(1.5, 0.5), reason: "Tap")
+            case 2:
+                try expect(goal.contains("PREVIOUS RESPONSE REJECTED") && goal.contains("0 to 1"),
+                    "Retry did not tell the model why its answer was rejected")
+                return .action(.tap(0.5, 0.5), reason: "Tap")
+            default:
+                return .finished("Done")
+            }
+        }, perform: { inputs.append($0) }, blockedReason: { nil })
+        _ = try await runner.run(goal: "Open settings", onProgress: { _ in }, onStep: { _ in })
+        try expect(inputs == [.tap(0.5, 0.5)], "Corrected decision was not the one dispatched")
     }
 
     private static func requireClarification() async throws {

@@ -51,7 +51,8 @@ enum ClaudePhonePlanner {
         }
         let data = try await request(prompt: PhonePlannerContext.prompt(goal: goal, history: history), frame: frame,
             history: history, schema: PhonePlannerResponse.schema(inspectOnly: false), configuration: configuration)
-        return try PhonePlannerResponse.decision(from: data, goal: goal)
+        return try PhonePlannerResponse.decision(from: data, goal: goal,
+            imageSize: CGSize(width: frame.pixelWidth, height: frame.pixelHeight))
     }
 
     static func inspectScreen(frame: PhoneScreenFrame, model: String = defaultModel) async throws -> PhoneScreenObservation {

@@ -146,7 +146,7 @@ struct ClaudePhonePlannerTests {
         if !inspectOnly {
             structured["decision"] = ["kind": "press", "key": "assistiveTouch", "reason": FileManager.default.currentDirectoryPath]
         }
-        if prompt.contains("test-invalid-action") { structured["decision"] = ["kind": "tap", "x": 2, "y": 0.5, "reason": "Invalid coordinate"] }
+        if prompt.contains("test-invalid-action") { structured["decision"] = ["kind": "tap", "x": -2, "y": 0.5, "reason": "Invalid coordinate"] }
         if prompt.contains("test-oversized") { structured["padding"] = String(repeating: "x", count: 66_000) }
         let result: [String: Any] = ["type": "result", "subtype": prompt.contains("test-error") ? "error_max_turns" : "success",
             "is_error": prompt.contains("test-error"), "structured_output": structured]

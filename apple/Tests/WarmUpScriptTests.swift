@@ -23,8 +23,8 @@ enum WarmUpScriptTests {
                 var completions = 0
                 while !cursor.isComplete && completions < 30 {
                     if cursor.step.id == .consume {
-                        try rejects { try cursor.validate(.swipe(.up)) }
-                        try rejects { try cursor.validate(.drag(0.5, 0.8, 0.5, 0.2)) }
+                        try rejects { try cursor.validate(.swipe(.up), observedVideoDuration: 60) }
+                        try rejects { try cursor.validate(.drag(0.5, 0.8, 0.5, 0.2), observedVideoDuration: 60) }
                     }
                     if cursor.step.id == .advance {
                         try rejects { var premature = cursor; try premature.finishStep() }
@@ -59,6 +59,9 @@ enum WarmUpScriptTests {
         }
         try contracts()
         try savedSnapshots()
+        try startingVideoVersions()
+        try durationSkipping()
+        try coordinateAdvance()
         print("Warm-up script tests passed (12 platform/activity combinations, version contracts, snapshots, submission boundaries)")
     }
     static func rejectsContract(_ operation: () throws -> Void) throws {
@@ -70,7 +73,7 @@ enum WarmUpScriptTests {
         try expect(WarmUpScriptRegistry.definitions.count == 12, "Missing platform/activity registry entry")
         try expect(Set(WarmUpScriptRegistry.definitions.map(\.identifier)).count == 12, "Duplicate script identifiers")
         let script = try WarmUpScriptRegistry.script(network: .tikTok, activity: .watch, itemLimit: 3, duration: 300)
-        try expect(script.identifier == "warmup.tiktok.watch" && script.version == 1, "Unstable versioned identity")
+        try expect(script.identifier == "warmup.tiktok.watch" && script.version == 5, "Unstable versioned identity")
         try expect(script.retryPolicy.maximumPreparationAttempts == 1
             && script.retryPolicy.maximumSubmissionAttempts == 1
             && !script.retryPolicy.retriesUncertainSubmission
@@ -91,7 +94,7 @@ enum WarmUpScriptTests {
             }
         }
         try rejectsContract {
-            _ = try WarmUpScriptRegistry.script(network: .youtube, activity: .watch, itemLimit: 1, duration: 300, version: 2)
+            _ = try WarmUpScriptRegistry.script(network: .youtube, activity: .watch, itemLimit: 1, duration: 300, version: 99)
         }
         // A direct initializer cannot bypass validation at the cursor boundary.
         let invalid = WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 300, version: 2)
@@ -142,6 +145,96 @@ enum WarmUpScriptTests {
         try cursor.finishStep()
         try expect(cursor.checkpoint.isComplete, "Completed state missing from checkpoint")
         try rejects { try cursor.validate(.tap(0.5, 0.5)) }
+    }
+
+    static func coordinateAdvance() throws {
+        let script = WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 2, duration: 300)
+        let gestures: [PhonePromptAction] = [
+            .swipe(.up), .drag(0.5, 0.8, 0.5, 0.2),
+            .timedDrag(0.5, 0.75, 0.5, 0.25, duration: 0.4, pressDuration: 0, holdDuration: 0)
+        ]
+        for gesture in gestures {
+            var cursor = WarmUpScriptCursor(script: script)
+            while cursor.step.id != .advance { try cursor.finishStep() }
+            for wrong in [PhonePromptAction.swipe(.down), .tap(0.5, 0.5),
+                          .drag(0.5, 0.2, 0.5, 0.8), .drag(0.8, 0.5, 0.2, 0.5),
+                          .drag(0.5, 0.99, 0.5, 0.2), .drag(0.5, 0.6, 0.5, 0.59),
+                          .timedDrag(0.5, 0.8, 0.5, 0.2, duration: 0.4, pressDuration: 1, holdDuration: 1)] {
+                try rejects { try cursor.validate(wrong) }
+            }
+            try cursor.validate(gesture)
+            try expect(cursor.normalizedAction(gesture) == .swipe(.up), "Feed gesture not normalized")
+            cursor.didPerform(gesture)
+            try expect(cursor.advanceSent && cursor.itemsCompleted == 1, "Advance checkpoint was not recorded")
+            for duplicate in gestures { try rejects { try cursor.validate(duplicate) } }
+            try cursor.finishStep()
+            try expect(cursor.step.id == .consume && !cursor.advanceSent, "Next item was not verified")
+        }
+    }
+
+    static func durationSkipping() throws {
+        for network in [WarmUpScript.Network.tikTok, .instagram, .youtube] {
+            let script = try WarmUpScriptRegistry.script(network: network, activity: .watch, itemLimit: 1, duration: 300)
+            try expect(script.maximumVideoDurationSeconds == 60, "Missing one-minute limit")
+            var cursor = WarmUpScriptCursor(script: script)
+            while cursor.step.id != .consume { try cursor.finishStep() }
+            for seconds in [30, 59, 60] {
+                try rejects { try cursor.validate(.swipe(.up), observedVideoDuration: seconds) }
+            }
+            try expect(script.allowsEstimatedDurationSkip, "New Watch scripts must allow estimated duration")
+            try cursor.validate(.swipe(.up), observedVideoDuration: nil)
+            try cursor.validate(.swipe(.up), observedVideoDuration: 61)
+            cursor.didPerform(.swipe(.up))
+            try expect(cursor.step.id == .advance && cursor.advanceSent && cursor.itemsCompleted == 0,
+                "Skipped video counted as watched or bypassed verification")
+            try rejects { try cursor.validate(.swipe(.up), observedVideoDuration: 180) }
+            try cursor.finishStep()
+            try expect(cursor.step.id == .consume && cursor.itemsCompleted == 0, "Skip did not resume watching")
+            try cursor.finishStep()
+            try expect(cursor.isComplete && cursor.itemsCompleted == 1, "Completed video was not counted after skip")
+            let previousEstimated = WarmUpScript(network: network, activity: .watch, itemLimit: 1, duration: 300,
+                version: network == .tikTok ? 4 : 3)
+            try expect(previousEstimated.maximumVideoDurationSeconds == 120 && previousEstimated.allowsEstimatedDurationSkip,
+                "Saved two-minute estimated policy changed")
+            let previousEnvelope = try WarmUpScriptEnvelope(script: previousEstimated)
+            let previousRestored = try JSONDecoder().decode(WarmUpScriptEnvelope.self, from: JSONEncoder().encode(previousEnvelope))
+            try expect(previousRestored == previousEnvelope, "Previous estimated duration snapshot no longer decodes")
+            let exactOnly = WarmUpScript(network: network, activity: .watch, itemLimit: 1, duration: 300,
+                version: network == .tikTok ? 3 : 2)
+            try expect(!exactOnly.allowsEstimatedDurationSkip && exactOnly.maximumVideoDurationSeconds == 120,
+                "Previous duration policy changed")
+            let exactEnvelope = try WarmUpScriptEnvelope(script: exactOnly)
+            let exactRestored = try JSONDecoder().decode(WarmUpScriptEnvelope.self, from: JSONEncoder().encode(exactEnvelope))
+            try expect(exactRestored == exactEnvelope, "Previous duration snapshot no longer decodes")
+            let old = WarmUpScript(network: network, activity: .watch, itemLimit: 1, duration: 300,
+                version: network == .tikTok ? 2 : 1)
+            try expect(old.maximumVideoDurationSeconds == nil, "Saved scripts silently changed duration policy")
+            let oldEnvelope = try WarmUpScriptEnvelope(script: old)
+            let restored = try JSONDecoder().decode(WarmUpScriptEnvelope.self, from: JSONEncoder().encode(oldEnvelope))
+            try expect(restored == oldEnvelope, "Existing saved scripts no longer decode")
+        }
+    }
+
+    static func startingVideoVersions() throws {
+        for activity in [WarmUpActivity.watch, .comment] {
+            let latest = try WarmUpScriptRegistry.script(network: .tikTok, activity: activity, itemLimit: 1, duration: 300, version: 2)
+            let legacy = try WarmUpScriptRegistry.script(network: .tikTok, activity: activity, itemLimit: 1, duration: 300, version: 1)
+            try expect(latest.version == 2 && latest.requiresPopularStartingVideo, "New TikTok runs did not select the updated contract")
+            try expect(!legacy.requiresPopularStartingVideo, "Old queued runs silently changed their selection rule")
+            let oldEnvelope = try WarmUpScriptEnvelope(script: legacy)
+            let restored = try JSONDecoder().decode(WarmUpScriptEnvelope.self, from: JSONEncoder().encode(oldEnvelope))
+            try expect(restored == oldEnvelope && restored.steps.first { $0.id == .open }?.title == "Open video",
+                "Legacy journal snapshots can no longer be loaded")
+            try expect(latest.steps.filter { $0.id != .open } == legacy.steps.filter { $0.id != .open },
+                "Starting-video selection unexpectedly changed later viewing or publication steps")
+            let latestEnvelope = try WarmUpScriptEnvelope(script: latest)
+            let newRestored = try JSONDecoder().decode(WarmUpScriptEnvelope.self, from: JSONEncoder().encode(latestEnvelope))
+            try expect(newRestored == latestEnvelope, "New selection contract did not survive persistence")
+        }
+        for definition in WarmUpScriptRegistry.definitions {
+            let expected = WarmUpScript.currentVersion(network: definition.network, activity: definition.activity)
+            try expect(definition.version == expected, "Version changed for an unrelated script")
+        }
     }
 
 }

@@ -82,6 +82,13 @@ enum PhonePlaybackTrackerTests {
         let duplicate = PhonePlaybackTracker.Observation(sourceID: original.sourceID, capturedAt: original.capturedAt,
             platform: original.platform, regions: original.regions + [original.regions.last!])
         try check(tracker.observe(duplicate).summary.contains("no unique readable"), "Multiple timers could be a results grid and must remain unknown")
+        for (timer, seconds) in [("0:05/1:59", 119), ("0:05/2:00", 120), ("0:05/2:01", 121)] {
+            tracker.reset()
+            try check(tracker.observe(observation(timer, at: 1)).durationSeconds == seconds,
+                "Duration must use the total, not elapsed time")
+        }
+        try check(tracker.observe(observation("unreadable", at: 1)).durationSeconds == nil,
+            "Unknown duration retained an older video's total")
         try await actualOCR()
         print("Playback tracker tests passed (replay evidence, continuity boundaries, static/seek rejection, timer validation, reset)")
     }

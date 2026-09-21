@@ -303,37 +303,46 @@ private struct TypingIndicator: View {
 }
 
 /// Picks the model client or an installed CLI planner. Lives in the inspector
-/// header, since it applies to every phone.
+/// header, since it applies to every phone. Planners with a model choice are
+/// submenus holding their own models, so every planner's model is visible
+/// and choosing one selects that planner in the same click.
 struct PlannerMenu: View {
     @Environment(DeviceManager.self) private var deviceManager
     @State private var editingModel = false
+    @State private var editingProvider: PhoneVisionProvider = .defaultProvider
     @State private var modelDraft = ""
 
     var body: some View {
-        @Bindable var manager = deviceManager
-
         Menu {
-            Picker("Planner", selection: $manager.visionProvider) {
-                ForEach(deviceManager.availableVisionProviders) { provider in
-                    Text(provider.displayName).tag(provider)
-                }
-            }
-            .pickerStyle(.inline)
-
-            if manager.visionProvider.defaultModel != nil {
-                Divider()
-                Picker("Model", selection: $manager.visionModel) {
-                    ForEach(manager.visionProvider.modelChoices, id: \.self) { model in
-                        Text(model).tag(model)
+            ForEach(deviceManager.availableVisionProviders) { provider in
+                if provider.defaultModel != nil {
+                    Menu {
+                        Picker("Model", selection: modelSelection(for: provider)) {
+                            ForEach(provider.modelChoices, id: \.self) { model in
+                                Text(model).tag(model)
+                            }
+                            let current = deviceManager.visionModel(for: provider)
+                            if !provider.modelChoices.contains(current) {
+                                Text(current).tag(current)
+                            }
+                        }
+                        .pickerStyle(.inline)
+                        .labelsHidden()
+                        Divider()
+                        Button("Custom Model…") {
+                            editingProvider = provider
+                            modelDraft = deviceManager.visionModel(for: provider)
+                            editingModel = true
+                        }
+                    } label: {
+                        providerLabel(provider)
                     }
-                    if !manager.visionProvider.modelChoices.contains(manager.visionModel) {
-                        Text(manager.visionModel).tag(manager.visionModel)
+                } else {
+                    Button {
+                        deviceManager.visionProvider = provider
+                    } label: {
+                        providerLabel(provider)
                     }
-                }
-                .pickerStyle(.inline)
-                Button("Custom Model…") {
-                    modelDraft = manager.visionModel
-                    editingModel = true
                 }
             }
 
@@ -356,16 +365,17 @@ struct PlannerMenu: View {
         .help(deviceManager.visionProvider.screenRequestDescription)
         .sheet(isPresented: $editingModel) {
             VStack(alignment: .leading, spacing: 16) {
-                Text("\(deviceManager.visionProvider.displayName) Model").font(.title2)
+                Text("\(editingProvider.displayName) Model").font(.title2)
                 TextField("Model ID or alias", text: $modelDraft)
                     .textFieldStyle(.roundedBorder)
-                Text("Use a model with image support available through your \(deviceManager.visionProvider.displayName) login.")
+                Text("Use a model with image support available through your \(editingProvider.displayName) login.")
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Button("Cancel", role: .cancel) { editingModel = false }
                     Spacer()
                     Button("Use Model") {
-                        deviceManager.visionModel = modelDraft
+                        deviceManager.visionProvider = editingProvider
+                        deviceManager.setVisionModel(modelDraft, for: editingProvider)
                         editingModel = false
                     }
                     .keyboardShortcut(.defaultAction)
@@ -376,5 +386,26 @@ struct PlannerMenu: View {
             .padding(24)
             .frame(width: 380)
         }
+    }
+
+    /// The selected planner carries a checkmark, like a picker row.
+    @ViewBuilder
+    private func providerLabel(_ provider: PhoneVisionProvider) -> some View {
+        if provider == deviceManager.visionProvider {
+            Label(provider.displayName, systemImage: "checkmark")
+        } else {
+            Text(provider.displayName)
+        }
+    }
+
+    /// Choosing a model also selects its planner.
+    private func modelSelection(for provider: PhoneVisionProvider) -> Binding<String> {
+        Binding(
+            get: { deviceManager.visionModel(for: provider) },
+            set: { model in
+                deviceManager.visionProvider = provider
+                deviceManager.setVisionModel(model, for: provider)
+            }
+        )
     }
 }

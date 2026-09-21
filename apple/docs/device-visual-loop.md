@@ -252,13 +252,66 @@ the active milestone. `WarmUpScriptCursor` advances it and records progress in t
 session; it never stores screen coordinates.
 
 Watch searches the niche, opens content, and loops through consume/advance steps.
-TikTok selects one of the first three search suggestions and then a top-row video.
+TikTok Watch version 5 and Comment version 2 select one of the first three search suggestions, then inspect relevant videos starting at the top of results until a player shows more than 10,000 hearts. View counts and a rounded 10K label do not qualify. Rejected candidates are not counted as watched; the threshold applies only to the starting video. Saved version 1 scripts retain their original top-row selection contract.
 Instagram uses Reels, YouTube uses Shorts, and X reads posts. Video completion
 requires model-observed ending/progress/replay evidence; retained timestamped
-frames support that judgment. The runner rejects swipes during consumption,
+frames support that judgment. The runner rejects swipes during consumption except for the duration skip described below,
 allows only one upward swipe during advancement, and requires a new observation
 before returning to consumption. It stops at the configured item/time limit.
-Perception and completion detection still depend on the selected visual model.
+The runner normalizes substantial upward drags within the player (including short timed drags) to the same canonical upward swipe used by the script. Validation, dispatch, and checkpoints therefore agree regardless of the planner's gesture encoding. Edge gestures, scrubbing, long holds, and non-upward drags do not qualify; next-item verification still blocks a second swipe.
+Watch scripts for TikTok (v3), Instagram (v2), and YouTube (v2) skip a video when its visible total duration exceeds 120 seconds. Exactly 2:00 remains eligible. The consume-step upward swipe enters next-video verification without incrementing the watched count; a second swipe is blocked until that transition is verified. Readable OCR totals at or below 120 seconds reject premature skips. When OCR cannot read the duration, the planner must use visible duration evidence rather than elapsed wall time. Saved earlier versions retain their completion-only policy. Watch scripts (TikTok v4, Instagram/YouTube v3) also permit an estimated length above two minutes based on playback progress across timestamped frames, without requiring a readable total. Readable totals of two minutes or less override estimates. Pauses, buffering, seeking, and wall time alone are not length evidence; skipped items still require next-video verification and do not count toward the target.
+
+Current Watch scripts (TikTok v5, Instagram/YouTube v4) lower the cutoff to 60 seconds, including visually estimated lengths. Exactly 1:00 remains eligible; longer videos are skipped without counting. Saved older runs retain their original limits.
+
+Ambiguous pages, content selection, and completion detection still depend on the selected visual model.
+
+### Page-state routing
+
+`WarmUpStateTree` is a page-aware router ahead of the visual planner. Its first
+adapter covers TikTok Watch; other platforms and publishing scripts retain their
+existing flow. Each fresh screenshot is read once with local Apple Vision OCR,
+shared by page recognition and playback tracking. Multiple high-confidence
+layout anchors are required. Labels inside arbitrary content are insufficient.
+
+```mermaid
+flowchart TD
+    Frame[Fresh screenshot] --> Page{Recognized page + script step}
+    Page -->|Sign-in| Stop[Request account input]
+    Page -->|Feed / account pending| Profile[Tap observed Profile tab]
+    Page -->|Own profile / account pending| Handle{Exact expected handle?}
+    Handle -->|Yes| Verified[Finish account step]
+    Handle -->|Mismatch| Stop
+    Page -->|Own profile / search| Home[Tap observed Home tab]
+    Page -->|Results / suggestion step| Results[Finish suggestion step]
+    Page -->|Player / consume| Duration{Readable duration over limit?}
+    Duration -->|Yes| Skip[Swipe once without counting]
+    Duration -->|No / advancing timer| Wait[Bounded local playback wait]
+    Page -->|Player / advance not sent| Swipe[Swipe once after verified completion]
+    Page -->|Unknown, overlay, suggestions, selection, or verification| Model[One model decision for current state]
+    Skip --> Next[Fresh screenshot and next-video verification]
+    Swipe --> Next
+    Wait -->|After two local waits| Model
+    Next --> Model
+    Model --> Guards[Existing action, account, frame and cancellation guards]
+    Profile --> Guards
+    Home --> Guards
+    Guards --> Frame
+```
+
+All routed decisions use the existing runner: one input per fresh frame, cursor
+validation, cancellation/source/deadline checks, checkpoints, and item limits.
+The tree never counts a video complete from a timer, interprets a player creator
+as the signed-in account, or sends a second advance before verification. Unknown
+durations and estimated skips still go to the model. Repeated direct navigation
+yields to model inspection after two attempts. Page and decision source are
+included in step feedback; state-tree runs retain only eight recent planner
+notes because the cursor holds authoritative progress. Other workflows keep
+their existing history retention.
+
+Tests cover page/layout evidence, account mismatch, exact 60-second boundaries,
+overlays, unknown/unsupported pages, bounded waits, duplicate swipes, and
+disconnects. A synthetic ten-observation Watch run uses five model calls; this
+is a routing regression check, not a measured live-phone speedup.
 
 `PhonePlaybackTracker` adds local Apple Vision timer measurements during video
 consumption. A replay candidate needs plausible forward progress, a near-end to
