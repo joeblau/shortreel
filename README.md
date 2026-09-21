@@ -1,38 +1,50 @@
 # ShortReel
 
-A macOS app that farms social-media warm-up activity across real iPhones. It pairs with phones over Bluetooth by emulating an AssistiveTouch HID keyboard, reads each phone's screen over USB, and drives the UI with an agent that plans actions from what it sees on screen.
+A native Mac workspace for connected iPhones, with a Next.js landing page on Cloudflare Workers.
 
-## Requirements
+## Repository layout
 
-- macOS 15+
-- Xcode with command line tools
-- [Bun](https://bun.sh)
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (optional — the project regenerates itself when available)
-- An iPhone paired over USB and Bluetooth, with AssistiveTouch enabled
+| Directory | Contents |
+| --- | --- |
+| [`apple/`](apple/README.md) | macOS app, iOS runner, shared protocol, Xcode project, native tests, build scripts, and design docs |
+| [`workers/web/`](workers/web/README.md) | Next.js landing page using the OpenNext Cloudflare adapter; Worker name `blau-shortreel` |
 
-## Getting started
+## Apple apps
 
-```sh
-bun shortreel
-```
-
-This regenerates the Xcode project (when XcodeGen is installed), builds `ShortReel.app` in Release, signs it with your local Apple Development identity when one is available, installs it to `/Applications`, and launches it. Set `SHORTREEL_CODE_SIGN_IDENTITY` to pick a specific signing identity.
-
-Grant the app Bluetooth and Camera permissions when macOS asks — the phone screen arrives as a camera source.
-
-## How it works
-
-- **Bluetooth HID** (`ShortReel/Services/BluetoothHID`) — publishes an HID-over-GATT-style record on Classic Bluetooth so a paired iPhone's AssistiveTouch treats the Mac as a keyboard controller.
-- **Screen capture** (`ShortReel/Services/PhoneScreenCapture`) — reads the USB-connected iPhone's screen, which macOS exposes as a camera device.
-- **Prompt planning** (`ShortReel/Services/DevicePrompts`) — sends screen frames plus OCR anchors to a planner (Grok CLI or on-device) and executes the returned tap/swipe/key actions over the HID channel.
-
-See `docs/device-visual-loop.md` and `docs/tapkit-reverse-engineering.md` for the full protocol details.
-
-## Tests
-
-Standalone test suites live in `Tests/` and compile directly with `swiftc`/`clang` — each file's header comment contains its build command, e.g.:
+Build, install, and launch the Mac app from the repository root:
 
 ```sh
-swiftc ShortReel/Services/BluetoothHID/HIDServiceRecord.swift Tests/HIDServiceRecordTests.swift -o /tmp/shortreel-sdp-tests
-/tmp/shortreel-sdp-tests
+bun run shortreel
 ```
+
+Open `apple/ShortReel.xcodeproj` in Xcode. The project specification is
+`apple/project.yml`; native build output is written under `apple/.build/`.
+See the [Apple README](apple/README.md) for device setup, native tests, and the optional iOS runner.
+
+## Landing page
+
+Install dependencies once at the repository root. Bun workspaces share `bun.lock`.
+
+```sh
+bun install
+bun run web:dev
+```
+
+The Next.js development server runs at `http://localhost:3000/shotreel`.
+
+```sh
+bun run web:types    # Generate Cloudflare binding types
+bun run web:check    # ESLint and TypeScript
+bun run web:build    # Build Next.js and the OpenNext Worker bundle
+bun run web:preview  # Build and preview in the local Workers runtime
+```
+
+To publish when ready and authenticated with Cloudflare:
+
+```sh
+bun run web:deploy
+```
+
+The deployment targets `blau-shortreel` in the same Joe Blau Cloudflare account
+as the `blau-app` router. Its public mount is `https://blau.app/shotreel`.
+See [web setup](workers/web/README.md) for configuration and deployment details.
