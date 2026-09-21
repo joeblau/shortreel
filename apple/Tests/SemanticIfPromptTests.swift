@@ -1,6 +1,6 @@
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/SemanticIfPrompt.swift Tests/SemanticIfPromptTests.swift -o /tmp/shortreel-semif-prompt-tests
+// swiftc -swift-version 6 SemanticIf/Sources/SemanticIf/SemanticIfPrompt.swift Tests/SemanticIfPromptTests.swift -o /tmp/shortreel-semif-prompt-tests
 @main
 enum SemanticIfPromptTests {
     enum Failure: Error { case assertion(String) }

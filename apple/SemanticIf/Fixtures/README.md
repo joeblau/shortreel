@@ -28,6 +28,6 @@ retrieved 2026-09-21), reproduced under the MIT License:
 
 Each line is one decision row (`id`, `state`, `question`, `options`) in the
 shape consumed by `SemanticIfPrompt` (see
-`apple/ShortReel/Services/DevicePrompts/SemanticIfPrompt.swift`). The parity
+`apple/SemanticIf/Sources/SemanticIf/SemanticIfPrompt.swift`). The parity
 harness (issue #13) replays these rows and compares prompt hashes and
 answer-slot probabilities against Semif's recorded MLX runs.
