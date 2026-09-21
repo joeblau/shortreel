@@ -50,6 +50,14 @@ actor SemanticIfModel {
             "loaded \(Self.modelID, privacy: .public) @ \(Self.checkpointRevision, privacy: .public); peak MLX memory \(Memory.peakMemory / (1024 * 1024), privacy: .public) MiB")
     }
 
+    /// Test seam (issue #12): wraps an already-loaded container instead of
+    /// downloading the pinned checkpoint. Used by the SPM tests in
+    /// `apple/SemanticIf/Tests` with a mocked `LanguageModel`.
+    init(container: ModelContainer, tokenizer: SemanticIfTokenizer) {
+        self.container = container
+        self.tokenizer = tokenizer
+    }
+
     static func defaultDownloadBase() -> URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appending(path: "ShortReel", directoryHint: .isDirectory)

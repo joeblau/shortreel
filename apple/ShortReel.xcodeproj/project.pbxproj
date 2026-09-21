@@ -14,12 +14,10 @@
 		07E8623C76203FB94EC79C2B /* DeviceControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = D786512C10AF9B1CD42FE18F /* DeviceControlling.swift */; };
 		0B7EC575615925AF2994386F /* SimulatedDeviceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F72ED0B08B7E9D51CBB7242 /* SimulatedDeviceController.swift */; };
 		0D9176BF54DC8244578D8F12 /* HIDControlSession.m in Sources */ = {isa = PBXBuildFile; fileRef = 9CA70D82245585A3B68D8F2A /* HIDControlSession.m */; };
-		10DCE4AB949C65F3E47655BA /* SemanticIfPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DAC7F3A13D5E58D1CC7EF90 /* SemanticIfPrompt.swift */; };
 		1288DDBA969AE1D8D2C2D71C /* WarmUpPlaybook.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACC04184FCB60567DE8ADA2F /* WarmUpPlaybook.swift */; };
 		161AF536E9212289B587D428 /* MLXWarmUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD8EE538BF295B52AA276988 /* MLXWarmUp.swift */; };
 		16CFDE08EE3AE9BDDC04D6F0 /* HIDServiceRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = D72BB996945ADABB0A348C2B /* HIDServiceRecord.swift */; };
 		19235048EB4E604BEE535CBE /* FlyingFox in Frameworks */ = {isa = PBXBuildFile; productRef = 03B7FBC532A42D7FE374786C /* FlyingFox */; };
-		1947E65D253303DF21D0C335 /* SemanticIfModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB59C7E4659BEB652496BA5 /* SemanticIfModel.swift */; };
 		19600DFBDCBDC1FD8B3F9EC1 /* RunnerAccessibility.m in Sources */ = {isa = PBXBuildFile; fileRef = E0CCA5C369941AF0F516B219 /* RunnerAccessibility.m */; };
 		1A0DD82E7D3C3F2CFBCC8C1E /* Farm.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B9F9B11539F5CD47FFCFA8 /* Farm.swift */; };
 		1A4C5B6655018CF5C1124C78 /* PhoneRunnerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B49AE5A0B00F4C00465A39F /* PhoneRunnerProtocol.swift */; };
@@ -72,6 +70,7 @@
 		B55EF687A66D7DDC4466C87C /* DeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2317D5A658EBB9BE247789F /* DeviceManager.swift */; };
 		B7FA44DE4A0BB6C1C79D69B7 /* PhoneScreenSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 443618430E058A41E7CD3709 /* PhoneScreenSource.swift */; };
 		BB29C5B2E5F0DE475475D9CA /* UITarsActionDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0356F3AE9ED9B41A09ABB0F0 /* UITarsActionDecoder.swift */; };
+		BC80B11728EF18030D492B6E /* SemanticIfPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3876A1D246A6C037034188A /* SemanticIfPrompt.swift */; };
 		BF95708B88193D627993D349 /* ClaudePhonePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3BD33728E2425B6E3E3FF5 /* ClaudePhonePlanner.swift */; };
 		C2ACA87F97408401A9655F66 /* RunnerOracle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88BB5C8ECE860D56C92F56D2 /* RunnerOracle.swift */; };
 		C4C7C2EA22E18A7907AF9BF6 /* WarmUpAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78E9B0DFCB355E2CFEE12727 /* WarmUpAgent.swift */; };
@@ -92,6 +91,7 @@
 		E2DCD4A37D6CBE0F91AE0557 /* DeviceRunQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9465A252DF3A8045176580 /* DeviceRunQueueView.swift */; };
 		ED39EE96CE71B8FFC0F1E39C /* PhoneScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52749801244FE485B01392EB /* PhoneScreenView.swift */; };
 		F0D2548A4A0C773C75318E75 /* RunnerServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA87F5163C40AC259CFA7EF4 /* RunnerServer.swift */; };
+		F120BAE826439F20B2F7EE1D /* SemanticIfModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE7DCA1DF9F8A876A6B46F48 /* SemanticIfModel.swift */; };
 		F188BA69F1CDB7D98CF99F3A /* RunnerSupervisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9DBE6EB898E94C8ADA08CAB /* RunnerSupervisor.swift */; };
 		F1DEED3E5390FA4809111FA8 /* TimelineEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D734D644036D054B305A982 /* TimelineEvent.swift */; };
 		F6AC0BC498BC60A51329E4F7 /* Hub in Frameworks */ = {isa = PBXBuildFile; productRef = F11F7DCAE09AAA6883EC3B83 /* Hub */; };
@@ -118,7 +118,6 @@
 		096C1D0DC92C4A3FB6FBE9FC /* WarmUpStateTree.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpStateTree.swift; sourceTree = "<group>"; };
 		09CE42F6446A9900386EED70 /* PersonalityGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalityGenerator.swift; sourceTree = "<group>"; };
 		0BE083C518ED9E400EA41ACB /* PhoneSubmissionGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneSubmissionGuard.swift; sourceTree = "<group>"; };
-		0CB59C7E4659BEB652496BA5 /* SemanticIfModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticIfModel.swift; sourceTree = "<group>"; };
 		0D734D644036D054B305A982 /* TimelineEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineEvent.swift; sourceTree = "<group>"; };
 		0F72ED0B08B7E9D51CBB7242 /* SimulatedDeviceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedDeviceController.swift; sourceTree = "<group>"; };
 		10541CA6BA27250DC0FE75BD /* UITarsPhonePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITarsPhonePlanner.swift; sourceTree = "<group>"; };
@@ -160,7 +159,6 @@
 		88BB5C8ECE860D56C92F56D2 /* RunnerOracle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerOracle.swift; sourceTree = "<group>"; };
 		8A1D44CBA5C390F49ADCD312 /* PhoneAutoLockConfigurator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneAutoLockConfigurator.swift; sourceTree = "<group>"; };
 		8A2A068FA1C1E168E2EC690E /* BluetoothHIDHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothHIDHost.swift; sourceTree = "<group>"; };
-		8DAC7F3A13D5E58D1CC7EF90 /* SemanticIfPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticIfPrompt.swift; sourceTree = "<group>"; };
 		8F9D17B1E23AE149DA481298 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		8FF9D7203A56D8D70CDB8858 /* PhoneSubmissionCheckpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneSubmissionCheckpoint.swift; sourceTree = "<group>"; };
 		969D1AE2B0E6527F1642C17F /* ShortReel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShortReel.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -182,6 +180,7 @@
 		AC75CFDBF497B370A2487B50 /* PhoneScreenCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenCaptureService.swift; sourceTree = "<group>"; };
 		ACC04184FCB60567DE8ADA2F /* WarmUpPlaybook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpPlaybook.swift; sourceTree = "<group>"; };
 		B27CEE80EA70FFB83D8C4E2A /* DevicePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptView.swift; sourceTree = "<group>"; };
+		B3876A1D246A6C037034188A /* SemanticIfPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticIfPrompt.swift; sourceTree = "<group>"; };
 		B9B36AE8D1615521173731DB /* WarmUpPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpPlan.swift; sourceTree = "<group>"; };
 		B9DBE6EB898E94C8ADA08CAB /* RunnerSupervisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerSupervisor.swift; sourceTree = "<group>"; };
 		BD8EE538BF295B52AA276988 /* MLXWarmUp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXWarmUp.swift; sourceTree = "<group>"; };
@@ -198,6 +197,7 @@
 		D72BB996945ADABB0A348C2B /* HIDServiceRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDServiceRecord.swift; sourceTree = "<group>"; };
 		D786512C10AF9B1CD42FE18F /* DeviceControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceControlling.swift; sourceTree = "<group>"; };
 		DC240D89D8AA4B7D311E8776 /* USBPhoneBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = USBPhoneBridge.m; sourceTree = "<group>"; };
+		DE7DCA1DF9F8A876A6B46F48 /* SemanticIfModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticIfModel.swift; sourceTree = "<group>"; };
 		DEDBE3E92D900F0A970377D9 /* DeviceGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceGalleryView.swift; sourceTree = "<group>"; };
 		DF197E500257D5081B014D9A /* SocialLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialLink.swift; sourceTree = "<group>"; };
 		E0CCA5C369941AF0F516B219 /* RunnerAccessibility.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RunnerAccessibility.m; sourceTree = "<group>"; };
@@ -305,6 +305,16 @@
 			path = PhoneSetup;
 			sourceTree = "<group>";
 		};
+		8C2583B1E276133444315451 /* SemanticIf */ = {
+			isa = PBXGroup;
+			children = (
+				DE7DCA1DF9F8A876A6B46F48 /* SemanticIfModel.swift */,
+				B3876A1D246A6C037034188A /* SemanticIfPrompt.swift */,
+			);
+			name = SemanticIf;
+			path = SemanticIf/Sources/SemanticIf;
+			sourceTree = "<group>";
+		};
 		98FB4503A5E384F4600F2428 /* PhoneScreenCapture */ = {
 			isa = PBXGroup;
 			children = (
@@ -378,8 +388,6 @@
 				1858E168352352BB12C19916 /* PhoneVisionProvider.swift */,
 				C4C4C867582A66B1699096BD /* PhoneVisionTypes.swift */,
 				70CD7A63765E5B1F9E02A0C3 /* PhoneVisualRunner.swift */,
-				0CB59C7E4659BEB652496BA5 /* SemanticIfModel.swift */,
-				8DAC7F3A13D5E58D1CC7EF90 /* SemanticIfPrompt.swift */,
 				0356F3AE9ED9B41A09ABB0F0 /* UITarsActionDecoder.swift */,
 				10541CA6BA27250DC0FE75BD /* UITarsPhonePlanner.swift */,
 				97C36C7E725C9CC83D4E592F /* UITarsScreenVerification.swift */,
@@ -407,6 +415,7 @@
 			isa = PBXGroup;
 			children = (
 				B5E697F39EBBBCE3B40E1D5A /* PhoneRunnerShared */,
+				8C2583B1E276133444315451 /* SemanticIf */,
 				25CB797C96428E96AA519648 /* ShortReel */,
 				B3E38D2406A3E3E390CC84EC /* ShortReelRunner */,
 				F6484E355FBC0DC8AE865A29 /* ShortReelRunnerUITests */,
@@ -625,8 +634,8 @@
 				C2ACA87F97408401A9655F66 /* RunnerOracle.swift in Sources */,
 				9EC029263C1289C808C7A169 /* RunnerProvisioning.swift in Sources */,
 				F188BA69F1CDB7D98CF99F3A /* RunnerSupervisor.swift in Sources */,
-				1947E65D253303DF21D0C335 /* SemanticIfModel.swift in Sources */,
-				10DCE4AB949C65F3E47655BA /* SemanticIfPrompt.swift in Sources */,
+				F120BAE826439F20B2F7EE1D /* SemanticIfModel.swift in Sources */,
+				BC80B11728EF18030D492B6E /* SemanticIfPrompt.swift in Sources */,
 				D695B98064CD329C887FED3D /* ShortReelApp.swift in Sources */,
 				0B7EC575615925AF2994386F /* SimulatedDeviceController.swift in Sources */,
 				A87595764A28F1B87DE1323E /* SocialLink.swift in Sources */,

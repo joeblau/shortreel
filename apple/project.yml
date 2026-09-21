@@ -29,6 +29,9 @@ targets:
     sources:
       - path: ShortReel
       - path: PhoneRunnerShared
+      # Semif scorer + prompt contract live in the SPM package so its tests
+      # can link MLX (issue #12); the app compiles the same files.
+      - path: SemanticIf/Sources/SemanticIf
     info:
       path: ShortReel/Info.plist
       properties:
