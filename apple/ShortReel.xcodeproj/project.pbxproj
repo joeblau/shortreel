@@ -1,0 +1,920 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		023D0467C06E828AA12C6E0A /* Device.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EC3AD27C56EE36B44C0FD22 /* Device.swift */; };
+		0304297501FE99FADE9567F8 /* HomeScreenRemovalGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AECAEEC93E421CF3D1B4E50 /* HomeScreenRemovalGuard.swift */; };
+		03DD723C30364E3A0C8E13DB /* PhoneVisionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1858E168352352BB12C19916 /* PhoneVisionProvider.swift */; };
+		07E8623C76203FB94EC79C2B /* DeviceControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = D786512C10AF9B1CD42FE18F /* DeviceControlling.swift */; };
+		0B7EC575615925AF2994386F /* SimulatedDeviceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F72ED0B08B7E9D51CBB7242 /* SimulatedDeviceController.swift */; };
+		0D9176BF54DC8244578D8F12 /* HIDControlSession.m in Sources */ = {isa = PBXBuildFile; fileRef = 9CA70D82245585A3B68D8F2A /* HIDControlSession.m */; };
+		1288DDBA969AE1D8D2C2D71C /* WarmUpPlaybook.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACC04184FCB60567DE8ADA2F /* WarmUpPlaybook.swift */; };
+		16CFDE08EE3AE9BDDC04D6F0 /* HIDServiceRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = D72BB996945ADABB0A348C2B /* HIDServiceRecord.swift */; };
+		19235048EB4E604BEE535CBE /* FlyingFox in Frameworks */ = {isa = PBXBuildFile; productRef = 03B7FBC532A42D7FE374786C /* FlyingFox */; };
+		19600DFBDCBDC1FD8B3F9EC1 /* RunnerAccessibility.m in Sources */ = {isa = PBXBuildFile; fileRef = E0CCA5C369941AF0F516B219 /* RunnerAccessibility.m */; };
+		1A0DD82E7D3C3F2CFBCC8C1E /* Farm.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B9F9B11539F5CD47FFCFA8 /* Farm.swift */; };
+		1A4C5B6655018CF5C1124C78 /* PhoneRunnerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B49AE5A0B00F4C00465A39F /* PhoneRunnerProtocol.swift */; };
+		1A7C7D0709C787A52CBAA137 /* USBPhoneSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE8D9A24DCC0503C7516A145 /* USBPhoneSetup.swift */; };
+		1A94298EB7AD49F6C98F65AF /* DevicePromptExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E746318EAF9E27AE09E8673D /* DevicePromptExecutor.swift */; };
+		1DB1F5675B2598BE1974DCE2 /* UITarsScreenVerification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97C36C7E725C9CC83D4E592F /* UITarsScreenVerification.swift */; };
+		1E0E113A31DB1339E4FDAFBC /* Vision.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBCA529E1558823B04411D10 /* Vision.framework */; };
+		205D6A2126B2D1CD3FDAB54C /* RunnerCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F668CE7E19C9D09560F042 /* RunnerCoordinator.swift */; };
+		255B71F6514BC9376BEEF7F1 /* BluetoothDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14A5FC378EEB5A64EF4B363A /* BluetoothDiscovery.swift */; };
+		299273587E3AAD10ABA818FE /* DeviceWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C05D7A81AADE2C865D015F6 /* DeviceWorkflow.swift */; };
+		2B8F9749D95E36E51BED7A0D /* USBPhoneBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = DC240D89D8AA4B7D311E8776 /* USBPhoneBridge.m */; };
+		2C771AF99843E1E5AFF73023 /* DeviceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A48F8C570BC14C7395B7D49 /* DeviceSettingsView.swift */; };
+		2D42C7FCCA70FD1601FA3B46 /* CBHIDBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 00DBDEC5B47D5F780C43220D /* CBHIDBridge.m */; };
+		2DDDEFDE740F48C4C84D322B /* PhoneScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC75CFDBF497B370A2487B50 /* PhoneScreenCaptureService.swift */; };
+		318769E50C4CA3162473ABAD /* RunnerExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC6C2ACE5756BAA8418C05E5 /* RunnerExecutor.swift */; };
+		36298C0D414A8A73AB9F812F /* CBClassicDiscovery.m in Sources */ = {isa = PBXBuildFile; fileRef = 1AED36D2FE1068896F3CAE72 /* CBClassicDiscovery.m */; };
+		44E8C59ED96B97C5A4A9EC3A /* DevicePromptSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9E7091BEFE15778B1F7D50 /* DevicePromptSession.swift */; };
+		460DF7A2DFAC92384825F61F /* CodexPhonePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28DE9209E31E64FA863419FF /* CodexPhonePlanner.swift */; };
+		4C1F0730AE4E3FF2DEC47881 /* PhoneVisionTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C4C867582A66B1699096BD /* PhoneVisionTypes.swift */; };
+		4C747511A72F5F35C9388C4A /* DeviceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CCE706AB92F64CA0B3C31B /* DeviceHost.swift */; };
+		4ED593D354DE88753733D287 /* HIDPointerDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF0142AA1A4F5A65DC352DF /* HIDPointerDrag.swift */; };
+		4F0A0BC92C985B7B32116A91 /* ShortReelRunnerServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24F1E52AA60B7C0C32BFC733 /* ShortReelRunnerServerTests.swift */; };
+		550901733BB9863D5C256386 /* DeviceStageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25301F554B562932915EF030 /* DeviceStageView.swift */; };
+		58CCEA02170CE6C37F739164 /* PhoneAutoLockConfigurator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D44CBA5C390F49ADCD312 /* PhoneAutoLockConfigurator.swift */; };
+		59BE468C9249DF830784E1A3 /* PhoneScreenFrameEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB3BD60B05A649DD18352F50 /* PhoneScreenFrameEncoder.swift */; };
+		5D30FAC488EF728FD1D7352B /* PhoneRunnerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B49AE5A0B00F4C00465A39F /* PhoneRunnerProtocol.swift */; };
+		5DA7512E3A88C131E74DA156 /* BluetoothHIDHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A2A068FA1C1E168E2EC690E /* BluetoothHIDHost.swift */; };
+		5DB8598C01D6BC22FC2CEA0D /* CoreMediaIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9CE65DBA70C8DF036D5D3321 /* CoreMediaIO.framework */; };
+		6AADFA23E9B815E9A8316B21 /* GrokPhonePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CC43FE179B172CD344F30E /* GrokPhonePlanner.swift */; };
+		6E448BC9A4BA1AFD2F14F127 /* RunnerClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D491E0962A4539BC0EB620 /* RunnerClient.swift */; };
+		7220952A5A6801449F20E824 /* PhonePlannerProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A69CE7F09709617F2C3F30A /* PhonePlannerProcess.swift */; };
+		7AE81C19144C7637726B610E /* UITarsPhonePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10541CA6BA27250DC0FE75BD /* UITarsPhonePlanner.swift */; };
+		7B0C160689061791C18F65BA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5E9AA251BD0C01F7006B100 /* ContentView.swift */; };
+		7E84B828201884A72EF4515A /* PhoneVisualRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70CD7A63765E5B1F9E02A0C3 /* PhoneVisualRunner.swift */; };
+		82C15156CB2CBE1EE33FB01C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8F9D17B1E23AE149DA481298 /* AVFoundation.framework */; };
+		8451F24AE3C4EAEF503209FA /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5392515B443A64A2145BDB2C /* CoreBluetooth.framework */; };
+		8767A12EE5A78137E4C841EA /* RunnerDeviceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44757B1CDFC4E4381EDB8410 /* RunnerDeviceHost.swift */; };
+		8AC0AEE27C12E457FDD650C6 /* DevicePromptPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F0846537B96DF26FF9F688 /* DevicePromptPlan.swift */; };
+		8D8358A2D72540F409B9B2F6 /* WarmUpPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9B36AE8D1615521173731DB /* WarmUpPlan.swift */; };
+		9EC029263C1289C808C7A169 /* RunnerProvisioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40B6F972DE9BDE58A17E6AE3 /* RunnerProvisioning.swift */; };
+		A3E995CDDCF1F8254D03B420 /* LocalUITarsServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBED7F5324F4FDC26FA1E0F8 /* LocalUITarsServer.swift */; };
+		A7FAD700237DC53E32252E0E /* DeviceGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEDBE3E92D900F0A970377D9 /* DeviceGalleryView.swift */; };
+		A87595764A28F1B87DE1323E /* SocialLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF197E500257D5081B014D9A /* SocialLink.swift */; };
+		AC1A7B6F044BB026C4BF0B90 /* PhoneVisionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 399A52CD1FE15865901DB711 /* PhoneVisionClient.swift */; };
+		B47989288B7C62003867E8EF /* PersistentModel+Live.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99E5A136D8AC113ADBCC2BE5 /* PersistentModel+Live.swift */; };
+		B55EF687A66D7DDC4466C87C /* DeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2317D5A658EBB9BE247789F /* DeviceManager.swift */; };
+		B7FA44DE4A0BB6C1C79D69B7 /* PhoneScreenSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 443618430E058A41E7CD3709 /* PhoneScreenSource.swift */; };
+		BB29C5B2E5F0DE475475D9CA /* UITarsActionDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0356F3AE9ED9B41A09ABB0F0 /* UITarsActionDecoder.swift */; };
+		BF95708B88193D627993D349 /* ClaudePhonePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3BD33728E2425B6E3E3FF5 /* ClaudePhonePlanner.swift */; };
+		C2ACA87F97408401A9655F66 /* RunnerOracle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88BB5C8ECE860D56C92F56D2 /* RunnerOracle.swift */; };
+		C4C7C2EA22E18A7907AF9BF6 /* WarmUpAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78E9B0DFCB355E2CFEE12727 /* WarmUpAgent.swift */; };
+		C545FF2E6217422A531F00FB /* IOBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1F48901B5A3AD953864B6D0B /* IOBluetooth.framework */; };
+		C563500654CA3CE1FCE01CCB /* ShortReelRunnerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAECC86473EDD31CFD9C2AE5 /* ShortReelRunnerApp.swift */; };
+		C5E57AF79EA0A028EC360AE2 /* CBHIDSocket.m in Sources */ = {isa = PBXBuildFile; fileRef = FBAA473E22B8923DE467A629 /* CBHIDSocket.m */; };
+		C6934E0B9F9BC88E5D5DBF98 /* PhonePlannerEscalation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A922E2906AE6731826F0E27E /* PhonePlannerEscalation.swift */; };
+		C98A797041F4E614FF380BB2 /* AddDeviceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D748206D2366B27A440EAD2 /* AddDeviceView.swift */; };
+		CBA8001039A77B32122908F4 /* DevicePromptVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D6ECC8FEBC92DAF8C1ED91 /* DevicePromptVerifier.swift */; };
+		D0EC79E7497032E3D64B9DD1 /* DevicePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27CEE80EA70FFB83D8C4E2A /* DevicePromptView.swift */; };
+		D695B98064CD329C887FED3D /* ShortReelApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8383273757C8897157EF8F9E /* ShortReelApp.swift */; };
+		D77FEF162580FAFF23319D98 /* DevicePromptPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 318A73F3E800902771F9151D /* DevicePromptPlanner.swift */; };
+		ED39EE96CE71B8FFC0F1E39C /* PhoneScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52749801244FE485B01392EB /* PhoneScreenView.swift */; };
+		F0D2548A4A0C773C75318E75 /* RunnerServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA87F5163C40AC259CFA7EF4 /* RunnerServer.swift */; };
+		F188BA69F1CDB7D98CF99F3A /* RunnerSupervisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9DBE6EB898E94C8ADA08CAB /* RunnerSupervisor.swift */; };
+		F1DEED3E5390FA4809111FA8 /* TimelineEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D734D644036D054B305A982 /* TimelineEvent.swift */; };
+		F7D6371B0E7A27FC5E42C611 /* Persona.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6EC6FA5D0DC40E74BEF0954 /* Persona.swift */; };
+		FB51944EFB3D5317C22F1BFE /* PhonePlannerResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F3CB6463D136795922836A3 /* PhonePlannerResponse.swift */; };
+		FB5FE1C825FFD9B1D6825AFE /* PhoneScreenAssociation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9905873FD6DBD9450BBC30ED /* PhoneScreenAssociation.swift */; };
+		FBCBB2829B644BBA7FA093CB /* PhonePlannerContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAFB7E56B4BDF0D041D75AC3 /* PhonePlannerContext.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		832F99D4F1DDD0C91675EB06 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 32A909EF093414155E10E867 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E4DF697A1156EF49FCCAD8AC;
+			remoteInfo = ShortReelRunner;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		00DBDEC5B47D5F780C43220D /* CBHIDBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CBHIDBridge.m; sourceTree = "<group>"; };
+		0356F3AE9ED9B41A09ABB0F0 /* UITarsActionDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITarsActionDecoder.swift; sourceTree = "<group>"; };
+		0D734D644036D054B305A982 /* TimelineEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineEvent.swift; sourceTree = "<group>"; };
+		0F72ED0B08B7E9D51CBB7242 /* SimulatedDeviceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedDeviceController.swift; sourceTree = "<group>"; };
+		10541CA6BA27250DC0FE75BD /* UITarsPhonePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITarsPhonePlanner.swift; sourceTree = "<group>"; };
+		14A5FC378EEB5A64EF4B363A /* BluetoothDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothDiscovery.swift; sourceTree = "<group>"; };
+		1858E168352352BB12C19916 /* PhoneVisionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneVisionProvider.swift; sourceTree = "<group>"; };
+		1A48F8C570BC14C7395B7D49 /* DeviceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSettingsView.swift; sourceTree = "<group>"; };
+		1A69CE7F09709617F2C3F30A /* PhonePlannerProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePlannerProcess.swift; sourceTree = "<group>"; };
+		1AED36D2FE1068896F3CAE72 /* CBClassicDiscovery.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CBClassicDiscovery.m; sourceTree = "<group>"; };
+		1DF0142AA1A4F5A65DC352DF /* HIDPointerDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDPointerDrag.swift; sourceTree = "<group>"; };
+		1F48901B5A3AD953864B6D0B /* IOBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOBluetooth.framework; path = System/Library/Frameworks/IOBluetooth.framework; sourceTree = SDKROOT; };
+		217A472BAAE4B58A9529429B /* HIDControlSession.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDControlSession.h; sourceTree = "<group>"; };
+		24F1E52AA60B7C0C32BFC733 /* ShortReelRunnerServerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortReelRunnerServerTests.swift; sourceTree = "<group>"; };
+		25301F554B562932915EF030 /* DeviceStageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStageView.swift; sourceTree = "<group>"; };
+		28DE9209E31E64FA863419FF /* CodexPhonePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexPhonePlanner.swift; sourceTree = "<group>"; };
+		2D748206D2366B27A440EAD2 /* AddDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDeviceView.swift; sourceTree = "<group>"; };
+		318A73F3E800902771F9151D /* DevicePromptPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptPlanner.swift; sourceTree = "<group>"; };
+		33B920666FA127F957A17C22 /* ShortReel-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ShortReel-Bridging-Header.h"; sourceTree = "<group>"; };
+		399A52CD1FE15865901DB711 /* PhoneVisionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneVisionClient.swift; sourceTree = "<group>"; };
+		3D799AA0FDD1D391227FE986 /* RunnerAccessibility.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RunnerAccessibility.h; sourceTree = "<group>"; };
+		40B6F972DE9BDE58A17E6AE3 /* RunnerProvisioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerProvisioning.swift; sourceTree = "<group>"; };
+		443618430E058A41E7CD3709 /* PhoneScreenSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenSource.swift; sourceTree = "<group>"; };
+		44757B1CDFC4E4381EDB8410 /* RunnerDeviceHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerDeviceHost.swift; sourceTree = "<group>"; };
+		49F0846537B96DF26FF9F688 /* DevicePromptPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptPlan.swift; sourceTree = "<group>"; };
+		4C05D7A81AADE2C865D015F6 /* DeviceWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceWorkflow.swift; sourceTree = "<group>"; };
+		4C1DDD23D35C5356F6CE79C2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		52749801244FE485B01392EB /* PhoneScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenView.swift; sourceTree = "<group>"; };
+		5392515B443A64A2145BDB2C /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
+		6D3BD33728E2425B6E3E3FF5 /* ClaudePhonePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudePhonePlanner.swift; sourceTree = "<group>"; };
+		709224EAB1DF11CE31C00D85 /* CBHIDBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CBHIDBridge.h; sourceTree = "<group>"; };
+		70CD7A63765E5B1F9E02A0C3 /* PhoneVisualRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneVisualRunner.swift; sourceTree = "<group>"; };
+		735E14F5971F4367B8E6AF38 /* ShortReelRunner.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ShortReelRunner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		75D491E0962A4539BC0EB620 /* RunnerClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerClient.swift; sourceTree = "<group>"; };
+		78719F58EDEC0BD3806DAEE5 /* CBHIDSocket.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CBHIDSocket.h; sourceTree = "<group>"; };
+		78E9B0DFCB355E2CFEE12727 /* WarmUpAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpAgent.swift; sourceTree = "<group>"; };
+		7F3CB6463D136795922836A3 /* PhonePlannerResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePlannerResponse.swift; sourceTree = "<group>"; };
+		8383273757C8897157EF8F9E /* ShortReelApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortReelApp.swift; sourceTree = "<group>"; };
+		88BB5C8ECE860D56C92F56D2 /* RunnerOracle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerOracle.swift; sourceTree = "<group>"; };
+		8A1D44CBA5C390F49ADCD312 /* PhoneAutoLockConfigurator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneAutoLockConfigurator.swift; sourceTree = "<group>"; };
+		8A2A068FA1C1E168E2EC690E /* BluetoothHIDHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothHIDHost.swift; sourceTree = "<group>"; };
+		8F9D17B1E23AE149DA481298 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		969D1AE2B0E6527F1642C17F /* ShortReel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShortReel.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		97C36C7E725C9CC83D4E592F /* UITarsScreenVerification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITarsScreenVerification.swift; sourceTree = "<group>"; };
+		9905873FD6DBD9450BBC30ED /* PhoneScreenAssociation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenAssociation.swift; sourceTree = "<group>"; };
+		99E5A136D8AC113ADBCC2BE5 /* PersistentModel+Live.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistentModel+Live.swift"; sourceTree = "<group>"; };
+		9AECAEEC93E421CF3D1B4E50 /* HomeScreenRemovalGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenRemovalGuard.swift; sourceTree = "<group>"; };
+		9B49AE5A0B00F4C00465A39F /* PhoneRunnerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneRunnerProtocol.swift; sourceTree = "<group>"; };
+		9CA70D82245585A3B68D8F2A /* HIDControlSession.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDControlSession.m; sourceTree = "<group>"; };
+		9CE65DBA70C8DF036D5D3321 /* CoreMediaIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMediaIO.framework; path = System/Library/Frameworks/CoreMediaIO.framework; sourceTree = SDKROOT; };
+		9EC3AD27C56EE36B44C0FD22 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
+		A3F668CE7E19C9D09560F042 /* RunnerCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerCoordinator.swift; sourceTree = "<group>"; };
+		A6EC6FA5D0DC40E74BEF0954 /* Persona.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persona.swift; sourceTree = "<group>"; };
+		A922E2906AE6731826F0E27E /* PhonePlannerEscalation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePlannerEscalation.swift; sourceTree = "<group>"; };
+		AA87F5163C40AC259CFA7EF4 /* RunnerServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerServer.swift; sourceTree = "<group>"; };
+		AAECC86473EDD31CFD9C2AE5 /* ShortReelRunnerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortReelRunnerApp.swift; sourceTree = "<group>"; };
+		AC6C2ACE5756BAA8418C05E5 /* RunnerExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerExecutor.swift; sourceTree = "<group>"; };
+		AC75CFDBF497B370A2487B50 /* PhoneScreenCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenCaptureService.swift; sourceTree = "<group>"; };
+		ACC04184FCB60567DE8ADA2F /* WarmUpPlaybook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpPlaybook.swift; sourceTree = "<group>"; };
+		B27CEE80EA70FFB83D8C4E2A /* DevicePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptView.swift; sourceTree = "<group>"; };
+		B9B36AE8D1615521173731DB /* WarmUpPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpPlan.swift; sourceTree = "<group>"; };
+		B9DBE6EB898E94C8ADA08CAB /* RunnerSupervisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerSupervisor.swift; sourceTree = "<group>"; };
+		BE8D9A24DCC0503C7516A145 /* USBPhoneSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = USBPhoneSetup.swift; sourceTree = "<group>"; };
+		C0A729397E748AFB9E482D8E /* ShortReelRunnerUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ShortReelRunnerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0CCE706AB92F64CA0B3C31B /* DeviceHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceHost.swift; sourceTree = "<group>"; };
+		C1B9F9B11539F5CD47FFCFA8 /* Farm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Farm.swift; sourceTree = "<group>"; };
+		C4C1A771C887A3F7ED70E59E /* CBClassicDiscovery.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CBClassicDiscovery.h; sourceTree = "<group>"; };
+		C4C4C867582A66B1699096BD /* PhoneVisionTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneVisionTypes.swift; sourceTree = "<group>"; };
+		C4CC43FE179B172CD344F30E /* GrokPhonePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokPhonePlanner.swift; sourceTree = "<group>"; };
+		CB3BD60B05A649DD18352F50 /* PhoneScreenFrameEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenFrameEncoder.swift; sourceTree = "<group>"; };
+		D2317D5A658EBB9BE247789F /* DeviceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManager.swift; sourceTree = "<group>"; };
+		D3D6ECC8FEBC92DAF8C1ED91 /* DevicePromptVerifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptVerifier.swift; sourceTree = "<group>"; };
+		D72BB996945ADABB0A348C2B /* HIDServiceRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDServiceRecord.swift; sourceTree = "<group>"; };
+		D786512C10AF9B1CD42FE18F /* DeviceControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceControlling.swift; sourceTree = "<group>"; };
+		DC240D89D8AA4B7D311E8776 /* USBPhoneBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = USBPhoneBridge.m; sourceTree = "<group>"; };
+		DEDBE3E92D900F0A970377D9 /* DeviceGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceGalleryView.swift; sourceTree = "<group>"; };
+		DF197E500257D5081B014D9A /* SocialLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialLink.swift; sourceTree = "<group>"; };
+		E0CCA5C369941AF0F516B219 /* RunnerAccessibility.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RunnerAccessibility.m; sourceTree = "<group>"; };
+		E4B61D3753B86BC3065C0B52 /* USBPhoneBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = USBPhoneBridge.h; sourceTree = "<group>"; };
+		E5E9AA251BD0C01F7006B100 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		E746318EAF9E27AE09E8673D /* DevicePromptExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptExecutor.swift; sourceTree = "<group>"; };
+		EAFB7E56B4BDF0D041D75AC3 /* PhonePlannerContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePlannerContext.swift; sourceTree = "<group>"; };
+		EBCA529E1558823B04411D10 /* Vision.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Vision.framework; path = System/Library/Frameworks/Vision.framework; sourceTree = SDKROOT; };
+		EBED7F5324F4FDC26FA1E0F8 /* LocalUITarsServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUITarsServer.swift; sourceTree = "<group>"; };
+		FBAA473E22B8923DE467A629 /* CBHIDSocket.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CBHIDSocket.m; sourceTree = "<group>"; };
+		FF9E7091BEFE15778B1F7D50 /* DevicePromptSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptSession.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1BC5BA647C73511657B5DB3E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				19235048EB4E604BEE535CBE /* FlyingFox in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AE49D44308BF9B2CBACEAFC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8451F24AE3C4EAEF503209FA /* CoreBluetooth.framework in Frameworks */,
+				C545FF2E6217422A531F00FB /* IOBluetooth.framework in Frameworks */,
+				82C15156CB2CBE1EE33FB01C /* AVFoundation.framework in Frameworks */,
+				5DB8598C01D6BC22FC2CEA0D /* CoreMediaIO.framework in Frameworks */,
+				1E0E113A31DB1339E4FDAFBC /* Vision.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0F34EF6D99E0B7C5277BD14F /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				14A5FC378EEB5A64EF4B363A /* BluetoothDiscovery.swift */,
+				D786512C10AF9B1CD42FE18F /* DeviceControlling.swift */,
+				C0CCE706AB92F64CA0B3C31B /* DeviceHost.swift */,
+				D2317D5A658EBB9BE247789F /* DeviceManager.swift */,
+				0F72ED0B08B7E9D51CBB7242 /* SimulatedDeviceController.swift */,
+				78E9B0DFCB355E2CFEE12727 /* WarmUpAgent.swift */,
+				A8F2BA8F62771365C538529D /* BluetoothHID */,
+				BBF1BFB8A116A3FD345DA510 /* DevicePrompts */,
+				DF845B4934BB2C5B654CD124 /* PhoneRunner */,
+				98FB4503A5E384F4600F2428 /* PhoneScreenCapture */,
+				5D99C368ACE1449CFF4DBD3D /* PhoneSetup */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		2301EEFEEF307593D1F37F28 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				969D1AE2B0E6527F1642C17F /* ShortReel.app */,
+				735E14F5971F4367B8E6AF38 /* ShortReelRunner.app */,
+				C0A729397E748AFB9E482D8E /* ShortReelRunnerUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		25CB797C96428E96AA519648 /* ShortReel */ = {
+			isa = PBXGroup;
+			children = (
+				4C1DDD23D35C5356F6CE79C2 /* Info.plist */,
+				8383273757C8897157EF8F9E /* ShortReelApp.swift */,
+				E6ED423CEB07D81A45E7DCF8 /* Models */,
+				0F34EF6D99E0B7C5277BD14F /* Services */,
+				FCA0EB29F607775D80357BE7 /* Views */,
+			);
+			path = ShortReel;
+			sourceTree = "<group>";
+		};
+		5164C97B49AA98FDC117B48E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				8F9D17B1E23AE149DA481298 /* AVFoundation.framework */,
+				5392515B443A64A2145BDB2C /* CoreBluetooth.framework */,
+				9CE65DBA70C8DF036D5D3321 /* CoreMediaIO.framework */,
+				1F48901B5A3AD953864B6D0B /* IOBluetooth.framework */,
+				EBCA529E1558823B04411D10 /* Vision.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		5D99C368ACE1449CFF4DBD3D /* PhoneSetup */ = {
+			isa = PBXGroup;
+			children = (
+				E4B61D3753B86BC3065C0B52 /* USBPhoneBridge.h */,
+				DC240D89D8AA4B7D311E8776 /* USBPhoneBridge.m */,
+				BE8D9A24DCC0503C7516A145 /* USBPhoneSetup.swift */,
+			);
+			path = PhoneSetup;
+			sourceTree = "<group>";
+		};
+		98FB4503A5E384F4600F2428 /* PhoneScreenCapture */ = {
+			isa = PBXGroup;
+			children = (
+				9905873FD6DBD9450BBC30ED /* PhoneScreenAssociation.swift */,
+				AC75CFDBF497B370A2487B50 /* PhoneScreenCaptureService.swift */,
+				CB3BD60B05A649DD18352F50 /* PhoneScreenFrameEncoder.swift */,
+				443618430E058A41E7CD3709 /* PhoneScreenSource.swift */,
+			);
+			path = PhoneScreenCapture;
+			sourceTree = "<group>";
+		};
+		A8F2BA8F62771365C538529D /* BluetoothHID */ = {
+			isa = PBXGroup;
+			children = (
+				8A2A068FA1C1E168E2EC690E /* BluetoothHIDHost.swift */,
+				C4C1A771C887A3F7ED70E59E /* CBClassicDiscovery.h */,
+				1AED36D2FE1068896F3CAE72 /* CBClassicDiscovery.m */,
+				709224EAB1DF11CE31C00D85 /* CBHIDBridge.h */,
+				00DBDEC5B47D5F780C43220D /* CBHIDBridge.m */,
+				78719F58EDEC0BD3806DAEE5 /* CBHIDSocket.h */,
+				FBAA473E22B8923DE467A629 /* CBHIDSocket.m */,
+				217A472BAAE4B58A9529429B /* HIDControlSession.h */,
+				9CA70D82245585A3B68D8F2A /* HIDControlSession.m */,
+				1DF0142AA1A4F5A65DC352DF /* HIDPointerDrag.swift */,
+				D72BB996945ADABB0A348C2B /* HIDServiceRecord.swift */,
+				33B920666FA127F957A17C22 /* ShortReel-Bridging-Header.h */,
+			);
+			path = BluetoothHID;
+			sourceTree = "<group>";
+		};
+		B3E38D2406A3E3E390CC84EC /* ShortReelRunner */ = {
+			isa = PBXGroup;
+			children = (
+				AAECC86473EDD31CFD9C2AE5 /* ShortReelRunnerApp.swift */,
+			);
+			path = ShortReelRunner;
+			sourceTree = "<group>";
+		};
+		B5E697F39EBBBCE3B40E1D5A /* PhoneRunnerShared */ = {
+			isa = PBXGroup;
+			children = (
+				9B49AE5A0B00F4C00465A39F /* PhoneRunnerProtocol.swift */,
+			);
+			path = PhoneRunnerShared;
+			sourceTree = "<group>";
+		};
+		BBF1BFB8A116A3FD345DA510 /* DevicePrompts */ = {
+			isa = PBXGroup;
+			children = (
+				6D3BD33728E2425B6E3E3FF5 /* ClaudePhonePlanner.swift */,
+				28DE9209E31E64FA863419FF /* CodexPhonePlanner.swift */,
+				E746318EAF9E27AE09E8673D /* DevicePromptExecutor.swift */,
+				49F0846537B96DF26FF9F688 /* DevicePromptPlan.swift */,
+				318A73F3E800902771F9151D /* DevicePromptPlanner.swift */,
+				FF9E7091BEFE15778B1F7D50 /* DevicePromptSession.swift */,
+				D3D6ECC8FEBC92DAF8C1ED91 /* DevicePromptVerifier.swift */,
+				4C05D7A81AADE2C865D015F6 /* DeviceWorkflow.swift */,
+				C4CC43FE179B172CD344F30E /* GrokPhonePlanner.swift */,
+				9AECAEEC93E421CF3D1B4E50 /* HomeScreenRemovalGuard.swift */,
+				EBED7F5324F4FDC26FA1E0F8 /* LocalUITarsServer.swift */,
+				8A1D44CBA5C390F49ADCD312 /* PhoneAutoLockConfigurator.swift */,
+				EAFB7E56B4BDF0D041D75AC3 /* PhonePlannerContext.swift */,
+				A922E2906AE6731826F0E27E /* PhonePlannerEscalation.swift */,
+				1A69CE7F09709617F2C3F30A /* PhonePlannerProcess.swift */,
+				7F3CB6463D136795922836A3 /* PhonePlannerResponse.swift */,
+				399A52CD1FE15865901DB711 /* PhoneVisionClient.swift */,
+				1858E168352352BB12C19916 /* PhoneVisionProvider.swift */,
+				C4C4C867582A66B1699096BD /* PhoneVisionTypes.swift */,
+				70CD7A63765E5B1F9E02A0C3 /* PhoneVisualRunner.swift */,
+				0356F3AE9ED9B41A09ABB0F0 /* UITarsActionDecoder.swift */,
+				10541CA6BA27250DC0FE75BD /* UITarsPhonePlanner.swift */,
+				97C36C7E725C9CC83D4E592F /* UITarsScreenVerification.swift */,
+				ACC04184FCB60567DE8ADA2F /* WarmUpPlaybook.swift */,
+			);
+			path = DevicePrompts;
+			sourceTree = "<group>";
+		};
+		DF845B4934BB2C5B654CD124 /* PhoneRunner */ = {
+			isa = PBXGroup;
+			children = (
+				75D491E0962A4539BC0EB620 /* RunnerClient.swift */,
+				A3F668CE7E19C9D09560F042 /* RunnerCoordinator.swift */,
+				44757B1CDFC4E4381EDB8410 /* RunnerDeviceHost.swift */,
+				88BB5C8ECE860D56C92F56D2 /* RunnerOracle.swift */,
+				40B6F972DE9BDE58A17E6AE3 /* RunnerProvisioning.swift */,
+				B9DBE6EB898E94C8ADA08CAB /* RunnerSupervisor.swift */,
+			);
+			path = PhoneRunner;
+			sourceTree = "<group>";
+		};
+		E0344FCF7A2C9CF260650C12 = {
+			isa = PBXGroup;
+			children = (
+				B5E697F39EBBBCE3B40E1D5A /* PhoneRunnerShared */,
+				25CB797C96428E96AA519648 /* ShortReel */,
+				B3E38D2406A3E3E390CC84EC /* ShortReelRunner */,
+				F6484E355FBC0DC8AE865A29 /* ShortReelRunnerUITests */,
+				5164C97B49AA98FDC117B48E /* Frameworks */,
+				2301EEFEEF307593D1F37F28 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E6ED423CEB07D81A45E7DCF8 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				9EC3AD27C56EE36B44C0FD22 /* Device.swift */,
+				C1B9F9B11539F5CD47FFCFA8 /* Farm.swift */,
+				99E5A136D8AC113ADBCC2BE5 /* PersistentModel+Live.swift */,
+				A6EC6FA5D0DC40E74BEF0954 /* Persona.swift */,
+				DF197E500257D5081B014D9A /* SocialLink.swift */,
+				0D734D644036D054B305A982 /* TimelineEvent.swift */,
+				B9B36AE8D1615521173731DB /* WarmUpPlan.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		F6484E355FBC0DC8AE865A29 /* ShortReelRunnerUITests */ = {
+			isa = PBXGroup;
+			children = (
+				3D799AA0FDD1D391227FE986 /* RunnerAccessibility.h */,
+				E0CCA5C369941AF0F516B219 /* RunnerAccessibility.m */,
+				AC6C2ACE5756BAA8418C05E5 /* RunnerExecutor.swift */,
+				AA87F5163C40AC259CFA7EF4 /* RunnerServer.swift */,
+				24F1E52AA60B7C0C32BFC733 /* ShortReelRunnerServerTests.swift */,
+			);
+			path = ShortReelRunnerUITests;
+			sourceTree = "<group>";
+		};
+		FCA0EB29F607775D80357BE7 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				2D748206D2366B27A440EAD2 /* AddDeviceView.swift */,
+				E5E9AA251BD0C01F7006B100 /* ContentView.swift */,
+				DEDBE3E92D900F0A970377D9 /* DeviceGalleryView.swift */,
+				B27CEE80EA70FFB83D8C4E2A /* DevicePromptView.swift */,
+				1A48F8C570BC14C7395B7D49 /* DeviceSettingsView.swift */,
+				25301F554B562932915EF030 /* DeviceStageView.swift */,
+				52749801244FE485B01392EB /* PhoneScreenView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0CF9B7181553EE9A742773D8 /* ShortReelRunnerUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D30836D463B5C00254497394 /* Build configuration list for PBXNativeTarget "ShortReelRunnerUITests" */;
+			buildPhases = (
+				F9ACE2DE1008E9E48120E0BF /* Sources */,
+				1BC5BA647C73511657B5DB3E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F309A74040E6CE1AD4D1DA55 /* PBXTargetDependency */,
+			);
+			name = ShortReelRunnerUITests;
+			packageProductDependencies = (
+				03B7FBC532A42D7FE374786C /* FlyingFox */,
+			);
+			productName = ShortReelRunnerUITests;
+			productReference = C0A729397E748AFB9E482D8E /* ShortReelRunnerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		4737F9711F6FE991686F3BDE /* ShortReel */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 724B69DBCF8EF690AF4A53AB /* Build configuration list for PBXNativeTarget "ShortReel" */;
+			buildPhases = (
+				8FDE04D057A53DB51B730E46 /* Sources */,
+				3AE49D44308BF9B2CBACEAFC /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ShortReel;
+			packageProductDependencies = (
+			);
+			productName = ShortReel;
+			productReference = 969D1AE2B0E6527F1642C17F /* ShortReel.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E4DF697A1156EF49FCCAD8AC /* ShortReelRunner */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 900F7CBED72759CE07C9854F /* Build configuration list for PBXNativeTarget "ShortReelRunner" */;
+			buildPhases = (
+				E509DED421FC0E8F9E463D17 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ShortReelRunner;
+			packageProductDependencies = (
+			);
+			productName = ShortReelRunner;
+			productReference = 735E14F5971F4367B8E6AF38 /* ShortReelRunner.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		32A909EF093414155E10E867 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					0CF9B7181553EE9A742773D8 = {
+						TestTargetID = E4DF697A1156EF49FCCAD8AC;
+					};
+				};
+			};
+			buildConfigurationList = 4CC0B9196DDF1E1913293821 /* Build configuration list for PBXProject "ShortReel" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = E0344FCF7A2C9CF260650C12;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7391EB16A05921C565E81B31 /* XCRemoteSwiftPackageReference "FlyingFox" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 2301EEFEEF307593D1F37F28 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4737F9711F6FE991686F3BDE /* ShortReel */,
+				E4DF697A1156EF49FCCAD8AC /* ShortReelRunner */,
+				0CF9B7181553EE9A742773D8 /* ShortReelRunnerUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8FDE04D057A53DB51B730E46 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C98A797041F4E614FF380BB2 /* AddDeviceView.swift in Sources */,
+				255B71F6514BC9376BEEF7F1 /* BluetoothDiscovery.swift in Sources */,
+				5DA7512E3A88C131E74DA156 /* BluetoothHIDHost.swift in Sources */,
+				36298C0D414A8A73AB9F812F /* CBClassicDiscovery.m in Sources */,
+				2D42C7FCCA70FD1601FA3B46 /* CBHIDBridge.m in Sources */,
+				C5E57AF79EA0A028EC360AE2 /* CBHIDSocket.m in Sources */,
+				BF95708B88193D627993D349 /* ClaudePhonePlanner.swift in Sources */,
+				460DF7A2DFAC92384825F61F /* CodexPhonePlanner.swift in Sources */,
+				7B0C160689061791C18F65BA /* ContentView.swift in Sources */,
+				023D0467C06E828AA12C6E0A /* Device.swift in Sources */,
+				07E8623C76203FB94EC79C2B /* DeviceControlling.swift in Sources */,
+				A7FAD700237DC53E32252E0E /* DeviceGalleryView.swift in Sources */,
+				4C747511A72F5F35C9388C4A /* DeviceHost.swift in Sources */,
+				B55EF687A66D7DDC4466C87C /* DeviceManager.swift in Sources */,
+				1A94298EB7AD49F6C98F65AF /* DevicePromptExecutor.swift in Sources */,
+				8AC0AEE27C12E457FDD650C6 /* DevicePromptPlan.swift in Sources */,
+				D77FEF162580FAFF23319D98 /* DevicePromptPlanner.swift in Sources */,
+				44E8C59ED96B97C5A4A9EC3A /* DevicePromptSession.swift in Sources */,
+				CBA8001039A77B32122908F4 /* DevicePromptVerifier.swift in Sources */,
+				D0EC79E7497032E3D64B9DD1 /* DevicePromptView.swift in Sources */,
+				2C771AF99843E1E5AFF73023 /* DeviceSettingsView.swift in Sources */,
+				550901733BB9863D5C256386 /* DeviceStageView.swift in Sources */,
+				299273587E3AAD10ABA818FE /* DeviceWorkflow.swift in Sources */,
+				1A0DD82E7D3C3F2CFBCC8C1E /* Farm.swift in Sources */,
+				6AADFA23E9B815E9A8316B21 /* GrokPhonePlanner.swift in Sources */,
+				0D9176BF54DC8244578D8F12 /* HIDControlSession.m in Sources */,
+				4ED593D354DE88753733D287 /* HIDPointerDrag.swift in Sources */,
+				16CFDE08EE3AE9BDDC04D6F0 /* HIDServiceRecord.swift in Sources */,
+				0304297501FE99FADE9567F8 /* HomeScreenRemovalGuard.swift in Sources */,
+				A3E995CDDCF1F8254D03B420 /* LocalUITarsServer.swift in Sources */,
+				B47989288B7C62003867E8EF /* PersistentModel+Live.swift in Sources */,
+				F7D6371B0E7A27FC5E42C611 /* Persona.swift in Sources */,
+				58CCEA02170CE6C37F739164 /* PhoneAutoLockConfigurator.swift in Sources */,
+				FBCBB2829B644BBA7FA093CB /* PhonePlannerContext.swift in Sources */,
+				C6934E0B9F9BC88E5D5DBF98 /* PhonePlannerEscalation.swift in Sources */,
+				7220952A5A6801449F20E824 /* PhonePlannerProcess.swift in Sources */,
+				FB51944EFB3D5317C22F1BFE /* PhonePlannerResponse.swift in Sources */,
+				5D30FAC488EF728FD1D7352B /* PhoneRunnerProtocol.swift in Sources */,
+				FB5FE1C825FFD9B1D6825AFE /* PhoneScreenAssociation.swift in Sources */,
+				2DDDEFDE740F48C4C84D322B /* PhoneScreenCaptureService.swift in Sources */,
+				59BE468C9249DF830784E1A3 /* PhoneScreenFrameEncoder.swift in Sources */,
+				B7FA44DE4A0BB6C1C79D69B7 /* PhoneScreenSource.swift in Sources */,
+				ED39EE96CE71B8FFC0F1E39C /* PhoneScreenView.swift in Sources */,
+				AC1A7B6F044BB026C4BF0B90 /* PhoneVisionClient.swift in Sources */,
+				03DD723C30364E3A0C8E13DB /* PhoneVisionProvider.swift in Sources */,
+				4C1F0730AE4E3FF2DEC47881 /* PhoneVisionTypes.swift in Sources */,
+				7E84B828201884A72EF4515A /* PhoneVisualRunner.swift in Sources */,
+				6E448BC9A4BA1AFD2F14F127 /* RunnerClient.swift in Sources */,
+				205D6A2126B2D1CD3FDAB54C /* RunnerCoordinator.swift in Sources */,
+				8767A12EE5A78137E4C841EA /* RunnerDeviceHost.swift in Sources */,
+				C2ACA87F97408401A9655F66 /* RunnerOracle.swift in Sources */,
+				9EC029263C1289C808C7A169 /* RunnerProvisioning.swift in Sources */,
+				F188BA69F1CDB7D98CF99F3A /* RunnerSupervisor.swift in Sources */,
+				D695B98064CD329C887FED3D /* ShortReelApp.swift in Sources */,
+				0B7EC575615925AF2994386F /* SimulatedDeviceController.swift in Sources */,
+				A87595764A28F1B87DE1323E /* SocialLink.swift in Sources */,
+				F1DEED3E5390FA4809111FA8 /* TimelineEvent.swift in Sources */,
+				BB29C5B2E5F0DE475475D9CA /* UITarsActionDecoder.swift in Sources */,
+				7AE81C19144C7637726B610E /* UITarsPhonePlanner.swift in Sources */,
+				1DB1F5675B2598BE1974DCE2 /* UITarsScreenVerification.swift in Sources */,
+				2B8F9749D95E36E51BED7A0D /* USBPhoneBridge.m in Sources */,
+				1A7C7D0709C787A52CBAA137 /* USBPhoneSetup.swift in Sources */,
+				C4C7C2EA22E18A7907AF9BF6 /* WarmUpAgent.swift in Sources */,
+				8D8358A2D72540F409B9B2F6 /* WarmUpPlan.swift in Sources */,
+				1288DDBA969AE1D8D2C2D71C /* WarmUpPlaybook.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E509DED421FC0E8F9E463D17 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C563500654CA3CE1FCE01CCB /* ShortReelRunnerApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F9ACE2DE1008E9E48120E0BF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1A4C5B6655018CF5C1124C78 /* PhoneRunnerProtocol.swift in Sources */,
+				19600DFBDCBDC1FD8B3F9EC1 /* RunnerAccessibility.m in Sources */,
+				318769E50C4CA3162473ABAD /* RunnerExecutor.swift in Sources */,
+				F0D2548A4A0C773C75318E75 /* RunnerServer.swift in Sources */,
+				4F0A0BC92C985B7B32116A91 /* ShortReelRunnerServerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F309A74040E6CE1AD4D1DA55 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E4DF697A1156EF49FCCAD8AC /* ShortReelRunner */;
+			targetProxy = 832F99D4F1DDD0C91675EB06 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		462B1B8714E35A40FB6996FD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.joeblau.shortreel.runner.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = ShortReelRunnerUITests/RunnerAccessibility.h;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = ShortReelRunner;
+			};
+			name = Release;
+		};
+		59D696954B19264D0833B91D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = ShortReel/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.joeblau.shortreel;
+				PRODUCT_NAME = ShortReel;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "ShortReel/Services/BluetoothHID/ShortReel-Bridging-Header.h";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		6E08BCD90781931C80CA45A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.joeblau.shortreel.runner;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7DC96FDE2ABB8C8335AC2348 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.joeblau.shortreel.runner.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = ShortReelRunnerUITests/RunnerAccessibility.h;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = ShortReelRunner;
+			};
+			name = Debug;
+		};
+		860ADB79B9052FA825CFBA03 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		869C4917254C04B3F368D483 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.joeblau.shortreel.runner;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D58728875C89B8A7AFB3D45B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = ShortReel/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.joeblau.shortreel;
+				PRODUCT_NAME = ShortReel;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "ShortReel/Services/BluetoothHID/ShortReel-Bridging-Header.h";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		DD760D5BEDCC0AF033EA62AF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4CC0B9196DDF1E1913293821 /* Build configuration list for PBXProject "ShortReel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				860ADB79B9052FA825CFBA03 /* Debug */,
+				DD760D5BEDCC0AF033EA62AF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		724B69DBCF8EF690AF4A53AB /* Build configuration list for PBXNativeTarget "ShortReel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59D696954B19264D0833B91D /* Debug */,
+				D58728875C89B8A7AFB3D45B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		900F7CBED72759CE07C9854F /* Build configuration list for PBXNativeTarget "ShortReelRunner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6E08BCD90781931C80CA45A0 /* Debug */,
+				869C4917254C04B3F368D483 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D30836D463B5C00254497394 /* Build configuration list for PBXNativeTarget "ShortReelRunnerUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7DC96FDE2ABB8C8335AC2348 /* Debug */,
+				462B1B8714E35A40FB6996FD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7391EB16A05921C565E81B31 /* XCRemoteSwiftPackageReference "FlyingFox" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/swhitty/FlyingFox";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.27.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		03B7FBC532A42D7FE374786C /* FlyingFox */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7391EB16A05921C565E81B31 /* XCRemoteSwiftPackageReference "FlyingFox" */;
+			productName = FlyingFox;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 32A909EF093414155E10E867 /* Project object */;
+}

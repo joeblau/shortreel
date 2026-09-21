@@ -2,7 +2,18 @@
   "name": "shortreel",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.4.0",
+  "workspaces": [
+    "workers/*"
+  ],
   "scripts": {
-    "shortreel": "bun run scripts/shortreel.ts"
+    "shortreel": "bun run apple/scripts/shortreel.ts",
+    "runner": "bun run apple/scripts/runner.ts",
+    "web:dev": "bun run --cwd workers/web dev",
+    "web:build": "bun run --cwd workers/web build:worker",
+    "web:preview": "bun run --cwd workers/web preview",
+    "web:deploy": "bun run --cwd workers/web deploy",
+    "web:check": "bun run --cwd workers/web lint && bun run --cwd workers/web typecheck",
+    "web:types": "bun run --cwd workers/web cf-typegen"
   }
 }
