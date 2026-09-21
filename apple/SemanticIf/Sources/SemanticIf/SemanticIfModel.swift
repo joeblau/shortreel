@@ -16,15 +16,16 @@ private let log = Logger(subsystem: "com.joeblau.shortreel", category: "Semantic
 ///
 /// All `MLXArray` values (non-`Sendable`) are created, evaluated, and consumed
 /// inside `ModelContainer.perform` closures, so they never cross an isolation
-/// boundary under Swift 6 strict concurrency.
-actor SemanticIfModel {
+/// boundary under Swift 6 strict concurrency. Public so the parity harness
+/// (issue #13) can load the pinned checkpoint from its own module.
+public actor SemanticIfModel {
     /// Semif's pinned checkpoint (Semif `models.json` / `--model`).
-    static let modelID = "Qwen/Qwen3.5-4B"
-    static let checkpointRevision = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+    public static let modelID = "Qwen/Qwen3.5-4B"
+    public static let checkpointRevision = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
 
     /// Semif's default `--mlx-cache-limit-mib`: cap MLX's inactive buffer cache
     /// so it does not hold RAM while UI-TARS's Qwen2.5-VL is also resident.
-    static let gpuCacheLimitBytes = 256 * 1024 * 1024
+    public static let gpuCacheLimitBytes = 256 * 1024 * 1024
 
     private let container: ModelContainer
     private let tokenizer: SemanticIfTokenizer
@@ -33,7 +34,7 @@ actor SemanticIfModel {
     ///
     /// - Parameter downloadBase: snapshot output root passed to `HubApi`.
     ///   Defaults to `~/Library/Application Support/ShortReel/huggingface`.
-    init(downloadBase: URL? = nil) async throws {
+    public init(downloadBase: URL? = nil) async throws {
         Memory.cacheLimit = Self.gpuCacheLimitBytes
         let base = downloadBase ?? Self.defaultDownloadBase()
         let hub = HubApi(downloadBase: base)
@@ -58,7 +59,7 @@ actor SemanticIfModel {
         self.tokenizer = tokenizer
     }
 
-    static func defaultDownloadBase() -> URL {
+    public static func defaultDownloadBase() -> URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appending(path: "ShortReel", directoryHint: .isDirectory)
             .appending(path: "huggingface", directoryHint: .isDirectory)
@@ -67,7 +68,7 @@ actor SemanticIfModel {
     /// `score` in direct.py: encode, one forward pass, gather slot logits,
     /// softmax in Float32. Any prompt-contract violation throws; nothing is
     /// ever approximated.
-    func score(_ row: SemanticIfDecision, maxTokens: Int = 4096) async throws -> SemanticIfScore {
+    public func score(_ row: SemanticIfDecision, maxTokens: Int = 4096) async throws -> SemanticIfScore {
         let started = ContinuousClock.now
         let encoded = try SemanticIfPrompt.encodePrompt(row, tokenizer: tokenizer, maxTokens: maxTokens)
         let forward = await container.perform(values: encoded) { context, encoded in
@@ -123,20 +124,20 @@ actor SemanticIfModel {
 }
 
 /// One scored decision, mirroring the fields direct.py's `score` returns.
-struct SemanticIfScore: Sendable, Equatable {
-    var rowID: String
+public struct SemanticIfScore: Sendable, Equatable {
+    public var rowID: String
     /// Probability of each option id, in the row's declared option order.
-    var probabilities: [String: Double]
-    var argmaxOptionID: String
+    public var probabilities: [String: Double]
+    public var argmaxOptionID: String
     /// Top probability minus runner-up probability.
-    var margin: Double
-    var optionLogits: [Float]
-    var inputTokens: Int
-    var forwardSeconds: Double
-    var totalSeconds: Double
-    var promptHash: String
-    var promptVersion = SemanticIfPrompt.promptVersion
-    var peakMemoryBytes: Int
+    public var margin: Double
+    public var optionLogits: [Float]
+    public var inputTokens: Int
+    public var forwardSeconds: Double
+    public var totalSeconds: Double
+    public var promptHash: String
+    public var promptVersion = SemanticIfPrompt.promptVersion
+    public var peakMemoryBytes: Int
 }
 
 enum SemanticIfModelError: Error, Equatable {

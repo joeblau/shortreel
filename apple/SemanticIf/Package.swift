@@ -9,7 +9,8 @@ let package = Package(
     name: "SemanticIf",
     platforms: [.macOS(.v15)],
     products: [
-        .library(name: "SemanticIf", targets: ["SemanticIf"])
+        .library(name: "SemanticIf", targets: ["SemanticIf"]),
+        .executable(name: "semif-parity", targets: ["semif-parity"]),
     ],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift-lm", from: "3.31.4"),
@@ -26,10 +27,23 @@ let package = Package(
                 .product(name: "Hub", package: "swift-transformers"),
             ]
         ),
+        // Issue #13 parity harness: shared comparison logic, plus the
+        // `semif-parity` executable that prints the per-row report. Neither
+        // target is part of the ShortReel app (project.yml compiles only
+        // `Sources/SemanticIf`).
+        .target(
+            name: "SemanticIfParity",
+            dependencies: ["SemanticIf"]
+        ),
+        .executableTarget(
+            name: "semif-parity",
+            dependencies: ["SemanticIf", "SemanticIfParity"]
+        ),
         .testTarget(
             name: "SemanticIfTests",
             dependencies: [
                 "SemanticIf",
+                "SemanticIfParity",
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXNN", package: "mlx-swift"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
