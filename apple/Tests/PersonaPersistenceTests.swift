@@ -19,6 +19,7 @@ struct PersonaPersistenceTests {
         context.insert(device)
         let real = Persona(handle: "real.creator", displayName: "Real Creator", deviceName: "", narrative: "Real persona", network: .tikTok)
         context.insert(real)
+        real.personalityBrief = "Curious creator with a dry sense of humor."
         real.device = device
         let customized = Persona(handle: "maya.shoots", displayName: "Custom Creator", deviceName: "", narrative: "Customized")
         context.insert(customized)
@@ -43,6 +44,7 @@ struct PersonaPersistenceTests {
         precondition(Set(remaining.map(\.displayName)) == ["Real Creator", "Custom Creator"])
         let savedReal = remaining.first { $0.handle == "real.creator" }!
         precondition(savedReal.network == .tikTok)
+        precondition(savedReal.personalityBrief == "Curious creator with a dry sense of humor.")
         precondition(savedReal.boundDeviceName == "Real phone")
         let deviceCount = try reader.fetchCount(FetchDescriptor<Device>())
         let linkCount = try reader.fetchCount(FetchDescriptor<SocialLink>())

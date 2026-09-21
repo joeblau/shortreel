@@ -68,8 +68,14 @@ enum CodexPhonePlanner {
         return try PhonePlannerResponse.observation(from: data)
     }
 
-    private static func request(prompt: String, frame: PhoneScreenFrame, history: [PhoneVisionStep],
-                                schema: Data, configuration: Configuration) async throws -> Data {
+    static func textResponse(prompt: String, instructions: String, schema: Data, model: String = defaultModel) async throws -> Data {
+        try await request(prompt: prompt, frame: nil, history: [], schema: schema,
+            configuration: configuration(model: model), instructionText: instructions)
+    }
+
+    private static func request(prompt: String, frame: PhoneScreenFrame?, history: [PhoneVisionStep],
+                                schema: Data, configuration: Configuration,
+                                instructionText: String = PhonePlannerContext.instructions) async throws -> Data {
         try Task.checkCancellation()
         let files = FileManager.default
         let directory = files.temporaryDirectory.appendingPathComponent("shortreel-codex-\(UUID().uuidString)", isDirectory: true)
@@ -82,12 +88,13 @@ enum CodexPhonePlanner {
             }
             return url
         }
-        let instructions = try write(Data(PhonePlannerContext.instructions.utf8), name: "instructions.txt")
+        let instructions = try write(Data(instructionText.utf8), name: "instructions.txt")
         let schemaURL = try write(schema, name: "response.schema.json")
         let output = directory.appendingPathComponent("response.json")
         var imageURLs: [URL] = []
         var labels: [String] = []
-        for (index, entry) in PhonePlannerContext.images(frame: frame, history: history).enumerated() {
+        let images = frame.map { PhonePlannerContext.images(frame: $0, history: history) } ?? []
+        for (index, entry) in images.enumerated() {
             let (label, image) = entry
             guard !image.jpegData.isEmpty, image.jpegData.count <= 10_000_000,
                   (1...8192).contains(image.pixelWidth), (1...8192).contains(image.pixelHeight),
@@ -103,7 +110,7 @@ enum CodexPhonePlanner {
         // thread attribution or logging. Never read or copy credential contents.
         let environment = PhonePlannerProcess.environment(configuration.environment, executable: configuration.executable, authenticationKeys: ["CODEX_HOME"])
         let result = try await PhonePlannerProcess.run(executable: configuration.executable, arguments: arguments,
-            directory: directory, input: Data((prompt + "\nAttached images, in order:\n" + labels.joined(separator: "\n")).utf8),
+            directory: directory, input: Data((prompt + (labels.isEmpty ? "" : "\nAttached images, in order:\n" + labels.joined(separator: "\n"))).utf8),
             environment: environment, timeout: configuration.timeout, maximumOutputBytes: 1_000_000)
         try Task.checkCancellation()
         guard result.exitCode == 0 else {

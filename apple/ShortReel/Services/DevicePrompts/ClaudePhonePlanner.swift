@@ -77,9 +77,10 @@ enum ClaudePhonePlanner {
                 "--no-session-persistence", "--max-turns", "3"]
     }
 
-    static func input(prompt: String, frame: PhoneScreenFrame, history: [PhoneVisionStep]) throws -> Data {
+    static func input(prompt: String, frame: PhoneScreenFrame?, history: [PhoneVisionStep]) throws -> Data {
         var content: [[String: Any]] = [["type": "text", "text": prompt]]
-        for (label, image) in PhonePlannerContext.images(frame: frame, history: history) {
+        let images = frame.map { PhonePlannerContext.images(frame: $0, history: history) } ?? []
+        for (label, image) in images {
             guard !image.jpegData.isEmpty, image.jpegData.count <= 5_000_000,
                   (1...8192).contains(image.pixelWidth), (1...8192).contains(image.pixelHeight),
                   image.cgImage.width == image.pixelWidth, image.cgImage.height == image.pixelHeight else {
@@ -115,15 +116,20 @@ enum ClaudePhonePlanner {
         .invalidDecision("Claude returned no valid final phone decision. Check ‘claude auth status’ and access to the selected model; a current Claude Code CLI is required.")
     }
 
-    private static func request(prompt: String, frame: PhoneScreenFrame, history: [PhoneVisionStep], schema: Data,
-                                configuration: Configuration) async throws -> Data {
+    static func textResponse(prompt: String, instructions: String, schema: Data, model: String = defaultModel) async throws -> Data {
+        try await request(prompt: prompt, frame: nil, history: [], schema: schema,
+            configuration: configuration(model: model), instructionText: instructions)
+    }
+
+    private static func request(prompt: String, frame: PhoneScreenFrame?, history: [PhoneVisionStep], schema: Data,
+                                configuration: Configuration, instructionText: String = PhonePlannerContext.instructions) async throws -> Data {
         try Task.checkCancellation()
         let files = FileManager.default
         let directory = files.temporaryDirectory.appendingPathComponent("shortreel-claude-\(UUID().uuidString)", isDirectory: true)
         try files.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         defer { try? files.removeItem(at: directory) }
         let instructions = directory.appendingPathComponent("instructions.txt")
-        guard files.createFile(atPath: instructions.path, contents: Data(PhonePlannerContext.instructions.utf8), attributes: [.posixPermissions: 0o600]) else {
+        guard files.createFile(atPath: instructions.path, contents: Data(instructionText.utf8), attributes: [.posixPermissions: 0o600]) else {
             throw PhoneVisionError.unavailable("Couldn’t prepare Claude’s screenshot request.")
         }
         var environment = PhonePlannerProcess.environment(configuration.environment, executable: configuration.executable,

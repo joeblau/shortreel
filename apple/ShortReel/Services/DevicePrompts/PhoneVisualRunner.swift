@@ -110,6 +110,10 @@ final class PhoneVisualRunner {
         var previousInput: InputFingerprint?
         var previousPixels: [UInt8]?
         var repeatedInputs = 0
+        let reviewsTikTokPlayback = workflow == .warmUp && goal.components(separatedBy: .newlines)
+            .contains { $0.trimmingCharacters(in: .whitespaces) == "Platform: TikTok" }
+        var consecutivePlaybackWaits = 0
+        var playbackStartFrame: PhoneScreenFrame?
 
         for decisionNumber in 1...maximumSteps {
             try checkAvailability(deadline: deadline)
@@ -131,6 +135,7 @@ final class PhoneVisualRunner {
             for index in steps.indices.dropLast(2) {
                 steps[index].beforeFrame = nil
                 steps[index].afterFrame = nil
+                steps[index].playbackStartFrame = nil
             }
 
             onProgress("Choosing the next action…")
@@ -151,6 +156,19 @@ final class PhoneVisualRunner {
             }
             try checkAvailability(deadline: deadline)
             try checkFrameAge(frame)
+
+            if reviewsTikTokPlayback, case .wait = decision,
+               consecutivePlaybackWaits >= 2, consecutivePlaybackWaits % 3 == 2,
+               let last = history.indices.last {
+                onProgress("Checking whether the video finished or started replaying…")
+                var reviewHistory = history
+                reviewHistory[last].playbackReviewRequested = true
+                decision = try await beforeDeadline(deadline) { [self] in
+                    try await decide(goal, frame, reviewHistory)
+                }.validated()
+                try checkAvailability(deadline: deadline)
+                try checkFrameAge(frame)
+            }
 
             if workflow == .clearHomeScreen {
                 let pixels = Self.screenFingerprint(frame.cgImage)
@@ -199,6 +217,8 @@ final class PhoneVisualRunner {
             case .needsInput(let explanation):
                 throw PhonePromptPlanningError.needsClarification(explanation)
             case .action(let proposedAction, let proposedReason):
+                consecutivePlaybackWaits = 0
+                playbackStartFrame = nil
                 var reason = proposedReason
                 let action: PhonePromptAction
                 if workflow == .clearHomeScreen, let prepareCleanupAction {
@@ -247,15 +267,21 @@ final class PhoneVisualRunner {
                 steps.append(step)
                 afterDate = Date()
             case .wait(let seconds, let reason):
+                if reviewsTikTokPlayback {
+                    if playbackStartFrame == nil { playbackStartFrame = frame }
+                    consecutivePlaybackWaits += 1
+                }
                 try checkRepeatedInput(.wait, pixels: Self.screenFingerprint(frame.cgImage),
                     previousInput: &previousInput, previousPixels: &previousPixels,
                     repeatedInputs: &repeatedInputs)
                 let step = PhoneVisionStep(id: UUID(), number: decisionNumber,
                     action: "Wait for the screen", detail: reason, capturedAt: frame.capturedAt, beforeFrame: frame,
-                    progressNote: workflow == nil ? nil : reason)
+                    progressNote: workflow == nil ? nil : reason,
+                    playbackStartFrame: playbackStartFrame)
                 onProgress("Waiting for the phone’s screen to change…")
                 var displayStep = step
                 displayStep.beforeFrame = nil
+                displayStep.playbackStartFrame = nil
                 onStep(displayStep)
                 try checkAvailability(deadline: deadline)
                 try await beforeDeadline(deadline) { try await Task.sleep(for: .seconds(seconds)) }

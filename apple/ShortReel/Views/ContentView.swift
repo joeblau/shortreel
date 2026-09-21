@@ -151,13 +151,9 @@ private struct PersonaInspector: View {
                         TextField("Handle", text: $persona.handle)
                     }
 
-                    InspectorSection("Personality") {
-                        Text("Describe this persona’s interests, voice, and goals.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                        TextField("Persona description", text: $persona.narrative, axis: .vertical)
-                            .lineLimit(6...16)
-                    }
+                    PersonalityEditor(brief: $persona.personalityBrief, narrative: $persona.narrative, network: persona.network)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
 
                     InspectorSection("Device") {
                         Picker("Assigned device", selection: $persona.device) {
@@ -193,7 +189,7 @@ private struct PersonaInspector: View {
                 }
                 .textFieldStyle(.roundedBorder)
             }
-            .onChange(of: [persona.displayName, persona.handle, persona.narrative, persona.networkRawValue]) { _, _ in
+            .onChange(of: [persona.displayName, persona.handle, persona.narrative, persona.personalityBrief, persona.networkRawValue]) { _, _ in
                 save()
             }
             .onChange(of: persona.device?.persistentModelID) { _, _ in
@@ -227,6 +223,7 @@ struct AddPersonaView: View {
     @State private var displayName = ""
     @State private var handle = ""
     @State private var narrative = ""
+    @State private var personalityBrief = ""
     @State private var network: Platform = .instagram
     @State private var device: Device?
     @State private var saveError: String?
@@ -261,11 +258,10 @@ struct AddPersonaView: View {
                         Text(device.name).tag(device as Device?)
                     }
                 }
-                TextField("Persona", text: $narrative, axis: .vertical)
-                    .lineLimit(4...6)
-                    .help("Describe this persona’s interests, voice, and goals.")
             }
             .textFieldStyle(.roundedBorder)
+
+            PersonalityEditor(brief: $personalityBrief, narrative: $narrative, network: network)
 
             if let saveError {
                 Label(saveError, systemImage: "exclamationmark.triangle")
@@ -301,6 +297,7 @@ struct AddPersonaView: View {
         )
         modelContext.insert(persona)
         persona.device = selectedDevice
+        persona.personalityBrief = personalityBrief
 
         do {
             try modelContext.save()

@@ -122,6 +122,11 @@ OCR can miss text or misread a screen; this is an additional
 check, not a guarantee against perception errors. OCR failures stop the run.
 
 **Warm Up** opens a task brief for the app, activity, and stopping criterion.
+Every warm-up begins with an account check: the agent opens the app's profile,
+reads the signed-in handle from the screenshot, and confirms it matches the
+persona's handle. A signed-out app, an account picker, or any other handle stops
+the run with a request for input before any browsing or engagement; the agent
+never signs in, signs out, switches accounts, or enters credentials.
 **Create Content** opens a modal with an extensible content-type picker, starting
 with **Slideshow**. Configure the destination app, topic, 2–20 slides, and the
 existing phone photos to use (such as album, selection, and order). Caption and

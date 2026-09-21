@@ -1,5 +1,30 @@
 import Foundation
 
+/// Sends literal characters in order with short, varied pauses. Cancellation
+/// and transport failures stop before any further characters are submitted.
+@MainActor
+enum KeyboardTyping {
+    static func run(
+        _ text: String,
+        typeCharacter: (Character) async throws -> Void,
+        sleep: (Double) async throws -> Void = { try await Task.sleep(for: .seconds($0)) },
+        random: (ClosedRange<Double>) -> Double = { Double.random(in: $0) }
+    ) async throws {
+        let characters = Array(text)
+        for (index, character) in characters.enumerated() {
+            try Task.checkCancellation()
+            try await typeCharacter(character)
+            try Task.checkCancellation()
+            guard index < characters.count - 1 else { continue }
+            let pause: ClosedRange<Double>
+            if character.isWhitespace { pause = 0.18...0.32 }
+            else if character.isPunctuation { pause = 0.22...0.40 }
+            else { pause = 0.06...0.16 }
+            try await sleep(random(pause))
+        }
+    }
+}
+
 /// Identity of a physical phone, detached from SwiftData so it can cross
 /// concurrency boundaries.
 struct DeviceDescriptor: Sendable, Hashable {

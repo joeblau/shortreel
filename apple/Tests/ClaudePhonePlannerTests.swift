@@ -41,6 +41,16 @@ struct ClaudePhonePlannerTests {
         let content = (message["message"] as! [String: Any])["content"] as! [[String: Any]]
         try check(content.filter { $0["type"] as? String == "image" }.count == 1, "Foreign screenshot leaked")
         try check(content[content.count - 2]["text"] as? String == "CURRENT SCREEN — use this image for all coordinates and completion claims (480 × 1040).", "Current image is not last")
+        let watchingStart = browserFrame(date: Date(timeIntervalSince1970: 1))
+        var playbackHistory = history
+        playbackHistory[0].playbackStartFrame = watchingStart
+        let playbackImages = PhonePlannerContext.images(frame: current, history: playbackHistory)
+        try check(playbackImages.count == 2 && playbackImages.first?.1.id == watchingStart.id
+            && playbackImages.last?.1.id == current.id, "Watching-start evidence was lost or reordered")
+        try check(playbackImages.first?.0.contains("99 seconds") == true, "Playback image timing is missing")
+        playbackHistory[0].playbackStartFrame = foreign
+        try check(PhonePlannerContext.images(frame: current, history: playbackHistory).count == 1,
+            "Another phone's watching-start image leaked")
         let binary = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
         let config = ClaudePhonePlanner.Configuration(executable: binary, model: "opus")
         async let first = ClaudePhonePlanner.nextDecision(goal: "Open TikTok", frame: current, history: history, configuration: config)

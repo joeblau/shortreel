@@ -23,39 +23,30 @@ struct DeviceStageView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(DeviceWorkflow.allCases.enumerated()), id: \.element.id) { index, workflow in
-                    Group {
+                    Button {
                         if workflow == .clearHomeScreen {
-                            Button {
-                                run(.clearHomeScreen)
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Label(workflow.title, systemImage: "\(index + 1).circle")
-                                    Spacer(minLength: 8)
-                                    Image(systemName: "play.fill")
-                                        .accessibilityHidden(true)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 6)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.large)
-                            .accessibilityHint("Run Home Screen cleanup on \(device.name)")
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
+                            run(.clearHomeScreen)
                         } else {
-                            Button {
-                                editingWorkflow = workflow
-                            } label: {
-                                Label(workflow.title, systemImage: "\(index + 1).circle")
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 12)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
+                            editingWorkflow = workflow
                         }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Label(workflow.title, systemImage: "\(index + 1).circle")
+                            Spacer(minLength: 8)
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                                .accessibilityHidden(true)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
-                    .disabled(workflow == .clearHomeScreen && (session.isRunning || unavailableReason(session) != nil))
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.regular)
+                    .accessibilityLabel("Run \(workflow.title) on \(device.name)")
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .disabled(session.isRunning || unavailableReason(session) != nil)
                     .help(workflow.summary)
                 }
 
@@ -241,7 +232,7 @@ struct DeviceStageView: View {
 
             Divider()
             VStack(alignment: .leading, spacing: 12) {
-                Text("The session stays within the phase caps and stops at the limit above.")
+                Text("The agent first confirms the phone is signed in as @\(warmUp.normalizedHandle.isEmpty ? "handle" : warmUp.normalizedHandle), then stays within the phase caps and stops at the limit above.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 if let reason = unavailableReason(session) ?? (session.isRunning ? "Wait for the current task to finish before warming up." : warmUp.validationMessage) {
