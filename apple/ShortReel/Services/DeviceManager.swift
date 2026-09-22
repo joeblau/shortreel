@@ -82,9 +82,10 @@ final class DeviceManager {
     /// Invalidates an in-flight load's completion, like screenConnectionAttempts.
     @ObservationIgnored private var semanticIfLoadAttempt: UUID?
 
-    /// Loads the local scorer on demand: the menu's warm-up action, and later
-    /// a run that needs a decision (#15). The first load downloads the pinned
-    /// checkpoint through `SemanticIfModel`'s Application Support path.
+    /// Loads the local scorer on demand: the menu's warm-up action, and a
+    /// warm-up run whose account check asks for a decision (#15). The first
+    /// load downloads the pinned checkpoint through `SemanticIfModel`'s
+    /// Application Support path.
     func warmSemanticIfScorer() {
         guard semanticIfEnabled, semanticIfScorer == nil, semanticIfLoadAttempt == nil else { return }
         semanticIfState = .loading
@@ -117,7 +118,8 @@ final class DeviceManager {
         semanticIfState = semanticIfEnabled ? .idle : .disabled
     }
 
-    /// The scorer a run may use, once loaded. #15 wires live decisions to this.
+    /// The scorer a run may use, once loaded; the warm-up account check (#15)
+    /// decides locally through this, and falls back to the planner when nil.
     func readySemanticIfScorer() -> (any SemanticIfScoring)? {
         semanticIfScorer
     }
@@ -594,6 +596,25 @@ final class DeviceManager {
                 }
             }, prepareCleanupAction: { action, frame in
                 try await HomeScreenRemovalGuard.prepare(action, frame: frame)
+            }, classifyAccount: { [weak self] frame, script, brief in
+                // Contract TASK-8 (#15): the account step is scored locally
+                // once the SemanticIf checkpoint is loaded. While it loads —
+                // or when scoring is disabled or failed — the verdict is nil
+                // and the run keeps exactly the planner-only path of today.
+                guard let self else { throw PhoneVisionError.unavailable("This device is no longer available.") }
+                guard let scorer = self.readySemanticIfScorer() else {
+                    if self.semanticIfEnabled { self.warmSemanticIfScorer() }
+                    return nil
+                }
+                guard let handle = WarmUpStateTree.expectedHandle(brief), !handle.isEmpty,
+                      let platform = Platform.allCases.first(where: { $0.displayName == script.network.rawValue })
+                else { return nil }
+                // A scorer that errors mid-run (row rejection, model fault)
+                // degrades to the planner-only path rather than failing a run
+                // the planner could still drive.
+                return try? await WarmUpAccountClassifier.classify(frame: frame,
+                    platform: platform.displayName, accountLocation: WarmUpPlaybook.accountLocation(for: platform),
+                    handle: handle, scorer: scorer)
             })
         let session = DevicePromptSession(deviceName: descriptor.name, deviceIdentifier: descriptor.identifier, blockedReason: blockedReason,
             visualRunner: runner, visualBlockedReason: visualBlockedReason,

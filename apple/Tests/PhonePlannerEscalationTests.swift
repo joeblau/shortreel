@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift ShortReel/Services/DevicePrompts/DeviceWorkflow.swift ShortReel/Services/DevicePrompts/WarmUpPlaybook.swift ShortReel/Services/DevicePrompts/PhoneVisionTypes.swift ShortReel/Services/DevicePrompts/PhonePlannerEscalation.swift Tests/PhonePlannerEscalationTests.swift -o /tmp/shortreel-escalation-tests
+// swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/DevicePrompts/WarmUpScript.swift ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift ShortReel/Services/DevicePrompts/DeviceWorkflow.swift ShortReel/Services/DevicePrompts/WarmUpPlaybook.swift ShortReel/Services/DevicePrompts/PhoneVisionTypes.swift ShortReel/Services/DevicePrompts/PhonePlannerEscalation.swift Tests/PhonePlannerEscalationTests.swift -o /tmp/shortreel-escalation-tests
 @main
 enum PhonePlannerEscalationTests {
     static func main() async throws {

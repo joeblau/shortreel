@@ -124,9 +124,18 @@ check, not a guarantee against perception errors. OCR failures stop the run.
 **Warm Up** opens a task brief for the app, activity, and stopping criterion.
 Every warm-up begins with an account check: the agent opens the app's profile,
 reads the signed-in handle from the screenshot, and confirms it matches the
-persona's handle. A signed-out app, an account picker, or any other handle stops
-the run with a request for input before any browsing or engagement; the agent
-never signs in, signs out, switches accounts, or enters credentials.
+persona's handle. When the local SemanticIf scorer is loaded, the account
+check's finish verdict is decided on the Mac instead: the frame's OCR text,
+the persona handle, and the platform's account location form a four-option
+decision row (matches / mismatch / signed-out / unreadable) with the warm-up
+contract's failure-mode detection text as descriptions. A `matches` verdict
+above the tuned margin finishes the step without a planner claim; `mismatch`
+and `signed-out` stop the run with a request for input before any browsing or
+engagement; `unreadable` or a below-margin near-tie runs the contract's
+recovery (one Home + reopen, then a request for input). The decision — options,
+probabilities, margin, and prompt hash — is journaled with the run's steps.
+Without a loaded scorer the planner decides the check as before. Either way the
+agent never signs in, signs out, switches accounts, or enters credentials.
 **Create Content** opens a modal with an extensible content-type picker, starting
 with **Slideshow**. Configure the destination app, topic, 2–20 slides, and the
 existing phone photos to use (such as album, selection, and order). Caption and

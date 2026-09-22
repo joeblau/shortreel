@@ -13,17 +13,16 @@ enum PhoneSubmissionGuard {
         let bounds: CGRect
     }
 
-    static func validate(action: PhonePromptAction, frame: PhoneScreenFrame, isFinalSubmission: Bool) async throws {
-        let regions = try await Task.detached(priority: .utility) {
+    /// The guard's Vision recognizer, shared with the warm-up account
+    /// classifier (contract TASK-8): accurate, en-US, no language correction,
+    /// boxes normalized to top-left-origin fractions of the frame.
+    static func recognizeText(in frame: PhoneScreenFrame) async throws -> [TextRegion] {
+        try await Task.detached(priority: .utility) {
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.recognitionLanguages = ["en-US"]
             request.usesLanguageCorrection = false
-            do {
-                try VNImageRequestHandler(cgImage: frame.cgImage).perform([request])
-            } catch {
-                throw failure("The submission control could not be checked in the current screenshot. No input was sent. Make the composer and its labeled submit button visible, then review the draft.")
-            }
+            try VNImageRequestHandler(cgImage: frame.cgImage).perform([request])
             return (request.results ?? []).compactMap { result -> TextRegion? in
                 guard let candidate = result.topCandidates(1).first else { return nil }
                 let box = result.boundingBox
@@ -31,6 +30,15 @@ enum PhoneSubmissionGuard {
                     bounds: CGRect(x: box.minX, y: 1 - box.maxY, width: box.width, height: box.height))
             }
         }.value
+    }
+
+    static func validate(action: PhonePromptAction, frame: PhoneScreenFrame, isFinalSubmission: Bool) async throws {
+        let regions: [TextRegion]
+        do {
+            regions = try await recognizeText(in: frame)
+        } catch {
+            throw failure("The submission control could not be checked in the current screenshot. No input was sent. Make the composer and its labeled submit button visible, then review the draft.")
+        }
         try Task.checkCancellation()
         try validate(action: action, regions: regions, isFinalSubmission: isFinalSubmission)
     }

@@ -126,21 +126,26 @@ public actor SemanticIfModel {
     }
 }
 
-/// One scored decision, mirroring the fields direct.py's `score` returns.
-public struct SemanticIfScore: Sendable, Equatable {
-    public var rowID: String
-    /// Probability of each option id, in the row's declared option order.
-    public var probabilities: [String: Double]
-    public var argmaxOptionID: String
-    /// Top probability minus runner-up probability.
-    public var margin: Double
-    public var optionLogits: [Float]
-    public var inputTokens: Int
-    public var forwardSeconds: Double
-    public var totalSeconds: Double
-    public var promptHash: String
-    public var promptVersion = SemanticIfPrompt.promptVersion
-    public var peakMemoryBytes: Int
+/// One scored decision's diagnostics live in `SemanticIfScoring.swift` as
+/// `SemanticIfScore`, next to the protocol, so stub scorers in standalone
+/// swiftc suites never link MLX (issue #15).
+extension SemanticIfModel: SemanticIfScoring {
+    /// The `.mlx` implementation: the actor's direct readout, with the margin
+    /// policy applied before the result crosses the protocol boundary.
+    public func score(_ row: SemanticIfRow) async throws -> SemanticIfResult {
+        SemanticIfResult(score: try await score(row.decision))
+    }
+}
+
+extension SemanticIfScorerBackend {
+    /// Loads this backend's scorer. MLX reuses `SemanticIfModel`'s
+    /// Application Support download path, so the checkpoint is fetched only
+    /// when this is called and the snapshot is not already cached.
+    public func makeScorer() async throws -> any SemanticIfScoring {
+        switch self {
+        case .mlx: try await SemanticIfModel()
+        }
+    }
 }
 
 enum SemanticIfModelError: Error, Equatable {
