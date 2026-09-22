@@ -56,6 +56,73 @@ final class DeviceManager {
 
     private var visionModels = UserDefaults.standard.dictionary(forKey: PhoneVisionProvider.modelPreferenceKey) as? [String: String] ?? [:]
 
+    /// Whether local Semif scoring may load its model. On by default; turning
+    /// it off unloads the scorer and leaves runs planner-only, exactly as
+    /// before local checks existed. Persisted like the planner selection.
+    var semanticIfEnabled: Bool = UserDefaults.standard.object(forKey: SemanticIfScorerState.enabledKey) as? Bool ?? true {
+        didSet {
+            guard semanticIfEnabled != oldValue else { return }
+            UserDefaults.standard.set(semanticIfEnabled, forKey: SemanticIfScorerState.enabledKey)
+            if semanticIfEnabled {
+                semanticIfState = .idle
+            } else {
+                unloadSemanticIfScorer()
+            }
+        }
+    }
+
+    /// Lifecycle of the local scorer, surfaced in the planner menu. Nothing
+    /// loads — and nothing downloads — while scoring is disabled or no run
+    /// has asked for a decision.
+    private(set) var semanticIfState: SemanticIfScorerState = .disabled
+    @ObservationIgnored private var semanticIfScorer: (any SemanticIfScoring)?
+    /// The backend is a fixed constant today; Route A's llama.cpp sidecar
+    /// becomes another `SemanticIfScorerBackend` case behind the protocol.
+    @ObservationIgnored private let semanticIfBackend = SemanticIfScorerBackend.mlx
+    /// Invalidates an in-flight load's completion, like screenConnectionAttempts.
+    @ObservationIgnored private var semanticIfLoadAttempt: UUID?
+
+    /// Loads the local scorer on demand: the menu's warm-up action, and later
+    /// a run that needs a decision (#15). The first load downloads the pinned
+    /// checkpoint through `SemanticIfModel`'s Application Support path.
+    func warmSemanticIfScorer() {
+        guard semanticIfEnabled, semanticIfScorer == nil, semanticIfLoadAttempt == nil else { return }
+        semanticIfState = .loading
+        let attempt = UUID()
+        semanticIfLoadAttempt = attempt
+        Task { [weak self, semanticIfBackend] in
+            do {
+                let scorer = try await semanticIfBackend.makeScorer()
+                try Task.checkCancellation()
+                guard let self, self.semanticIfLoadAttempt == attempt else { return }
+                self.semanticIfScorer = scorer
+                self.semanticIfState = .ready
+                self.semanticIfLoadAttempt = nil
+            } catch {
+                guard let self, self.semanticIfLoadAttempt == attempt else { return }
+                self.semanticIfLoadAttempt = nil
+                if error is CancellationError {
+                    self.semanticIfState = .idle
+                } else {
+                    self.semanticIfState = .failed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    /// Drops the loaded scorer and cancels any in-flight load.
+    func unloadSemanticIfScorer() {
+        semanticIfLoadAttempt = nil
+        semanticIfScorer = nil
+        semanticIfState = semanticIfEnabled ? .idle : .disabled
+    }
+
+    /// The scorer a run may use, once loaded. #15 wires live decisions to this.
+    func readySemanticIfScorer() -> (any SemanticIfScoring)? {
+        semanticIfScorer
+    }
+
+
     /// The model the current planner will use.
     var visionModel: String {
         get { visionModel(for: visionProvider) }
@@ -138,6 +205,7 @@ final class DeviceManager {
         self.visionProvider = UserDefaults.standard.string(forKey: PhoneVisionProvider.preferenceKey)
             .flatMap(PhoneVisionProvider.init(rawValue:)) ?? .defaultProvider
         UserDefaults.standard.set(visionProvider.rawValue, forKey: PhoneVisionProvider.preferenceKey)
+        self.semanticIfState = semanticIfEnabled ? .idle : .disabled
     }
 
     private var context: ModelContext { container.mainContext }
@@ -212,6 +280,7 @@ final class DeviceManager {
         await usbWatchTask?.value
         usbWatchTask = nil
         for session in promptSessions.values { session.cancel(because: "ShortReel is quitting.") }
+        unloadSemanticIfScorer()
         LocalUITarsServer.shared.stop()
         await phoneRunners.stopAll()
     }
