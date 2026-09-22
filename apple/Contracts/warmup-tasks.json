@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "source": "apple/ShortReel/Services/DevicePrompts/WarmUpScript.swift @ fd1c77f",
+  "source": "apple/ShortReel/Services/DevicePrompts/WarmUpScript.swift @ fd1c77f; SemIf scorer model: Qwen/Qwen3.5-4B @ 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a — verified 2026-09-21 to load as a text model via mlx-swift-lm 3.31.4 LLMModelFactory: Qwen35Model.sanitize drops all 297 model.visual.* tensors and remaps model.language_model.* -> language_model.model.* (0 vision parameters after load, 426 text parameters, verify:[.all] clean, forward-pass smoke test OK); no fallback checkpoint or sanitize shim needed (issue #11)",
   "purpose": "Deterministic warm-up contract: per platform × activity, the ordered steps with preconditions, success criteria, allowed/forbidden actions, failure modes with recoveries, and budgets. Checked against the Swift registry by Tests/WarmUpTasksContractTests.swift.",
   "invariants": [
     {
@@ -31,7 +31,7 @@
     {
       "id": "INV-6",
       "rule": "Every step has a decision and time budget; exhausting it ends in needsInput with the step id and last evidence, never a silent 300-step burn.",
-      "enforcedBy": "TASK-6 (pending)"
+      "enforcedBy": "PhoneVisualRunner.run per-step budget pass via stepBudget closure + WarmUpContractStore (budgets decoded from this file)"
     },
     {
       "id": "INV-7",
@@ -3268,11 +3268,13 @@
     {
       "id": "TASK-5",
       "title": "Local precondition observer per step",
-      "status": "todo",
+      "status": "done",
       "outcome": "Before each planner call the runner checks screen.state and the step's OCR anchors locally; a failed precondition routes to the step's failureModes instead of a free planner decision.",
       "files": [
         "ShortReel/Services/DevicePrompts/PhoneVisualRunner.swift",
-        "ShortReel/Services/DevicePrompts/PhonePlaybackTracker.swift"
+        "ShortReel/Services/DevicePrompts/PhonePlaybackTracker.swift",
+        "ShortReel/Services/DevicePrompts/WarmUpFailureClassifier.swift",
+        "Tests/PhoneVisualRunnerTests.swift"
       ],
       "acceptance": [
         "each failureMode.id in this file maps to one recovery branch",
@@ -3285,11 +3287,13 @@
     {
       "id": "TASK-6",
       "title": "Per-step budgets",
-      "status": "todo",
+      "status": "done",
       "outcome": "Enforce budget.maxPlannerDecisions / maxSeconds per step id; exhaustion → needsInput naming the step and last evidence.",
       "files": [
         "ShortReel/Services/DevicePrompts/PhoneVisualRunner.swift",
-        "ShortReel/Services/DevicePrompts/WarmUpScript.swift"
+        "ShortReel/Services/DevicePrompts/WarmUpScript.swift",
+        "ShortReel/Services/DevicePrompts/WarmUpFailureClassifier.swift",
+        "Tests/PhoneVisualRunnerTests.swift"
       ],
       "acceptance": [
         "INV-6 enforcedBy updated to code",
@@ -3319,11 +3323,17 @@
     {
       "id": "TASK-8",
       "title": "Local OCR account check",
-      "status": "todo",
+      "status": "done",
       "outcome": "The account step compares the OCR'd '@' token to persona.handle on the Mac; the planner only navigates to the profile.",
       "files": [
+        "ShortReel/Services/DevicePrompts/WarmUpAccountClassifier.swift",
+        "ShortReel/Services/DevicePrompts/PhoneVisualRunner.swift",
         "ShortReel/Services/DevicePrompts/PhoneSubmissionGuard.swift",
-        "ShortReel/Services/DevicePrompts/WarmUpScript.swift"
+        "ShortReel/Services/DevicePrompts/DeviceRunJournal.swift",
+        "ShortReel/Services/DeviceManager.swift",
+        "Tests/WarmUpAccountClassifierTests.swift",
+        "Tests/PhoneVisualRunnerTests.swift",
+        "Tests/Fixtures/AccountOCR/"
       ],
       "acceptance": [
         "mismatch and signed-out fixtures → needsInput with zero engagement input",

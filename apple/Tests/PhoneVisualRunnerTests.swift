@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{WarmUpScript,PhonePlaybackTracker,PhoneSubmissionGuard,PhoneSubmissionCheckpoint,DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner,WarmUpStateTree}.swift Tests/PhoneVisualRunnerTests.swift -o /tmp/shortreel-visual-runner-tests
+// swiftc -swift-version 6 SemanticIf/Sources/SemanticIf/{SemanticIfPrompt,SemanticIfScoring}.swift ShortReel/Services/DevicePrompts/{WarmUpScript,PhonePlaybackTracker,PhoneSubmissionGuard,PhoneSubmissionCheckpoint,DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner,WarmUpStateTree,WarmUpAccountClassifier,WarmUpFailureClassifier}.swift Tests/PhoneVisualRunnerTests.swift -o /tmp/shortreel-visual-runner-tests
 @main @MainActor
 enum PhoneVisualRunnerTests {
     private enum TestError: LocalizedError {
@@ -52,7 +52,534 @@ enum PhoneVisualRunnerTests {
         try await submissionJournalPrecedesInput()
         try await submissionStorageFailureBlocksInput()
         try await submissionCannotBeRepeatedDuringVerification()
-        print("Phone visual runner tests passed (24 scenarios)")
+        try await accountMatchFinishesStepWithoutPlannerClaim()
+        try await accountMismatchSendsNoInput()
+        try await accountSignedOutSendsNoInput()
+        try await accountUnreadableRecoveryThenNeedsInput()
+        try await accountCheckUnavailableKeepsPlannerPath()
+        try await accountCheckTikTokStateTreeInterplay()
+        let failureModes = try await failureModeRecoveryBranches()
+        try await failureCheckUncertainKeepsPlannerPath()
+        try await failureCheckUnavailableKeepsPlannerPath()
+        try await stepDecisionBudgetSendsNoInputPastLimit()
+        try await stepTimeBudgetSendsNoInputPastLimit()
+        print("Phone visual runner tests passed (35 scenarios, \(failureModes) contract failure modes)")
+    }
+
+    // MARK: - Account-step classifier (contract TASK-8, issue #15)
+
+    struct AccountFixture: Decodable {
+        struct Region: Decodable {
+            let text: String
+            let confidence: Float
+            let x: Double, y: Double, width: Double, height: Double
+        }
+        let platform: String
+        let handle: String
+        let outcome: String
+        let regions: [Region]
+
+        static func load(_ name: String) throws -> AccountFixture {
+            try JSONDecoder().decode(AccountFixture.self,
+                from: Data(contentsOf: URL(fileURLWithPath: "Tests/Fixtures/AccountOCR/\(name).json")))
+        }
+
+        var textRegions: [PhoneSubmissionGuard.TextRegion] {
+            regions.map {
+                PhoneSubmissionGuard.TextRegion(text: $0.text, confidence: $0.confidence,
+                    bounds: CGRect(x: $0.x, y: $0.y, width: $0.width, height: $0.height))
+            }
+        }
+    }
+
+    /// Scripted `SemanticIfScoring`: the winner takes 0.7, the rest share 0.3,
+    /// so the margin policy decides `.option(winner)`.
+    final class AccountStubScorer: SemanticIfScoring, @unchecked Sendable {
+        let winner: String
+        init(winner: String) { self.winner = winner }
+
+        func score(_ row: SemanticIfRow) async throws -> SemanticIfResult {
+            var probabilities = [winner: 0.7]
+            for id in row.options.map(\.id) where id != winner { probabilities[id] = 0.1 }
+            return SemanticIfResult(score: SemanticIfScore(
+                rowID: row.id, probabilities: probabilities, argmaxOptionID: winner,
+                margin: 0.6, optionLogits: [], inputTokens: 0, forwardSeconds: 0,
+                totalSeconds: 0, promptHash: "stub-\(winner)", peakMemoryBytes: 0))
+        }
+    }
+
+    private static func accountClassifier(
+        fixture: AccountFixture
+    ) -> (PhoneScreenFrame, WarmUpScript, String) async throws -> WarmUpAccountDecision? {
+        { _, _, _ in
+            try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
+                platform: fixture.platform, accountLocation: "test account location",
+                handle: fixture.handle, scorer: AccountStubScorer(winner: fixture.outcome))
+        }
+    }
+
+    /// A local `matches` verdict finishes the account step on its own: the
+    /// planner is only asked about the next step, and no input is sent.
+    private static func accountMatchFinishesStepWithoutPlannerClaim() async throws {
+        let fixture = try AccountFixture.load("x-matches")
+        var decideGoals: [String] = []
+        var inputs: [PhonePromptAction] = []
+        var accountSteps: [PhoneVisionStep] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { goal, _, _ in
+                decideGoals.append(goal)
+                return .needsInput("Stopping after the account check.")
+            }, perform: { inputs.append($0) }, blockedReason: { nil },
+            classifyAccount: accountClassifier(fixture: fixture))
+        do {
+            _ = try await runner.run(goal: "Account check: Verify exactly @janedoe, ignoring case.",
+                workflow: .warmUp, warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { if $0.accountCheck != nil { accountSteps.append($0) } })
+            throw TestError.failed("Run continued past the stop marker")
+        } catch is PhonePromptPlanningError { }
+        try expect(decideGoals.count == 1 && decideGoals[0].contains("Prepare post"),
+            "The planner was asked to decide the account step")
+        try expect(inputs.isEmpty, "A verified account check sent input")
+        try expect(accountSteps.count == 1 && accountSteps[0].decisionSource == "semantic if"
+            && accountSteps[0].accountCheck?.outcome == .matches
+            && accountSteps[0].accountCheck?.promptHash == "stub-matches"
+            && accountSteps[0].accountCheck?.margin == 0.6,
+            "The local account decision was not journaled with the step")
+    }
+
+    /// HARD SAFETY: a local mismatch verdict is terminal needsInput before the
+    /// planner is even asked — zero engagement input can be sent.
+    private static func accountMismatchSendsNoInput() async throws {
+        let fixture = try AccountFixture.load("x-mismatch")
+        var decideCalls = 0
+        var inputs: [PhonePromptAction] = []
+        var accountSteps: [PhoneVisionStep] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { _, _, _ in
+                decideCalls += 1
+                return .action(.tap(0.5, 0.5), reason: "Follow the visible account")
+            }, perform: { inputs.append($0) }, blockedReason: { nil },
+            classifyAccount: accountClassifier(fixture: fixture))
+        do {
+            _ = try await runner.run(goal: "Account check: Verify exactly @janedoe, ignoring case.",
+                workflow: .warmUp, warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { if $0.accountCheck != nil { accountSteps.append($0) } })
+            throw TestError.failed("A mismatched account ran the warm-up")
+        } catch let error as PhonePromptPlanningError {
+            try expect(error.localizedDescription.contains("@jane.doe88")
+                && error.localizedDescription.contains("@janedoe"),
+                "Mismatch did not name both handles")
+        }
+        try expect(decideCalls == 0 && inputs.isEmpty, "A mismatched account engaged the phone")
+        try expect(accountSteps.count == 1 && accountSteps[0].accountCheck?.outcome == .mismatch,
+            "The terminal mismatch was not journaled")
+    }
+
+    /// HARD SAFETY: a signed-out verdict is terminal needsInput with no input.
+    private static func accountSignedOutSendsNoInput() async throws {
+        let fixture = try AccountFixture.load("x-signed-out")
+        var decideCalls = 0
+        var inputs: [PhonePromptAction] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { _, _, _ in
+                decideCalls += 1
+                return .action(.typeText("password"), reason: "Sign in")
+            }, perform: { inputs.append($0) }, blockedReason: { nil },
+            classifyAccount: accountClassifier(fixture: fixture))
+        do {
+            _ = try await runner.run(goal: "Account check: Verify exactly @janedoe, ignoring case.",
+                workflow: .warmUp, warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { _ in })
+            throw TestError.failed("A signed-out app ran the warm-up")
+        } catch let error as PhonePromptPlanningError {
+            try expect(error.localizedDescription.contains("signed out"),
+                "Signed-out verdict did not explain itself")
+        }
+        try expect(decideCalls == 0 && inputs.isEmpty, "A signed-out app received credentials or engagement")
+    }
+
+    /// Unreadable verdicts never trust a planner finish claim; the contract's
+    /// recovery fires once (one Home + reopen), then needsInput.
+    private static func accountUnreadableRecoveryThenNeedsInput() async throws {
+        let fixture = try AccountFixture.load("x-unreadable")
+        var captures = 0
+        var decideCalls = 0
+        var inputs: [PhonePromptAction] = []
+        let runner = PhoneVisualRunner(capture: { after in
+                captures += 1
+                // Alternate visibly distinct screens so the stalled-input
+                // guard measures the waits, not JPEG-identical frames.
+                return try frame(after: after, shade: captures.isMultiple(of: 2) ? 0 : 0.5)
+            }, decide: { _, _, _ in
+                decideCalls += 1
+                // A planner claim is not proof while the local check is unreadable.
+                return .finished("I can see the handle clearly.")
+            }, perform: { inputs.append($0) }, blockedReason: { nil },
+            classifyAccount: accountClassifier(fixture: fixture))
+        do {
+            _ = try await runner.run(goal: "Account check: Verify exactly @janedoe, ignoring case.",
+                workflow: .warmUp, warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { _ in })
+            throw TestError.failed("An unreadable account was verified by a planner claim")
+        } catch let error as PhonePromptPlanningError {
+            try expect(error.localizedDescription.contains("after reopening the app once"),
+                "Unreadable did not end in the contract's recovery outcome")
+        }
+        // Two unreadable windows of three fresh frames each: the planner was
+        // consulted only for navigation, the recovery sent exactly one Home,
+        // and no engagement input ever fired.
+        try expect(decideCalls == 4, "Planner finish claims were accepted while unreadable")
+        try expect(inputs == [.home], "The unreadable recovery sent more than one Home")
+    }
+
+    /// No loaded scorer (disabled or failed) is exactly today's planner-only
+    /// path: the planner's own finish claim advances the account step.
+    private static func accountCheckUnavailableKeepsPlannerPath() async throws {
+        var decideCalls = 0
+        var accountSteps: [PhoneVisionStep] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { _, _, _ in
+                decideCalls += 1
+                return decideCalls == 1
+                    ? .finished("Planner-verified account")
+                    : .needsInput("Stopping after the account check.")
+            }, perform: { _ in throw TestError.failed("Unexpected input") }, blockedReason: { nil },
+            classifyAccount: { _, _, _ in nil })
+        do {
+            _ = try await runner.run(goal: "Account check: Verify exactly @janedoe, ignoring case.",
+                workflow: .warmUp, warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { if $0.action.hasPrefix("Verified") { accountSteps.append($0) } })
+            throw TestError.failed("Run continued past the stop marker")
+        } catch is PhonePromptPlanningError { }
+        try expect(decideCalls == 2, "Planner-only path lost the account decision")
+        try expect(accountSteps.count == 1 && accountSteps[0].accountCheck == nil,
+            "Planner-only path recorded a local account decision")
+    }
+
+    /// With the TikTok state tree active, the local verdict still owns the
+    /// account step's finish; the tree and planner handle the later steps.
+    private static func accountCheckTikTokStateTreeInterplay() async throws {
+        let fixture = try AccountFixture.load("tiktok-matches")
+        var decideTitles: [String] = []
+        var inputs: [PhonePromptAction] = []
+        var accountSteps: [PhoneVisionStep] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { goal, _, _ in
+                for title in ["Search niche", "Choose search result", "Find video with >10K hearts", "Watch to completion"] {
+                    if goal.contains(": \(title).") { decideTitles.append(title) }
+                }
+                return .finished("Current milestone verified from the screenshot")
+            }, perform: { inputs.append($0) }, blockedReason: { nil },
+            readText: { frame, platform in
+                .init(sourceID: frame.sourceID, capturedAt: frame.capturedAt, platform: platform, regions: [])
+            }, classifyAccount: accountClassifier(fixture: fixture))
+        let result = try await runner.run(
+            goal: "Platform: TikTok\nAccount check: Verify exactly @janedoe, ignoring case.",
+            workflow: .warmUp, warmUpScript: WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 1, duration: 60),
+            onProgress: { _ in }, onStep: { if $0.accountCheck != nil { accountSteps.append($0) } })
+        try expect(result.contains("completed"), "Script did not complete after the local account check")
+        try expect(decideTitles == ["Search niche", "Choose search result", "Find video with >10K hearts", "Watch to completion"],
+            "The planner decided the account step or skipped a later step")
+        try expect(inputs.isEmpty, "The classified account run sent input")
+        try expect(accountSteps.count == 1 && accountSteps[0].accountCheck?.outcome == .matches,
+            "The TikTok account step was not decided locally")
+    }
+
+    // MARK: - Per-step failure-mode classifier (contract TASK-5/6, issue #16)
+
+    /// The contract JSON, decoded for the parameterized failure-mode loop.
+    struct WarmUpContractFixture: Decodable {
+        struct FailureMode: Decodable { let id: String; let detection: String; let recovery: String; let terminal: Bool? }
+        struct Budget: Decodable { let maxPlannerDecisions: Int; let maxSeconds: Int }
+        struct Step: Decodable {
+            let id: String; let title: String; let successCriteria: [String]
+            let failureModes: [FailureMode]; let budget: Budget
+        }
+        struct Activity: Decodable { let scriptIdentifier: String; let steps: [Step] }
+        struct Platform: Decodable { let activities: [String: Activity] }
+        let platforms: [String: Platform]
+
+        static func load() throws -> WarmUpContractFixture {
+            try JSONDecoder().decode(WarmUpContractFixture.self,
+                from: Data(contentsOf: URL(fileURLWithPath: "Contracts/warmup-tasks.json")))
+        }
+    }
+
+    /// Scripted `SemanticIfScoring` with a tunable margin: above the default
+    /// threshold the winner is decided, below it the verdict is `.uncertain`.
+    final class FailureStubScorer: SemanticIfScoring, @unchecked Sendable {
+        let winner: String
+        let margin: Double
+        init(winner: String, margin: Double = 0.6) { self.winner = winner; self.margin = margin }
+
+        func score(_ row: SemanticIfRow) async throws -> SemanticIfResult {
+            var probabilities = [winner: 0.7]
+            for id in row.options.map(\.id) where id != winner { probabilities[id] = 0.1 }
+            return SemanticIfResult(score: SemanticIfScore(
+                rowID: row.id, probabilities: probabilities, argmaxOptionID: winner,
+                margin: margin, optionLogits: [], inputTokens: 0, forwardSeconds: 0,
+                totalSeconds: 0, promptHash: "stub-\(winner)", peakMemoryBytes: 0))
+        }
+    }
+
+    /// One runner scenario per failureMode.id in warmup-tasks.json (every
+    /// non-account step of every platform × activity; the account step's modes
+    /// are covered by the TASK-8 scenarios above). Each asserts the mode's one
+    /// recovery branch: terminal modes end in needsInput naming the step and
+    /// mode with no input past detection; runner-owned branches send exactly
+    /// the canonical input; directive branches reach the planner carrying the
+    /// contract's detection and recovery text.
+    @discardableResult
+    private static func failureModeRecoveryBranches() async throws -> Int {
+        let contract = try WarmUpContractFixture.load()
+        var checked = 0
+        for (platformName, platform) in contract.platforms {
+            guard let network = WarmUpScript.Network(rawValue: platformName) else {
+                throw TestError.failed("Unknown contract platform \(platformName)")
+            }
+            for (activityName, activity) in platform.activities {
+                guard let activityKind = WarmUpActivity(rawValue: activityName) else {
+                    throw TestError.failed("Unknown contract activity \(activityName)")
+                }
+                for step in activity.steps where step.id != "account" {
+                    for mode in step.failureModes {
+                        try await assertFailureModeRecovery(network: network, activity: activityKind,
+                            scriptIdentifier: activity.scriptIdentifier, step: step, mode: mode)
+                        checked += 1
+                    }
+                }
+            }
+        }
+        try expect(checked >= 100, "Only \(checked) contract failure modes were checked")
+        return checked
+    }
+
+    private static func assertFailureModeRecovery(network: WarmUpScript.Network, activity: WarmUpActivity,
+        scriptIdentifier: String, step: WarmUpContractFixture.Step, mode: WarmUpContractFixture.FailureMode
+    ) async throws {
+        let label = "\(scriptIdentifier).\(step.id).\(mode.id)"
+        let terminal = mode.terminal ?? false
+        guard let targetStepID = WarmUpScript.StepID(rawValue: step.id) else {
+            throw TestError.failed("\(label): unknown step id")
+        }
+        let stepContract = WarmUpStepContract(id: step.id, title: step.title, successCriteria: step.successCriteria,
+            failureModes: step.failureModes.map {
+                .init(id: $0.id, detection: $0.detection, recovery: $0.recovery, terminal: $0.terminal ?? false)
+            },
+            budget: WarmUpStepBudget(maxPlannerDecisions: step.budget.maxPlannerDecisions,
+                maxSeconds: step.budget.maxSeconds))
+        let stopMarker = "Recovered; stop the test run."
+        var fired = false
+        var recovered = false
+        var inputs: [PhonePromptAction] = []
+        var directiveGoals: [String] = []
+        var journaled: [PhoneVisionStep] = []
+        let runner = PhoneVisualRunner(capture: { after in
+            // Stop at the next frame after the recovery was journaled, so the
+            // recovery branch itself (input, wait, or planner directive)
+            // completes and nothing further is sent.
+            if recovered { throw PhoneVisionError.unavailable(stopMarker) }
+            return try frame(after: after)
+        },
+            decide: { goal, _, _ in
+                if goal.contains("RECOVERY for failure mode '\(mode.id)'") { directiveGoals.append(goal) }
+                if goal.contains(": Submit once.") { return .action(.tap(0.8, 0.2), reason: "Visible submit control") }
+                if (goal.contains(": Next video.") || goal.contains(": Next post.")) && !goal.contains("already sent") {
+                    return .action(.swipe(.up), reason: "Advance after verified completion")
+                }
+                return .finished("Current milestone verified from the screenshot")
+            }, perform: { inputs.append($0) }, blockedReason: { nil },
+            validateSubmissionAction: { _, _, _ in },
+            classifyFailure: { _, script, stepID, playbackSummary in
+                // The real classifier with a stub scorer that detects this
+                // scenario's mode on the target step's first frame.
+                guard script.identifier == scriptIdentifier, stepID == targetStepID, !fired else { return nil }
+                fired = true
+                return try await WarmUpFailureClassifier.classify(regions: [], scriptIdentifier: scriptIdentifier,
+                    platform: network.rawValue, step: stepContract, playbackSummary: playbackSummary,
+                    scorer: FailureStubScorer(winner: mode.id))
+            })
+        do {
+            // The advance step only runs when another item remains.
+            _ = try await runner.run(goal: "Platform: \(network.rawValue)", workflow: .warmUp,
+                warmUpScript: WarmUpScript(network: network, activity: activity,
+                    itemLimit: targetStepID == .advance ? 2 : 1, duration: 300),
+                onProgress: { _ in }, onStep: { step in
+                    journaled.append(step)
+                    if step.failureCheck?.failureModeID == mode.id { recovered = true }
+                })
+            try expect(!terminal, "\(label): terminal mode did not stop the run")
+        } catch let error as PhonePromptPlanningError {
+            try expect(terminal, "\(label): non-terminal mode stopped the run: \(error.localizedDescription)")
+            try expect(error.localizedDescription.contains("'\(step.id)'") && error.localizedDescription.contains("'\(mode.id)'")
+                && error.localizedDescription.contains(mode.recovery),
+                "\(label): needsInput did not name the step, mode, and contract recovery")
+        } catch PhoneVisionError.unavailable(let message) {
+            try expect(message == stopMarker && !terminal,
+                "\(label): run failed past the recovery: \(message)")
+        }
+        try expect(fired, "\(label): the classifier never fired")
+        let recoveryStep = journaled.last { $0.failureCheck?.failureModeID == mode.id }
+        try expect(recoveryStep != nil && recoveryStep?.failureCheck?.terminal == terminal
+            && recoveryStep?.failureCheck?.promptHash == "stub-\(mode.id)",
+            "\(label): the detected mode was not journaled with its step")
+        let branch: WarmUpFailureClassifier.RecoveryBranch = terminal
+            ? .needsInput : WarmUpFailureClassifier.recoveryBranch(for: mode.id)
+        switch branch {
+        case .needsInput:
+            let submitTap: [PhonePromptAction] = targetStepID == .verifySubmission ? [.tap(0.8, 0.2)] : []
+            try expect(inputs == submitTap, "\(label): terminal mode sent input past detection")
+            try expect(recoveryStep?.decisionSource == "semantic if", "\(label): terminal detection was not local")
+        case .perform(let action):
+            try expect(inputs == [action], "\(label): runner-owned recovery sent \(inputs)")
+            try expect(recoveryStep?.decisionSource == "semantic if", "\(label): recovery input was not local")
+        case .reobserve:
+            try expect(inputs.isEmpty, "\(label): re-observation sent input before re-observing")
+            try expect(recoveryStep?.input == nil && recoveryStep?.decisionSource == "semantic if",
+                "\(label): reobserve branch was not a local wait")
+        case .plannerDirective:
+            try expect(directiveGoals.count == 1, "\(label): recovery directive reached the planner \(directiveGoals.count) times")
+            try expect(directiveGoals[0].contains(mode.detection) && directiveGoals[0].contains(mode.recovery),
+                "\(label): directive lost the contract's detection or recovery text")
+            if mode.id == "stalled-wait-loop" {
+                try expect(directiveGoals[0].contains("PLAYBACK COMPLETION REVIEW"),
+                    "\(label): stalled-wait-loop did not inject the playback completion review")
+            }
+            let advanceSwipe: [PhonePromptAction] = targetStepID == .advance ? [.swipe(.up)] : []
+            try expect(inputs == advanceSwipe, "\(label): directive recovery sent unexpected input \(inputs)")
+        }
+    }
+
+    /// An uncertain verdict (margin below threshold) is never an assertive
+    /// branch: no recovery fires and the planner decides from the same frame.
+    private static func failureCheckUncertainKeepsPlannerPath() async throws {
+        let contract = try WarmUpContractFixture.load()
+        guard let search = contract.platforms["X"]?.activities["watch"]?.steps.first(where: { $0.id == "search" }) else {
+            throw TestError.failed("X watch search step missing from contract")
+        }
+        let stepContract = WarmUpStepContract(id: search.id, title: search.title, successCriteria: search.successCriteria,
+            failureModes: search.failureModes.map {
+                .init(id: $0.id, detection: $0.detection, recovery: $0.recovery, terminal: $0.terminal ?? false)
+            },
+            budget: WarmUpStepBudget(maxPlannerDecisions: search.budget.maxPlannerDecisions, maxSeconds: search.budget.maxSeconds))
+        var plannerGoals: [String] = []
+        var checks: [WarmUpFailureDecision] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { goal, _, _ in
+                plannerGoals.append(goal)
+                if goal.contains(": Verify account.") { return .finished("Planner-verified account") }
+                return .needsInput("Stop after the uncertain check.")
+            }, perform: { _ in throw TestError.failed("Uncertain verdict sent input") }, blockedReason: { nil },
+            classifyFailure: { _, script, stepID, _ in
+                guard stepID == .search else { return nil }
+                let decision = try await WarmUpFailureClassifier.classify(regions: [],
+                    scriptIdentifier: script.identifier, platform: "X", step: stepContract,
+                    playbackSummary: nil, scorer: FailureStubScorer(winner: "search-not-focused", margin: 0.05))
+                checks.append(decision)
+                return decision
+            })
+        do {
+            _ = try await runner.run(goal: "Platform: X", workflow: .warmUp,
+                warmUpScript: WarmUpScript(network: .x, activity: .watch, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { _ in })
+            throw TestError.failed("Run continued past the stop marker")
+        } catch is PhonePromptPlanningError { }
+        try expect(checks.count == 1 && checks[0].uncertain && checks[0].failureModeID == nil,
+            "Uncertain verdict was not returned conservatively")
+        try expect(plannerGoals.count == 2 && plannerGoals.allSatisfy { !$0.contains("RECOVERY for failure mode") },
+            "Uncertain verdict injected a recovery directive")
+    }
+
+    /// No scorer (nil verdict) is exactly the planner-only path: steps advance
+    /// on the planner's own claims and no failure decision is journaled.
+    private static func failureCheckUnavailableKeepsPlannerPath() async throws {
+        var decideCalls = 0
+        var failureChecks = 0
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { _, _, _ in
+                decideCalls += 1
+                return decideCalls == 1
+                    ? .finished("Planner-verified account")
+                    : .needsInput("Stopping after the account check.")
+            }, perform: { _ in throw TestError.failed("Unexpected input") }, blockedReason: { nil },
+            classifyFailure: { _, _, _, _ in
+                failureChecks += 1
+                return nil
+            })
+        do {
+            _ = try await runner.run(goal: "Platform: X", workflow: .warmUp,
+                warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { _ in })
+            throw TestError.failed("Run continued past the stop marker")
+        } catch is PhonePromptPlanningError { }
+        try expect(decideCalls == 2 && failureChecks == 1, "Nil verdicts changed the planner-only path")
+    }
+
+    /// INV-6: exhausting a step's decision budget ends in needsInput naming
+    /// the step and the last evidence — before any further planner call, and
+    /// never with input past the limit.
+    private static func stepDecisionBudgetSendsNoInputPastLimit() async throws {
+        var captures = 0
+        var decisions = 0
+        var inputs = 0
+        let runner = PhoneVisualRunner(capture: { after in
+            captures += 1
+            // Alternate visibly distinct screens so the stalled-input guard
+            // measures the waits, not JPEG-identical frames.
+            return try frame(after: after, shade: captures.isMultiple(of: 2) ? 0 : 0.5)
+        }, decide: { goal, _, _ in
+            decisions += 1
+            if goal.contains(": Verify account.") { return .finished("Account verified") }
+            return .wait(seconds: 0.25, reason: "Still searching (decision \(decisions))")
+        }, perform: { _ in inputs += 1 }, blockedReason: { nil },
+            stepBudget: { _, stepID in
+                stepID == .search ? WarmUpStepBudget(maxPlannerDecisions: 3, maxSeconds: 300) : nil
+            })
+        do {
+            _ = try await runner.run(goal: "Platform: X", workflow: .warmUp,
+                warmUpScript: WarmUpScript(network: .x, activity: .watch, itemLimit: 1, duration: 60),
+                onProgress: { _ in }, onStep: { _ in })
+            throw TestError.failed("A step ran past its decision budget")
+        } catch let error as PhonePromptPlanningError {
+            try expect(error.localizedDescription.contains("'search'")
+                && error.localizedDescription.contains("3-decision budget")
+                && error.localizedDescription.contains("Still searching (decision 4)"),
+                "Decision-budget needsInput did not name the step, budget, and last evidence: \(error.localizedDescription)")
+        }
+        try expect(decisions == 4, "The planner was called past the step budget")
+        try expect(inputs == 0, "Input was sent past the step budget")
+    }
+
+    /// INV-6: exhausting a step's time budget ends the same way, before any
+    /// further planner call or input.
+    private static func stepTimeBudgetSendsNoInputPastLimit() async throws {
+        var captures = 0
+        var decisions = 0
+        var inputs = 0
+        let runner = PhoneVisualRunner(capture: { after in
+            captures += 1
+            return try frame(after: after, shade: captures.isMultiple(of: 2) ? 0 : 0.5)
+        }, decide: { goal, _, _ in
+            decisions += 1
+            if goal.contains(": Verify account.") { return .finished("Account verified") }
+            try await Task.sleep(for: .milliseconds(400))
+            return .wait(seconds: 0.25, reason: "Slow search (decision \(decisions))")
+        }, perform: { _ in inputs += 1 }, blockedReason: { nil },
+            stepBudget: { _, stepID in
+                stepID == .search ? WarmUpStepBudget(maxPlannerDecisions: 50, maxSeconds: 1) : nil
+            })
+        do {
+            _ = try await runner.run(goal: "Platform: X", workflow: .warmUp,
+                warmUpScript: WarmUpScript(network: .x, activity: .watch, itemLimit: 1, duration: 60),
+                onProgress: { _ in }, onStep: { _ in })
+            throw TestError.failed("A step ran past its time budget")
+        } catch let error as PhonePromptPlanningError {
+            try expect(error.localizedDescription.contains("'search'")
+                && error.localizedDescription.contains("1-second budget")
+                && error.localizedDescription.contains("Slow search"),
+                "Time-budget needsInput did not name the step, budget, and last evidence: \(error.localizedDescription)")
+        }
+        try expect(decisions <= 4 && inputs == 0, "The step ran past its time budget")
     }
 
     private static func submissionJournalPrecedesInput() async throws {

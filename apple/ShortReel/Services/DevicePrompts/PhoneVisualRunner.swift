@@ -16,6 +16,19 @@ final class PhoneVisualRunner {
     private let prepareCleanupAction: ((PhonePromptAction, PhoneScreenFrame) async throws -> PhonePromptAction)?
     private let validateSubmissionAction: (PhonePromptAction, PhoneScreenFrame, Bool) async throws -> Void
     private let readText: (PhoneScreenFrame, String) async -> PhonePlaybackTracker.Observation
+    /// The local account-step classifier (contract TASK-8, issue #15). A nil
+    /// closure — or a nil verdict from it, when no scorer is loaded — keeps
+    /// the run on exactly the planner-only path of today.
+    private let classifyAccount: ((PhoneScreenFrame, WarmUpScript, String) async throws -> WarmUpAccountDecision?)?
+    /// The per-step failure-mode classifier (contract TASK-5, issue #16),
+    /// called with the current frame, script, step id, and the playback
+    /// evidence summary before the planner is asked. Nil in or nil out keeps
+    /// the planner-only path.
+    private let classifyFailure: ((PhoneScreenFrame, WarmUpScript, WarmUpScript.StepID, String?) async throws -> WarmUpFailureDecision?)?
+    /// Per-step budgets from the warm-up contract (contract TASK-6 / INV-6).
+    /// Enforced whether or not a scorer is loaded; nil means no contract
+    /// budget for the step and only the run-wide limits apply.
+    private let stepBudget: ((WarmUpScript, WarmUpScript.StepID) -> WarmUpStepBudget?)?
     private var isRunning = false
 
     init(capture: @escaping (Date) async throws -> PhoneScreenFrame,
@@ -31,7 +44,10 @@ final class PhoneVisualRunner {
          },
          validateSubmissionAction: @escaping (PhonePromptAction, PhoneScreenFrame, Bool) async throws -> Void = {
              try await PhoneSubmissionGuard.validate(action: $0, frame: $1, isFinalSubmission: $2)
-         }) {
+         },
+         classifyAccount: ((PhoneScreenFrame, WarmUpScript, String) async throws -> WarmUpAccountDecision?)? = nil,
+         classifyFailure: ((PhoneScreenFrame, WarmUpScript, WarmUpScript.StepID, String?) async throws -> WarmUpFailureDecision?)? = nil,
+         stepBudget: ((WarmUpScript, WarmUpScript.StepID) -> WarmUpStepBudget?)? = nil) {
         self.readText = readText
         self.capture = capture
         self.decide = decide
@@ -42,6 +58,9 @@ final class PhoneVisualRunner {
         self.inspect = inspect
         self.prepareCleanupAction = prepareCleanupAction
         self.validateSubmissionAction = validateSubmissionAction
+        self.classifyAccount = classifyAccount
+        self.classifyFailure = classifyFailure
+        self.stepBudget = stepBudget
     }
 
     /// A controlled input diagnostic, separate from model-chosen workflows.
@@ -164,6 +183,18 @@ final class PhoneVisualRunner {
         var playbackStartFrame: PhoneScreenFrame?
         var playbackTracker = PhonePlaybackTracker()
         var stateTree = WarmUpStateTree()
+        // Contract TASK-8: consecutive unreadable local account verdicts and
+        // whether the one Home + reopen recovery was already spent.
+        var unreadableAccountFrames = 0
+        var accountRecoverySent = false
+        // Contract TASK-5/6 (#16): per-step budget bookkeeping (decision count
+        // and wall clock reset each time the cursor's step changes) and the
+        // recovery attempts already spent per step failure mode.
+        var budgetedStep: WarmUpScript.StepID?
+        var stepDecisions = 0
+        var stepStartedAt = ContinuousClock.now
+        var lastStepEvidence: String?
+        var recoveryAttempts: [String: Int] = [:]
         let brief = goal
 
         do {
@@ -206,6 +237,95 @@ final class PhoneVisualRunner {
                     steps[index].playbackStartFrame = nil
                 }
 
+                // Contract TASK-6 / INV-6 (#16): every warm-up step has a
+                // decision and time budget from the contract. Exhausting
+                // either ends in needsInput naming the step and the last
+                // evidence — before another planner call or input, never a
+                // silent burn to the run-wide limit.
+                if let cursor = scriptCursor {
+                    if budgetedStep != cursor.step.id {
+                        budgetedStep = cursor.step.id
+                        stepDecisions = 0
+                        stepStartedAt = ContinuousClock.now
+                        lastStepEvidence = nil
+                        recoveryAttempts = [:]
+                    }
+                    stepDecisions += 1
+                    if let budget = stepBudget?(cursor.script, cursor.step.id) {
+                        let evidence = lastStepEvidence ?? "no frame evidence recorded for this step yet"
+                        if stepDecisions > budget.maxPlannerDecisions {
+                            throw PhonePromptPlanningError.needsClarification(
+                                "Warm-up step '\(cursor.step.id.rawValue)' (\(cursor.step.title)) exhausted its \(budget.maxPlannerDecisions)-decision budget. Last evidence: \(evidence)")
+                        }
+                        if ContinuousClock.now >= stepStartedAt + .seconds(budget.maxSeconds) {
+                            throw PhonePromptPlanningError.needsClarification(
+                                "Warm-up step '\(cursor.step.id.rawValue)' (\(cursor.step.title)) exhausted its \(budget.maxSeconds)-second budget. Last evidence: \(evidence)")
+                        }
+                    }
+                }
+
+                // Contract TASK-8 (#15): the account step is decided on this
+                // Mac from the current frame's OCR. A mismatch or signed-out
+                // verdict is terminal before any engagement input can be sent;
+                // unreadable verdicts get the contract's one Home + reopen
+                // recovery, then needsInput. A nil verdict means no scorer is
+                // loaded and the planner keeps deciding, exactly as before.
+                var accountCheck: WarmUpAccountDecision?
+                if let cursor = scriptCursor, cursor.step.id == .account, let classifyAccount {
+                    onProgress("Checking the signed-in account on this Mac…")
+                    accountCheck = try await beforeDeadline(deadline) {
+                        try await classifyAccount(frame, cursor.script, brief)
+                    }
+                    try checkAvailability(deadline: deadline)
+                    try checkFrameAge(frame)
+                    if let accountCheck {
+                        switch accountCheck.outcome {
+                        case .mismatch, .signedOut:
+                            let step = PhoneVisionStep(
+                                id: UUID(), number: decisionNumber,
+                                action: "Checked the signed-in account locally", detail: accountCheck.evidence,
+                                capturedAt: frame.capturedAt, decisionSource: "semantic if", accountCheck: accountCheck)
+                            onStep(step)
+                            steps.append(step)
+                            throw PhonePromptPlanningError.needsClarification(accountCheck.evidence)
+                        case .unreadable:
+                            unreadableAccountFrames += 1
+                            // The contract's handle-unreadable detection: no
+                            // confident handle after 3 fresh frames.
+                            if unreadableAccountFrames >= 3 {
+                                let step = PhoneVisionStep(
+                                    id: UUID(), number: decisionNumber,
+                                    action: accountRecoverySent
+                                        ? "Checked the signed-in account locally" : "Go Home",
+                                    detail: accountCheck.evidence + (accountRecoverySent
+                                        ? "" : " Reopening the app to retry the account check once."),
+                                    capturedAt: frame.capturedAt, input: accountRecoverySent ? nil : .home,
+                                    decisionSource: "semantic if", accountCheck: accountCheck)
+                                if accountRecoverySent {
+                                    onStep(step)
+                                    steps.append(step)
+                                    throw PhonePromptPlanningError.needsClarification(
+                                        accountCheck.evidence + " The account could not be verified after reopening the app once.")
+                                }
+                                accountRecoverySent = true
+                                unreadableAccountFrames = 0
+                                onProgress("Reopening the app to retry the account check…")
+                                var displayStep = step
+                                displayStep.beforeFrame = nil
+                                onStep(displayStep)
+                                try checkAvailability(deadline: deadline)
+                                try await beforeDeadline(deadline) { [self] in try await perform(.home) }
+                                try checkAvailability(deadline: deadline)
+                                steps.append(step)
+                                afterDate = Date()
+                                continue
+                            }
+                        case .matches:
+                            break
+                        }
+                    }
+                }
+
                 let usesStateTree = scriptCursor?.script.network == .tikTok && scriptCursor?.script.activity == .watch
                 let reviewsPlayback =
                     scriptCursor.map { $0.step.id == .consume && $0.script.usesVideo } ?? reviewsTikTokPlayback
@@ -233,7 +353,54 @@ final class PhoneVisualRunner {
                     pageState = page.kind.rawValue
                     route = stateTree.route(cursor: cursor, page: page, playback: playback, brief: brief)
                 }
+                // Contract TASK-5 (#16): before the planner is asked, classify
+                // the CURRENT frame against the active step's contract failure
+                // modes on this Mac. A detected mode routes to its one named
+                // recovery branch; terminal modes and spent recoveries end in
+                // needsInput before any further input. A none/uncertain/nil
+                // verdict leaves the decision to the route/planner as today.
+                var failureCheck: WarmUpFailureDecision?
+                var failureDecision: PhoneVisionDecision?
+                var failureDirective: String?
+                if let cursor = scriptCursor, cursor.step.id != .account, let classifyFailure {
+                    onProgress("Checking the step's failure modes on this Mac…")
+                    let playbackSummary = playbackEvidence
+                    failureCheck = try await beforeDeadline(deadline) {
+                        try await classifyFailure(frame, cursor.script, cursor.step.id, playbackSummary)
+                    }
+                    try checkAvailability(deadline: deadline)
+                    try checkFrameAge(frame)
+                    if let check = failureCheck, let modeID = check.failureModeID {
+                        let key = "\(cursor.step.id.rawValue).\(modeID)"
+                        let attempt = (recoveryAttempts[key] ?? 0) + 1
+                        recoveryAttempts[key] = attempt
+                        let branch: WarmUpFailureClassifier.RecoveryBranch =
+                            check.terminal || attempt > WarmUpFailureClassifier.attemptLimit(for: modeID)
+                            ? .needsInput
+                            : WarmUpFailureClassifier.recoveryBranch(for: modeID)
+                        switch branch {
+                        case .needsInput:
+                            let step = PhoneVisionStep(
+                                id: UUID(), number: decisionNumber,
+                                action: "Detected \(cursor.step.title) failure '\(modeID)'", detail: check.evidence,
+                                capturedAt: frame.capturedAt, playbackEvidence: playbackEvidence, pageState: pageState,
+                                decisionSource: "semantic if", failureCheck: check)
+                            onStep(step)
+                            steps.append(step)
+                            throw PhonePromptPlanningError.needsClarification(
+                                "Warm-up step '\(cursor.step.id.rawValue)' failure '\(modeID)': \(check.recovery) \(check.evidence)")
+                        case .perform(let action):
+                            failureDecision = .action(action, reason: "Recovery for failure '\(modeID)': \(check.recovery)")
+                        case .reobserve:
+                            failureDecision = .wait(seconds: 1, reason: "Recovery for failure '\(modeID)': \(check.recovery)")
+                        case .plannerDirective:
+                            failureDirective = WarmUpFailureClassifier.directive(
+                                modeID: modeID, detection: check.detection, recovery: check.recovery)
+                        }
+                    }
+                }
                 let goal = (scriptCursor?.goal(brief) ?? brief) + (route.map { "\n" + $0.context } ?? "")
+                    + (failureDirective.map { "\n\n" + $0 } ?? "")
                 guard goal.count <= DevicePromptPlanner.maximumPromptLength else {
                     throw PhonePromptPlanningError.needsClarification("Shorten the warm-up details before running.")
                 }
@@ -247,7 +414,18 @@ final class PhoneVisualRunner {
                 }
                 var decision: PhoneVisionDecision
                 var decisionSource = preparesPlaybackReview ? "model review" : "model"
-                if let routed = route?.decision {
+                if let accountCheck, accountCheck.outcome == .matches {
+                    // The local check proves the account; no planner claim is
+                    // asked for or accepted for this step.
+                    decision = .finished(accountCheck.evidence)
+                    decisionSource = "semantic if"
+                } else if let failureDecision {
+                    // A detected failure mode owns this cycle: its runner-owned
+                    // recovery input or re-observation replaces the route and
+                    // planner decision, through the same validation pipeline.
+                    decision = try failureDecision.validated()
+                    decisionSource = "semantic if"
+                } else if let routed = route?.decision {
                     decision = try routed.validated()
                     decisionSource = "state tree"
                 } else {
@@ -265,6 +443,14 @@ final class PhoneVisualRunner {
                         decision = try await beforeDeadline(deadline) { [self] in
                             try await decide(correction, frame, history)
                         }.validated()
+                    }
+                    if let accountCheck, accountCheck.outcome == .unreadable, case .finished = decision {
+                        // The local check could not read the account, so a
+                        // planner claim of verification is not proof. The
+                        // planner may only navigate; the unreadable counter
+                        // above owns the recovery and its terminal needsInput.
+                        decision = .wait(seconds: 1, reason: "The local account check is still unreadable; keep navigating to the profile without engaging.")
+                        decisionSource = "semantic if"
                     }
                 }
                 try checkAvailability(deadline: deadline)
@@ -341,7 +527,8 @@ final class PhoneVisualRunner {
                             id: UUID(), number: decisionNumber,
                             action: "Verified \(completedStep)", detail: result, capturedAt: frame.capturedAt,
                             progressNote: "Script step verified: \(completedStep). \(result)",
-                            playbackEvidence: playbackEvidence, pageState: pageState, decisionSource: decisionSource)
+                            playbackEvidence: playbackEvidence, pageState: pageState, decisionSource: decisionSource,
+                            accountCheck: accountCheck, failureCheck: failureCheck)
                         onStep(step)
                         steps.append(step)
                         onScriptProgress(cursor.progress)
@@ -427,7 +614,9 @@ final class PhoneVisualRunner {
                         id: UUID(), number: decisionNumber,
                         action: description(of: action), detail: reason, capturedAt: frame.capturedAt,
                         input: action, beforeFrame: frame, progressNote: workflow == nil ? nil : reason,
-                        playbackEvidence: playbackEvidence, pageState: pageState, decisionSource: decisionSource)
+                        playbackEvidence: playbackEvidence, pageState: pageState, decisionSource: decisionSource,
+                        accountCheck: accountCheck, failureCheck: failureCheck)
+                    lastStepEvidence = reason
                     onProgress("Step \(decisionNumber): \(step.action)")
                     var displayStep = step
                     displayStep.beforeFrame = nil
@@ -468,7 +657,9 @@ final class PhoneVisualRunner {
                         id: UUID(), number: decisionNumber,
                         action: "Wait for the screen", detail: reason, capturedAt: frame.capturedAt, beforeFrame: frame,
                         progressNote: workflow == nil ? nil : reason,
-                        playbackStartFrame: playbackStartFrame, playbackEvidence: playbackEvidence, pageState: pageState, decisionSource: decisionSource)
+                        playbackStartFrame: playbackStartFrame, playbackEvidence: playbackEvidence, pageState: pageState,
+                        decisionSource: decisionSource, accountCheck: accountCheck, failureCheck: failureCheck)
+                    lastStepEvidence = reason
                     onProgress("Waiting for the phone’s screen to change…")
                     var displayStep = step
                     displayStep.beforeFrame = nil

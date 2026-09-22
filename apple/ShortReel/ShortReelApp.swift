@@ -36,11 +36,13 @@ struct ShortReelApp: App {
                 .environment(deviceManager)
                 .onAppear {
                     appDelegate.shutdown = {
+                        MLXWarmUp.cancel()
                         agent.stop()
                         await deviceManager.shutdown()
                     }
                     deviceManager.start()
                     agent.start()
+                    MLXWarmUp.prewarm()
                 }
         }
         .modelContainer(container)

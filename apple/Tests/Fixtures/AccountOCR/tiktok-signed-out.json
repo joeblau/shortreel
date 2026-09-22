@@ -1,0 +1,47 @@
+{
+ "platform": "TikTok",
+ "handle": "janedoe",
+ "outcome": "signed-out",
+ "regions": [
+  {
+   "text": "Log in to TikTok",
+   "confidence": 0.95,
+   "x": 0.25,
+   "y": 0.3,
+   "width": 0.3,
+   "height": 0.03
+  },
+  {
+   "text": "Use phone / email / username",
+   "confidence": 0.95,
+   "x": 0.2,
+   "y": 0.42,
+   "width": 0.3,
+   "height": 0.03
+  },
+  {
+   "text": "Continue with Facebook",
+   "confidence": 0.95,
+   "x": 0.25,
+   "y": 0.52,
+   "width": 0.3,
+   "height": 0.03
+  },
+  {
+   "text": "Continue with Google",
+   "confidence": 0.95,
+   "x": 0.25,
+   "y": 0.6,
+   "width": 0.3,
+   "height": 0.03
+  },
+  {
+   "text": "Sign up",
+   "confidence": 0.95,
+   "x": 0.4,
+   "y": 0.9,
+   "width": 0.3,
+   "height": 0.03
+  }
+ ]
+}

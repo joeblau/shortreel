@@ -354,6 +354,27 @@ struct PlannerMenu: View {
                         .disabled(true)
                 }
             }
+
+            // Local Semif checks live next to the planner choice: one toggle
+            // (there is no app-level Settings scene), plus the scorer state.
+            Divider()
+            Toggle("Local Checks on This Mac", isOn: semanticIfEnabled)
+            Text("Local checks: \(deviceManager.semanticIfState.menuStatus)")
+                .foregroundStyle(.secondary)
+            if deviceManager.semanticIfState.canWarm {
+                Button("Load Local Checks Model…") {
+                    deviceManager.warmSemanticIfScorer()
+                }
+            }
+            if case .ready = deviceManager.semanticIfState {
+                Button("Unload Local Checks Model") {
+                    deviceManager.unloadSemanticIfScorer()
+                }
+            }
+            if case .failed(let reason) = deviceManager.semanticIfState {
+                Text(reason)
+                    .foregroundStyle(.secondary)
+            }
         } label: {
             Label(deviceManager.visionProvider.displayName, systemImage: "sparkles")
         }
@@ -406,6 +427,15 @@ struct PlannerMenu: View {
                 deviceManager.visionProvider = provider
                 deviceManager.setVisionModel(model, for: provider)
             }
+        )
+    }
+
+    /// The planner menu is also the Settings surface for local checks, since
+    /// the app has no app-level Settings scene.
+    private var semanticIfEnabled: Binding<Bool> {
+        Binding(
+            get: { deviceManager.semanticIfEnabled },
+            set: { deviceManager.semanticIfEnabled = $0 }
         )
     }
 }

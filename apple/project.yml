@@ -9,6 +9,12 @@ packages:
   FlyingFox:
     url: https://github.com/swhitty/FlyingFox
     from: 0.27.0
+  mlx-swift-lm:
+    url: https://github.com/ml-explore/mlx-swift-lm
+    from: 3.31.4
+  swift-transformers:
+    url: https://github.com/huggingface/swift-transformers
+    from: 1.3.4
 
 settings:
   base:
@@ -23,6 +29,13 @@ targets:
     sources:
       - path: ShortReel
       - path: PhoneRunnerShared
+      # Semif scorer + prompt contract live in the SPM package so its tests
+      # can link MLX (issue #12); the app compiles the same files.
+      - path: SemanticIf/Sources/SemanticIf
+      # The warm-up contract supplies per-step failure modes and budgets at
+      # runtime (contract TASK-5/6, issue #16).
+      - path: Contracts/warmup-tasks.json
+        buildPhase: resources
     info:
       path: ShortReel/Info.plist
       properties:
@@ -52,6 +65,14 @@ targets:
       - sdk: AVFoundation.framework
       - sdk: CoreMediaIO.framework
       - sdk: Vision.framework
+      - package: mlx-swift-lm
+        product: MLXLLM
+      - package: mlx-swift-lm
+        product: MLXLMCommon
+      - package: swift-transformers
+        product: Tokenizers
+      - package: swift-transformers
+        product: Hub
 
   ShortReelRunner:
     type: application

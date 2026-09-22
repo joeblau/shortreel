@@ -56,6 +56,86 @@ final class DeviceManager {
 
     private var visionModels = UserDefaults.standard.dictionary(forKey: PhoneVisionProvider.modelPreferenceKey) as? [String: String] ?? [:]
 
+    /// Whether local Semif scoring may load its model. On by default; turning
+    /// it off unloads the scorer and leaves runs planner-only, exactly as
+    /// before local checks existed. Persisted like the planner selection.
+    var semanticIfEnabled: Bool = UserDefaults.standard.object(forKey: SemanticIfScorerState.enabledKey) as? Bool ?? true {
+        didSet {
+            guard semanticIfEnabled != oldValue else { return }
+            UserDefaults.standard.set(semanticIfEnabled, forKey: SemanticIfScorerState.enabledKey)
+            if semanticIfEnabled {
+                semanticIfState = .idle
+            } else {
+                unloadSemanticIfScorer()
+            }
+        }
+    }
+
+    /// Lifecycle of the local scorer, surfaced in the planner menu. Nothing
+    /// loads — and nothing downloads — while scoring is disabled or no run
+    /// has asked for a decision.
+    private(set) var semanticIfState: SemanticIfScorerState = .disabled
+    @ObservationIgnored private var semanticIfScorer: (any SemanticIfScoring)?
+    /// The backend is a fixed constant today; Route A's llama.cpp sidecar
+    /// becomes another `SemanticIfScorerBackend` case behind the protocol.
+    @ObservationIgnored private let semanticIfBackend = SemanticIfScorerBackend.mlx
+    /// Invalidates an in-flight load's completion, like screenConnectionAttempts.
+    @ObservationIgnored private var semanticIfLoadAttempt: UUID?
+
+    /// Loads the local scorer on demand: the menu's warm-up action, and a
+    /// warm-up run whose account check asks for a decision (#15). The first
+    /// load downloads the pinned checkpoint through `SemanticIfModel`'s
+    /// Application Support path.
+    func warmSemanticIfScorer() {
+        guard semanticIfEnabled, semanticIfScorer == nil, semanticIfLoadAttempt == nil else { return }
+        semanticIfState = .loading
+        let attempt = UUID()
+        semanticIfLoadAttempt = attempt
+        Task { [weak self, semanticIfBackend] in
+            do {
+                let scorer = try await semanticIfBackend.makeScorer()
+                try Task.checkCancellation()
+                guard let self, self.semanticIfLoadAttempt == attempt else { return }
+                self.semanticIfScorer = scorer
+                self.semanticIfState = .ready
+                self.semanticIfLoadAttempt = nil
+            } catch {
+                guard let self, self.semanticIfLoadAttempt == attempt else { return }
+                self.semanticIfLoadAttempt = nil
+                if error is CancellationError {
+                    self.semanticIfState = .idle
+                } else {
+                    self.semanticIfState = .failed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    /// Drops the loaded scorer and cancels any in-flight load.
+    func unloadSemanticIfScorer() {
+        semanticIfLoadAttempt = nil
+        semanticIfScorer = nil
+        semanticIfState = semanticIfEnabled ? .idle : .disabled
+    }
+
+    /// The scorer a run may use, once loaded; the warm-up account check (#15)
+    /// decides locally through this, and falls back to the planner when nil.
+    func readySemanticIfScorer() -> (any SemanticIfScoring)? {
+        semanticIfScorer
+    }
+
+    /// The bundled warm-up contract (per-step failure modes and budgets,
+    /// contract TASK-5/6, issue #16), decoded once from warmup-tasks.json.
+    /// `WarmUpTasksContractTests` pins the JSON to the Swift registry.
+    private var warmUpContractStore: WarmUpContractStore?
+    func warmUpContracts() -> WarmUpContractStore? {
+        if let warmUpContractStore { return warmUpContractStore }
+        guard let store = WarmUpContractStore.bundled() else { return nil }
+        warmUpContractStore = store
+        return store
+    }
+
+
     /// The model the current planner will use.
     var visionModel: String {
         get { visionModel(for: visionProvider) }
@@ -138,6 +218,7 @@ final class DeviceManager {
         self.visionProvider = UserDefaults.standard.string(forKey: PhoneVisionProvider.preferenceKey)
             .flatMap(PhoneVisionProvider.init(rawValue:)) ?? .defaultProvider
         UserDefaults.standard.set(visionProvider.rawValue, forKey: PhoneVisionProvider.preferenceKey)
+        self.semanticIfState = semanticIfEnabled ? .idle : .disabled
     }
 
     private var context: ModelContext { container.mainContext }
@@ -212,6 +293,7 @@ final class DeviceManager {
         await usbWatchTask?.value
         usbWatchTask = nil
         for session in promptSessions.values { session.cancel(because: "ShortReel is quitting.") }
+        unloadSemanticIfScorer()
         LocalUITarsServer.shared.stop()
         await phoneRunners.stopAll()
     }
@@ -525,6 +607,45 @@ final class DeviceManager {
                 }
             }, prepareCleanupAction: { action, frame in
                 try await HomeScreenRemovalGuard.prepare(action, frame: frame)
+            }, classifyAccount: { [weak self] frame, script, brief in
+                // Contract TASK-8 (#15): the account step is scored locally
+                // once the SemanticIf checkpoint is loaded. While it loads —
+                // or when scoring is disabled or failed — the verdict is nil
+                // and the run keeps exactly the planner-only path of today.
+                guard let self else { throw PhoneVisionError.unavailable("This device is no longer available.") }
+                guard let scorer = self.readySemanticIfScorer() else {
+                    if self.semanticIfEnabled { self.warmSemanticIfScorer() }
+                    return nil
+                }
+                guard let handle = WarmUpStateTree.expectedHandle(brief), !handle.isEmpty,
+                      let platform = Platform.allCases.first(where: { $0.displayName == script.network.rawValue })
+                else { return nil }
+                // A scorer that errors mid-run (row rejection, model fault)
+                // degrades to the planner-only path rather than failing a run
+                // the planner could still drive.
+                return try? await WarmUpAccountClassifier.classify(frame: frame,
+                    platform: platform.displayName, accountLocation: WarmUpPlaybook.accountLocation(for: platform),
+                    handle: handle, scorer: scorer)
+            }, classifyFailure: { [weak self] frame, script, stepID, playbackSummary in
+                // Contract TASK-5 (#16): non-account steps are scored against
+                // their contract failureModes locally once the checkpoint is
+                // loaded. While it loads — or when scoring is disabled, the
+                // contract is missing, or scoring errors — the verdict is nil
+                // and the run keeps exactly the planner-only path of today.
+                guard let self else { throw PhoneVisionError.unavailable("This device is no longer available.") }
+                guard let scorer = self.readySemanticIfScorer() else {
+                    if self.semanticIfEnabled { self.warmSemanticIfScorer() }
+                    return nil
+                }
+                guard let step = self.warmUpContracts()?.step(scriptIdentifier: script.identifier, stepID: stepID.rawValue)
+                else { return nil }
+                return try? await WarmUpFailureClassifier.classify(frame: frame,
+                    scriptIdentifier: script.identifier, platform: script.network.rawValue,
+                    step: step, playbackSummary: playbackSummary, scorer: scorer)
+            }, stepBudget: { [weak self] script, stepID in
+                // Contract TASK-6 / INV-6 (#16): per-step budgets apply whether
+                // or not the local scorer is loaded.
+                self?.warmUpContracts()?.step(scriptIdentifier: script.identifier, stepID: stepID.rawValue)?.budget
             })
         let session = DevicePromptSession(deviceName: descriptor.name, deviceIdentifier: descriptor.identifier, blockedReason: blockedReason,
             visualRunner: runner, visualBlockedReason: visualBlockedReason,
