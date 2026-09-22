@@ -355,11 +355,11 @@ struct PlannerMenu: View {
                 }
             }
 
-            // Local Semif checks live next to the planner choice: one toggle
+            // Local Laya checks live next to the planner choice: one toggle
             // (there is no app-level Settings scene), plus the scorer state.
             Divider()
             Toggle("Local Checks on This Mac", isOn: semanticIfEnabled)
-            Text("Local checks: \(deviceManager.semanticIfState.menuStatus)")
+            Text("Laya Core ML: \(deviceManager.semanticIfState.menuStatus)")
                 .foregroundStyle(.secondary)
             if deviceManager.semanticIfState.canWarm {
                 Button("Load Local Checks Model…") {

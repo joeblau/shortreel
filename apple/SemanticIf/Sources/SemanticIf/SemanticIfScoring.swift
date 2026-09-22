@@ -1,8 +1,7 @@
 import Foundation
 
-/// The scoring interface the rest of the app talks to (issue #14). Callers
-/// never see MLX: the in-process backend ships first, and a llama.cpp
-/// sidecar (Route A) can be added later behind this same protocol.
+/// Shared classification interface. Laya Core ML supplies local decisions;
+/// the existing name preserves the warm-up runner and journal contracts.
 public protocol SemanticIfScoring: Sendable {
     /// Scores one decision row. The result carries the margin-policy verdict,
     /// so callers route `.uncertain` to `needsInput` without re-implementing
@@ -36,9 +35,7 @@ public struct SemanticIfRow: Sendable, Equatable {
     }
 }
 
-/// One scored decision, mirroring the fields direct.py's `score` returns.
-/// Kept in this MLX-free file so standalone swiftc suites can build results
-/// for stub scorers (issue #15).
+/// One scored decision and its diagnostics, shared with standalone runner tests.
 public struct SemanticIfScore: Sendable, Equatable {
     public var rowID: String
     /// Probability of each option id, in the row's declared option order.
@@ -51,7 +48,7 @@ public struct SemanticIfScore: Sendable, Equatable {
     public var forwardSeconds: Double
     public var totalSeconds: Double
     public var promptHash: String
-    public var promptVersion = SemanticIfPrompt.promptVersion
+    public var promptVersion = "laya-coreml-choice-v1"
     public var peakMemoryBytes: Int
 }
 
@@ -90,18 +87,10 @@ public struct SemanticIfResult: Sendable, Equatable {
 
 /// The margin rule, in exactly one place: argmax wins only if
 /// `p(top) − p(second) ≥ threshold`; anything closer is `.uncertain` and the
-/// caller routes to `needsInput`. Semif's own rows mark the softmax
-/// "conditional option score; uncalibrated as decision confidence", so the
-/// threshold is tuned on our fixtures, not assumed.
+/// caller routes to `needsInput`. A probability margin is not an accuracy guarantee.
 public enum SemanticIfMarginPolicy {
-    /// Default 0.12, matching the issue #13 parity tolerance (see
-    /// `Fixtures/PARITY.md`): the largest observed probability deviation
-    /// between this MLX port and Semif's published BF16 rows is 0.1152, so a
-    /// margin below 0.12 can be an artifact of cross-runtime BF16
-    /// accumulation rather than a real preference. On the 147 parity fixture
-    /// rows this marks the 7 rows with margins 0.059–0.118 uncertain and
-    /// leaves the other 140 decided; argmax agreement on those 7 was still
-    /// 100 %, so nothing the fixtures prove correct is flipped.
+    /// Retained as the application's minimum decision margin. This is a
+    /// routing policy, not a calibrated accuracy guarantee for Laya.
     public static let defaultThreshold = 0.12
 
     public static func decision(
@@ -113,18 +102,51 @@ public enum SemanticIfMarginPolicy {
     }
 }
 
-/// Which backend supplies local scoring. Only the in-process MLX backend
-/// ships today; the llama.cpp sidecar (Route A) lands here as another case
-/// behind `SemanticIfScoring`.
+/// The local classification runtime; no Python process or MLX dependency.
 public enum SemanticIfScorerBackend: String, Sendable, CaseIterable, Identifiable {
-    case mlx
-
+    case layaCoreML
     public var id: String { rawValue }
+    public var displayName: String { "Laya Core ML (on this Mac)" }
+}
 
-    public var displayName: String {
-        switch self {
-        case .mlx: "MLX (on this Mac)"
+/// Classify the screen semantically; compare identifiers exactly in the caller.
+/// A language model's similarity judgment must never authorize a different account.
+public enum LayaAccountPrompt {
+    public static let question = "What kind of screen is this?"
+    public static let options: [SemanticIfDecision.Option] = [
+        .init(id: "profile", description: "A social media profile page showing account information, a username, followers, or videos."),
+        .init(id: "signed-out", description: "A login or sign-up screen asking the user to sign in or choose an account."),
+        .init(id: "unknown", description: "A different screen or unreadable text."),
+    ]
+
+    public static func row(platform: String, ocrText: [String]) -> SemanticIfRow {
+        SemanticIfRow(id: "warmup.account.\(platform.lowercased())",
+            state: .string(ocrText.isEmpty ? "[No readable screen text]" : ocrText.joined(separator: "\n")),
+            question: question, options: options)
+    }
+
+    public static func handles(in text: String) -> [String] {
+        let expression = try! NSRegularExpression(pattern: #"(?<![a-zA-Z0-9_])@([a-zA-Z0-9_.]{1,40})(?![a-zA-Z0-9_.])"#)
+        let string = text as NSString
+        return expression.matches(in: text, range: NSRange(location: 0, length: string.length))
+            .map { string.substring(with: $0.range(at: 1)).lowercased() }
+    }
+
+    /// No handle or conflicting handles means unreadable. Only a confident
+    /// profile classification with one exact, case-insensitive match can pass.
+    public static func outcome(surface: SemanticIfResult.Decision, expectedHandle: String,
+                               observedHandles: [String]) -> String? {
+        switch surface {
+        case .option("signed-out"): return "signed-out"
+        case .option("profile"):
+            func normalize(_ handle: String) -> String {
+                String(handle.trimmingCharacters(in: .whitespacesAndNewlines).drop(while: { $0 == "@" })).lowercased()
+            }
+            let handles = Set(observedHandles.map(normalize).filter { !$0.isEmpty })
+            guard handles.count == 1, let observed = handles.first else { return "unreadable" }
+            return observed == normalize(expectedHandle) ? "matches" : "mismatch"
+        case .option("unknown"), .uncertain: return "unreadable"
+        case .option: return nil
         }
     }
 }
-

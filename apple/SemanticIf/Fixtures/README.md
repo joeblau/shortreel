@@ -1,3 +1,6 @@
+> Historical Qwen/MLX fixtures. The runtime and parity executable have been retired.
+> Current Laya validation is documented in [../README.md](../README.md).
+
 # SemanticIf fixtures
 
 `decisions.jsonl` is a verbatim copy of `examples/decisions.jsonl` from

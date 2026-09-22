@@ -2,9 +2,9 @@ import Foundation
 
 /// The warm-up account step decided locally (contract TASK-8, issue #15): the
 /// CURRENT frame's OCR text, the persona handle, and the platform's
-/// accountLocation form one SemanticIf decision row; the local scorer's
-/// margin-policy verdict finishes the step or stops the run before any
-/// engagement input. A nil verdict from the caller means no scorer is loaded
+/// accountLocation identify the check. Laya classifies the screen surface;
+/// an exact username comparison finishes the step or stops the run before
+/// any engagement input. A nil verdict from the caller means no scorer is loaded
 /// and the run takes exactly the planner-only path of today.
 ///
 /// The contract strings below are the single Swift copy of the account step's
@@ -62,21 +62,13 @@ enum WarmUpAccountClassifier {
         ]
     }
 
-    /// The scored row: platform, expected handle, and where the handle appears
-    /// as context; the current frame's OCR lines (top to bottom) as evidence.
+    /// Laya classifies screen type; exact username matching happens after
+    /// classification. Contract metadata remains owned by the warm-up runner.
     static func row(platform: String, accountLocation: String, handle: String, ocrText: [String],
                     successCriteria: String = Self.successCriteria,
                     failureModes: [FailureMode] = Self.failureModes) throws -> SemanticIfRow {
-        SemanticIfRow(
-            id: "warmup.account.\(platform.lowercased())",
-            state: .object([
-                ("platform", .string(platform)),
-                ("expectedHandle", .string("@" + handle)),
-                ("accountLocation", .string(accountLocation)),
-                ("ocrText", .array(ocrText.map { .string($0) })),
-            ]),
-            question: successCriteria,
-            options: try options(successCriteria: successCriteria, failureModes: failureModes))
+        _ = try options(successCriteria: successCriteria, failureModes: failureModes)
+        return LayaAccountPrompt.row(platform: platform, ocrText: ocrText)
     }
 
     /// OCR the current frame with the submission guard's recognizer and score
@@ -98,38 +90,35 @@ enum WarmUpAccountClassifier {
         let row = try row(platform: platform, accountLocation: accountLocation,
             handle: handle, ocrText: ordered.map(\.text))
         let result = try await scorer.score(row)
-        let outcome: WarmUpAccountDecision.Outcome
+        guard let selected = LayaAccountPrompt.outcome(surface: result.decision,
+            expectedHandle: handle, observedHandles: readableHandles(in: ordered)),
+            let outcome = WarmUpAccountDecision.Outcome(rawValue: selected) else {
+            throw ClassifierError.unknownOption(result.argmaxOptionID)
+        }
         let evidence: String
-        switch result.decision {
-        case .option("matches"):
-            outcome = .matches
+        switch outcome {
+        case .matches:
             evidence = "Local account check: the \(platform) profile shows @\(handle)."
-        case .option("mismatch"):
-            outcome = .mismatch
-            let observed = observedHandle(in: regions).map { "@\($0)" } ?? "an unreadable or different handle"
+        case .mismatch:
+            let observed = observedHandle(in: ordered).map { "@\($0)" } ?? "a different handle"
             evidence = "The \(platform) profile shows \(observed), not the persona's @\(handle). Sign the phone into @\(handle) or update the persona, then run again. No input was sent."
-        case .option("signed-out"):
-            outcome = .signedOut
+        case .signedOut:
             evidence = "\(platform) is signed out or showing a sign-in screen. Sign in as @\(handle) on the phone itself; ShortReel never enters credentials. No input was sent."
-        case .option("unreadable"), .uncertain:
-            outcome = .unreadable
+        case .unreadable:
             evidence = "The \(platform) profile handle could not be read from the current screen."
-        case .option(let other):
-            throw ClassifierError.unknownOption(other)
         }
         return WarmUpAccountDecision(outcome: outcome, evidence: evidence,
             probabilities: result.probabilities, margin: result.margin,
             threshold: result.threshold, promptHash: result.score.promptHash)
     }
 
-    /// The handle the screen shows, for the mismatch message: the first
-    /// '@'-prefixed token OCR read, normalized the way the contract compares.
+    /// Only high-confidence OCR tokens can identify an account. Multiple
+    /// different handles are ambiguous (for example a bio mentioning someone).
+    static func readableHandles(in regions: [PhoneSubmissionGuard.TextRegion]) -> [String] {
+        regions.filter { $0.confidence >= 0.6 }.flatMap { LayaAccountPrompt.handles(in: $0.text) }
+    }
+
     static func observedHandle(in regions: [PhoneSubmissionGuard.TextRegion]) -> String? {
-        for region in regions {
-            let text = region.text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let match = text.range(of: #"@([a-z0-9_.]{1,40})"#, options: .regularExpression) else { continue }
-            return String(text[match].dropFirst())
-        }
-        return nil
+        readableHandles(in: regions).first
     }
 }

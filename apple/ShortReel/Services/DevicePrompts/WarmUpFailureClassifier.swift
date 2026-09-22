@@ -7,11 +7,12 @@ import Foundation
 /// recovery branch instead of a free-form planner decision. The option set is
 /// built at runtime from the bundled `Contracts/warmup-tasks.json` — `none`
 /// plus each `failureModes[].id` with its `detection` text as the description —
-/// and the scored question is the step's `successCriteria`.
+/// with an explicit failure-classification question and success criteria as context.
 ///
 /// A nil verdict from the caller (no scorer loaded, contract unavailable, or a
 /// scoring error) keeps the run on exactly the planner-only path of today.
 enum WarmUpFailureClassifier {
+    static let question = "Which failure mode, if any, is supported by the current screen and playback evidence? Choose none if no listed failure mode is supported."
     enum ClassifierError: Error, Equatable {
         /// The scorer returned an option the step's contract never declared.
         case unknownOption(String)
@@ -78,7 +79,7 @@ enum WarmUpFailureClassifier {
 
     /// The scored row: platform, step, screen state, the playback tracker's
     /// evidence summary, and the current frame's OCR lines as state; the step's
-    /// success criteria as the question.
+    /// success criteria as context for the failure-classification question.
     static func row(scriptIdentifier: String, platform: String, step: WarmUpStepContract,
                     screenState: String, playbackSummary: String?, ocrText: [String]) -> SemanticIfRow {
         SemanticIfRow(
@@ -86,11 +87,12 @@ enum WarmUpFailureClassifier {
             state: .object([
                 ("platform", .string(platform)),
                 ("step", .string(step.title)),
+                ("successCriteria", .array(step.successCriteria.map { .string($0) })),
                 ("screenState", .string(screenState)),
                 ("playbackEvidence", .string(playbackSummary ?? "No local playback evidence for this step.")),
                 ("ocrText", .array(ocrText.map { .string($0) })),
             ]),
-            question: step.successCriteria.joined(separator: "; "),
+            question: question,
             options: options(step: step))
     }
 

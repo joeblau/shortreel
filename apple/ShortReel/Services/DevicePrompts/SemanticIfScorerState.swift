@@ -1,6 +1,6 @@
 import Foundation
 
-/// Lifecycle state of the local Semif decision scorer (issue #14), owned by
+/// Lifecycle state of the local Laya Core ML classifier, owned by
 /// `DeviceManager`. Pure value type so the standalone swiftc tests can map
 /// every state to its UI copy without the app.
 enum SemanticIfScorerState: Equatable, Sendable {

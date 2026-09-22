@@ -56,7 +56,7 @@ final class DeviceManager {
 
     private var visionModels = UserDefaults.standard.dictionary(forKey: PhoneVisionProvider.modelPreferenceKey) as? [String: String] ?? [:]
 
-    /// Whether local Semif scoring may load its model. On by default; turning
+    /// Whether local Laya Core ML scoring may load its model. On by default; turning
     /// it off unloads the scorer and leaves runs planner-only, exactly as
     /// before local checks existed. Persisted like the planner selection.
     var semanticIfEnabled: Bool = UserDefaults.standard.object(forKey: SemanticIfScorerState.enabledKey) as? Bool ?? true {
@@ -76,22 +76,22 @@ final class DeviceManager {
     /// has asked for a decision.
     private(set) var semanticIfState: SemanticIfScorerState = .disabled
     @ObservationIgnored private var semanticIfScorer: (any SemanticIfScoring)?
-    /// The backend is a fixed constant today; Route A's llama.cpp sidecar
-    /// becomes another `SemanticIfScorerBackend` case behind the protocol.
-    @ObservationIgnored private let semanticIfBackend = SemanticIfScorerBackend.mlx
+    /// Laya runs directly through Core ML on this Mac.
+    @ObservationIgnored private let semanticIfBackend = SemanticIfScorerBackend.layaCoreML
     /// Invalidates an in-flight load's completion, like screenConnectionAttempts.
     @ObservationIgnored private var semanticIfLoadAttempt: UUID?
+    @ObservationIgnored private var semanticIfLoadTask: Task<Void, Never>?
 
     /// Loads the local scorer on demand: the menu's warm-up action, and a
     /// warm-up run whose account check asks for a decision (#15). The first
-    /// load downloads the pinned checkpoint through `SemanticIfModel`'s
+    /// load downloads the pinned checkpoint through `LayaCoreMLModel`'s
     /// Application Support path.
     func warmSemanticIfScorer() {
         guard semanticIfEnabled, semanticIfScorer == nil, semanticIfLoadAttempt == nil else { return }
         semanticIfState = .loading
         let attempt = UUID()
         semanticIfLoadAttempt = attempt
-        Task { [weak self, semanticIfBackend] in
+        semanticIfLoadTask = Task { [weak self, semanticIfBackend] in
             do {
                 let scorer = try await semanticIfBackend.makeScorer()
                 try Task.checkCancellation()
@@ -99,9 +99,11 @@ final class DeviceManager {
                 self.semanticIfScorer = scorer
                 self.semanticIfState = .ready
                 self.semanticIfLoadAttempt = nil
+                self.semanticIfLoadTask = nil
             } catch {
                 guard let self, self.semanticIfLoadAttempt == attempt else { return }
                 self.semanticIfLoadAttempt = nil
+                self.semanticIfLoadTask = nil
                 if error is CancellationError {
                     self.semanticIfState = .idle
                 } else {
@@ -113,6 +115,8 @@ final class DeviceManager {
 
     /// Drops the loaded scorer and cancels any in-flight load.
     func unloadSemanticIfScorer() {
+        semanticIfLoadTask?.cancel()
+        semanticIfLoadTask = nil
         semanticIfLoadAttempt = nil
         semanticIfScorer = nil
         semanticIfState = semanticIfEnabled ? .idle : .disabled

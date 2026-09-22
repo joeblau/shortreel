@@ -160,8 +160,11 @@ enum WarmUpTasksContractTests {
                     let row = WarmUpFailureClassifier.row(scriptIdentifier: activity.scriptIdentifier,
                         platform: name, step: stepContract, screenState: "foregroundApp",
                         playbackSummary: nil, ocrText: ["fixture"])
-                    try expect(row.question == step.successCriteria.joined(separator: "; "),
-                        "\(label): question is not the step's successCriteria")
+                    try expect(row.question == WarmUpFailureClassifier.question,
+                        "\(label): missing failure classification instruction")
+                    guard case .object(let state) = row.state else { throw Failure.assertion("Malformed failure state") }
+                    try expect(state.first(where: { $0.0 == "successCriteria" })?.1 == .array(step.successCriteria.map { .string($0) }),
+                        "\(label): success criteria missing from evidence")
                     try SemanticIfPrompt.validate(row.decision)
                     // Every mode maps to exactly one recovery branch, and no
                     // terminal mode maps to a runner-owned input (the runner
