@@ -114,7 +114,7 @@ enum PhoneVisualRunnerTests {
         { _, _, _ in
             try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
                 platform: fixture.platform, accountLocation: "test account location",
-                handle: fixture.handle, scorer: AccountStubScorer(winner: fixture.outcome))
+                handle: fixture.handle, scorer: AccountStubScorer(winner: fixture.outcome == "signed-out" ? "signed-out" : "profile"))
         }
     }
 
@@ -140,9 +140,9 @@ enum PhoneVisualRunnerTests {
         try expect(decideGoals.count == 1 && decideGoals[0].contains("Prepare post"),
             "The planner was asked to decide the account step")
         try expect(inputs.isEmpty, "A verified account check sent input")
-        try expect(accountSteps.count == 1 && accountSteps[0].decisionSource == "semantic if"
+        try expect(accountSteps.count == 1 && accountSteps[0].decisionSource == "Laya Core ML"
             && accountSteps[0].accountCheck?.outcome == .matches
-            && accountSteps[0].accountCheck?.promptHash == "stub-matches"
+            && accountSteps[0].accountCheck?.promptHash == "stub-profile"
             && accountSteps[0].accountCheck?.margin == 0.6,
             "The local account decision was not journaled with the step")
     }
@@ -429,13 +429,13 @@ enum PhoneVisualRunnerTests {
         case .needsInput:
             let submitTap: [PhonePromptAction] = targetStepID == .verifySubmission ? [.tap(0.8, 0.2)] : []
             try expect(inputs == submitTap, "\(label): terminal mode sent input past detection")
-            try expect(recoveryStep?.decisionSource == "semantic if", "\(label): terminal detection was not local")
+            try expect(recoveryStep?.decisionSource == "Laya Core ML", "\(label): terminal detection was not local")
         case .perform(let action):
             try expect(inputs == [action], "\(label): runner-owned recovery sent \(inputs)")
-            try expect(recoveryStep?.decisionSource == "semantic if", "\(label): recovery input was not local")
+            try expect(recoveryStep?.decisionSource == "Laya Core ML", "\(label): recovery input was not local")
         case .reobserve:
             try expect(inputs.isEmpty, "\(label): re-observation sent input before re-observing")
-            try expect(recoveryStep?.input == nil && recoveryStep?.decisionSource == "semantic if",
+            try expect(recoveryStep?.input == nil && recoveryStep?.decisionSource == "Laya Core ML",
                 "\(label): reobserve branch was not a local wait")
         case .plannerDirective:
             try expect(directiveGoals.count == 1, "\(label): recovery directive reached the planner \(directiveGoals.count) times")

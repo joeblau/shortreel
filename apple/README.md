@@ -61,6 +61,19 @@ swiftc ShortReel/Services/BluetoothHID/HIDServiceRecord.swift Tests/HIDServiceRe
 /tmp/shortreel-sdp-tests
 ```
 
+## Local classification with Laya Core ML
+
+Warm-up account and failure-mode checks use Laya directly through Apple's Core ML
+runtime. Select **Agent → Load Local Checks Model…** to download and load it;
+a warm-up run also requests loading when needed. The first load downloads about
+680 MB and compiles the model. Later loads work from the local cache. The app
+needs no Python installation, MLX, CUDA, or package-plugin approval.
+
+Laya recognizes account screen types; Swift compares readable usernames exactly.
+Low-confidence or ambiguous account checks stay on the existing unreadable
+recovery path. Inference failures and uncertain failure-mode checks fall back to
+the screenshot planner. See [classifier setup and tests](SemanticIf/README.md).
+
 ## Codex and Claude
 
 To use **Codex**, install a current [Codex CLI](https://learn.chatgpt.com/docs/cli),

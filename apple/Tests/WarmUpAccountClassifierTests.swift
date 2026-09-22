@@ -63,7 +63,8 @@ enum WarmUpAccountClassifierTests {
         try rowContract()
         try await unknownOptionThrows()
         try observedHandleNormalization()
-        print("Warm-up account classifier tests passed (5 scenarios, 16 golden fixtures)")
+        try await exactIdentityGuards()
+        print("Warm-up account classifier tests passed (6 scenarios, 16 golden fixtures)")
     }
 
     /// Every platform × outcome fixture classifies to its golden verdict, from
@@ -73,31 +74,21 @@ enum WarmUpAccountClassifierTests {
             .flatMap { platform in ["matches", "mismatch", "signed-out", "unreadable"].map { "\(platform)-\($0)" } }
         for name in names {
             let fixture = try loadFixture(name)
-            let scorer = StubScorer(winner: fixture.outcome)
+            let surface = fixture.outcome == "signed-out" ? "signed-out" : "profile"
+            let scorer = StubScorer(winner: surface)
             let decision = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
                 platform: fixture.platform, accountLocation: "test account location",
                 handle: fixture.handle, scorer: scorer)
             try expect(decision.outcome.rawValue == fixture.outcome, "\(name): verdict \(decision.outcome) != \(fixture.outcome)")
-            try expect(decision.promptHash == "stub-\(fixture.outcome)", "\(name): prompt hash not journaled")
-            try expect(decision.probabilities.count == 4 && decision.margin > decision.threshold,
+            try expect(decision.promptHash == "stub-\(surface)", "\(name): prompt hash not journaled")
+            try expect(decision.probabilities.count == 3 && decision.margin > decision.threshold,
                 "\(name): readout diagnostics missing")
             let row = try scorer.rows.first ?? { throw Failure.assertion("\(name): scorer never called") }()
             try expect(row.id == "warmup.account.\(fixture.platform.lowercased())", "\(name): row id drifted")
-            try expect(row.question == WarmUpAccountClassifier.successCriteria, "\(name): question drifted")
-            try expect(row.options.map(\.id) == WarmUpAccountClassifier.optionIDs, "\(name): option order drifted")
-            guard case .object(let state) = row.state,
-                  let ocr = state.first(where: { $0.0 == "ocrText" })?.1,
-                  case .array(let lines) = ocr,
-                  let expectedHandle = state.first(where: { $0.0 == "expectedHandle" })?.1,
-                  case .string(let location) = state.first(where: { $0.0 == "accountLocation" })?.1 else {
-                throw Failure.assertion("\(name): malformed state")
-            }
-            try expect(expectedHandle == .string("@\(fixture.handle)"), "\(name): expected handle not in state")
-            try expect(location == "test account location", "\(name): accountLocation not in state")
-            let texts = lines.compactMap { value -> String? in
-                guard case .string(let text) = value else { return nil }
-                return text
-            }
+            try expect(row.question == LayaAccountPrompt.question, "\(name): question drifted")
+            try expect(row.options.map(\.id) == LayaAccountPrompt.options.map(\.id), "\(name): option order drifted")
+            guard case .string(let state) = row.state else { throw Failure.assertion("Malformed state") }
+            let texts = state.components(separatedBy: "\n")
             // OCR order in the prompt is top-to-bottom, not recognition order.
             let expectedOrder = fixture.regions
                 .sorted { ($0.y, $0.x) < ($1.y, $1.x) }
@@ -114,8 +105,8 @@ enum WarmUpAccountClassifierTests {
     /// argmax is a real option; the runner owns the recovery from there.
     static func belowMarginIsUnreadable() async throws {
         let fixture = try loadFixture("tiktok-matches")
-        // p(matches) = 0.30, others 0.2333: margin 0.0667 < 0.12 threshold.
-        let scorer = StubScorer(winner: "matches", winnerP: 0.30)
+        // p(profile) = 0.34, others 0.33: margin 0.01 < 0.12 threshold.
+        let scorer = StubScorer(winner: "profile", winnerP: 0.34)
         let decision = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
             platform: fixture.platform, accountLocation: "test account location",
             handle: fixture.handle, scorer: scorer)
@@ -130,12 +121,7 @@ enum WarmUpAccountClassifierTests {
             accountLocation: "Tap the Profile tab.", handle: "janedoe", ocrText: ["@janedoe"])
         try SemanticIfPrompt.validate(row.decision)
         try expect(row.options.count <= 16, "More than 16 options")
-        let descriptions = Dictionary(uniqueKeysWithValues: row.options.map { ($0.id, $0.description) })
-        for mode in WarmUpAccountClassifier.failureModes {
-            let optionID = ["handle-mismatch": "mismatch", "signed-out": "signed-out", "handle-unreadable": "unreadable"][mode.id]!
-            try expect(descriptions[optionID] == mode.detection, "\(optionID): detection text drifted from the contract")
-        }
-        try expect(descriptions["matches"] == WarmUpAccountClassifier.successCriteria, "matches: not the success criteria")
+        try expect(row.options == LayaAccountPrompt.options, "Screen classification options drifted")
         do {
             _ = try WarmUpAccountClassifier.options(failureModes: [])
             throw Failure.assertion("Missing contract failure modes built a row anyway")
@@ -162,6 +148,25 @@ enum WarmUpAccountClassifierTests {
         ]
         try expect(WarmUpAccountClassifier.observedHandle(in: regions) == "jane.doe88", "Observed handle not normalized")
         try expect(WarmUpAccountClassifier.observedHandle(in: Array(regions.prefix(1))) == nil, "Handle invented without an @ token")
+    }
+
+    static func exactIdentityGuards() async throws {
+        func region(_ text: String, _ confidence: Float = 0.95) -> PhoneSubmissionGuard.TextRegion {
+            .init(text: text, confidence: confidence, bounds: CGRect(x: 0, y: 0, width: 1, height: 0.1))
+        }
+        for (regions, surface, expected) in [
+            ([region("@JANEDOE")], "profile", WarmUpAccountDecision.Outcome.matches),
+            ([region("@janedoe", 0.59)], "profile", .unreadable),
+            ([region("@janedoe"), region("@someoneelse")], "profile", .unreadable),
+            ([region("@janedoe")], "signed-out", .signedOut),
+            ([region("@janedoe")], "unknown", .unreadable),
+            ([region("@janedoe2")], "profile", .mismatch),
+        ] {
+            let result = try await WarmUpAccountClassifier.classify(regions: regions,
+                platform: "TikTok", accountLocation: "profile", handle: "janedoe", scorer: StubScorer(winner: surface))
+            try expect(result.outcome == expected, "Exact identity guard failed: \(result.outcome) != \(expected)")
+        }
+        try expect(LayaAccountPrompt.handles(in: "mail@janedoe.com").isEmpty, "Email address became a handle")
     }
 
     static func loadFixture(_ name: String) throws -> Fixture {

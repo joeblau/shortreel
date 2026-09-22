@@ -58,7 +58,7 @@ const build = await $`xcodebuild -project ShortReel.xcodeproj -scheme ShortReel 
   .nothrow();
 if (build.exitCode !== 0) {
   const output = build.stdout.toString() + build.stderr.toString();
-  console.error(output.split("\n").filter((line) => /error:|BUILD FAILED/.test(line)).join("\n") || output);
+  console.error(output);
   process.exit(build.exitCode);
 }
 

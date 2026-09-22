@@ -284,7 +284,7 @@ final class PhoneVisualRunner {
                             let step = PhoneVisionStep(
                                 id: UUID(), number: decisionNumber,
                                 action: "Checked the signed-in account locally", detail: accountCheck.evidence,
-                                capturedAt: frame.capturedAt, decisionSource: "semantic if", accountCheck: accountCheck)
+                                capturedAt: frame.capturedAt, decisionSource: "Laya Core ML", accountCheck: accountCheck)
                             onStep(step)
                             steps.append(step)
                             throw PhonePromptPlanningError.needsClarification(accountCheck.evidence)
@@ -300,7 +300,7 @@ final class PhoneVisualRunner {
                                     detail: accountCheck.evidence + (accountRecoverySent
                                         ? "" : " Reopening the app to retry the account check once."),
                                     capturedAt: frame.capturedAt, input: accountRecoverySent ? nil : .home,
-                                    decisionSource: "semantic if", accountCheck: accountCheck)
+                                    decisionSource: "Laya Core ML", accountCheck: accountCheck)
                                 if accountRecoverySent {
                                     onStep(step)
                                     steps.append(step)
@@ -384,7 +384,7 @@ final class PhoneVisualRunner {
                                 id: UUID(), number: decisionNumber,
                                 action: "Detected \(cursor.step.title) failure '\(modeID)'", detail: check.evidence,
                                 capturedAt: frame.capturedAt, playbackEvidence: playbackEvidence, pageState: pageState,
-                                decisionSource: "semantic if", failureCheck: check)
+                                decisionSource: "Laya Core ML", failureCheck: check)
                             onStep(step)
                             steps.append(step)
                             throw PhonePromptPlanningError.needsClarification(
@@ -418,13 +418,13 @@ final class PhoneVisualRunner {
                     // The local check proves the account; no planner claim is
                     // asked for or accepted for this step.
                     decision = .finished(accountCheck.evidence)
-                    decisionSource = "semantic if"
+                    decisionSource = "Laya Core ML"
                 } else if let failureDecision {
                     // A detected failure mode owns this cycle: its runner-owned
                     // recovery input or re-observation replaces the route and
                     // planner decision, through the same validation pipeline.
                     decision = try failureDecision.validated()
-                    decisionSource = "semantic if"
+                    decisionSource = "Laya Core ML"
                 } else if let routed = route?.decision {
                     decision = try routed.validated()
                     decisionSource = "state tree"
@@ -450,7 +450,7 @@ final class PhoneVisualRunner {
                         // planner may only navigate; the unreadable counter
                         // above owns the recovery and its terminal needsInput.
                         decision = .wait(seconds: 1, reason: "The local account check is still unreadable; keep navigating to the profile without engaging.")
-                        decisionSource = "semantic if"
+                        decisionSource = "Laya Core ML"
                     }
                 }
                 try checkAvailability(deadline: deadline)

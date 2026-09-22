@@ -1,3 +1,6 @@
+> Historical Qwen/MLX fixtures. The runtime and parity executable have been retired.
+> Current Laya validation is documented in [../README.md](../README.md).
+
 # SemIf parity gate (issue #13) — recorded results
 
 Run: 2026-09-21, Mac15,8 (Apple M3 Max), macOS 27.0, `SEMIF_MODEL_DIR=/tmp/semif10-harness/models`,
