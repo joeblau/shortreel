@@ -1,6 +1,6 @@
 import Foundation
 
-// From apple/: swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/DevicePrompts/{WarmUpScript,WarmUpPlaybook,DeviceWorkflow,DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,PhoneSubmissionGuard,WarmUpAccountClassifier}.swift SemanticIf/Sources/SemanticIf/{SemanticIfPrompt,SemanticIfScoring}.swift Tests/WarmUpTasksContractTests.swift -o /tmp/shortreel-contract-tests && /tmp/shortreel-contract-tests
+// From apple/: swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/DevicePrompts/{WarmUpScript,WarmUpPlaybook,DeviceWorkflow,DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,PhoneSubmissionGuard,WarmUpAccountClassifier,WarmUpFailureClassifier}.swift SemanticIf/Sources/SemanticIf/{SemanticIfPrompt,SemanticIfScoring}.swift Tests/WarmUpTasksContractTests.swift -o /tmp/shortreel-contract-tests && /tmp/shortreel-contract-tests
 /// Contracts/warmup-tasks.json is state, not documentation: it must match the
 /// Swift registry exactly and describe a success case and recoveries for every
 /// step of every platform × activity.
@@ -13,7 +13,7 @@ enum WarmUpTasksContractTests {
 
     struct Contract: Decodable {
         struct Invariant: Decodable { let id: String; let rule: String; let enforcedBy: String }
-        struct FailureMode: Decodable { let id: String; let detection: String; let recovery: String }
+        struct FailureMode: Decodable { let id: String; let detection: String; let recovery: String; let terminal: Bool? }
         struct Budget: Decodable { let maxPlannerDecisions: Int; let maxSeconds: Int }
         struct Step: Decodable {
             let id: WarmUpScript.StepID; let title: String
@@ -40,6 +40,7 @@ enum WarmUpTasksContractTests {
         try registryParity(contract)
         try completeness(contract)
         try accountClassifierRows(contract)
+        try failureClassifierRows(contract)
         try taskGraph(contract)
         print("Warm-up contract tests passed: \(contract.platforms.count) platforms, \(WarmUpScriptRegistry.definitions.count) scripts, \(contract.tasks.count) tasks")
     }
@@ -126,6 +127,81 @@ enum WarmUpTasksContractTests {
                 let row = try WarmUpAccountClassifier.row(platform: name, accountLocation: platform.accountLocation,
                     handle: "persona", ocrText: ["@persona"], failureModes: modes)
                 try SemanticIfPrompt.validate(row.decision)
+            }
+        }
+    }
+
+    /// TASK-5/6 (#16): every non-account step's failureModes build the
+    /// per-step classifier's decision row from this file at runtime — `none`
+    /// plus each mode id with its detection text as the description, the
+    /// success criteria as the question — and each mode maps to a runner
+    /// recovery branch. Budgets decode into the store the runner enforces.
+    static func failureClassifierRows(_ contract: Contract) throws {
+        var stepCount = 0
+        var modeCount = 0
+        for (name, platform) in contract.platforms {
+            for (kind, activity) in platform.activities {
+                for step in activity.steps where step.id != .account {
+                    let label = "\(name).\(kind).\(step.id.rawValue)"
+                    let stepContract = WarmUpStepContract(id: step.id.rawValue, title: step.title,
+                        successCriteria: step.successCriteria,
+                        failureModes: step.failureModes.map {
+                            .init(id: $0.id, detection: $0.detection, recovery: $0.recovery, terminal: $0.terminal ?? false)
+                        },
+                        budget: WarmUpStepBudget(maxPlannerDecisions: step.budget.maxPlannerDecisions,
+                            maxSeconds: step.budget.maxSeconds))
+                    let options = WarmUpFailureClassifier.options(step: stepContract)
+                    try expect(options.count >= 2 && options.count <= 16, "\(label): option count out of Semif range")
+                    try expect(Set(options.map(\.id)).count == options.count, "\(label): option ids repeat")
+                    try expect(options.map(\.id) == ["none"] + step.failureModes.map(\.id),
+                        "\(label): option set is not none + failureModes in contract order")
+                    try expect(zip(options.dropFirst(), step.failureModes).allSatisfy { $0.0.description == $0.1.detection },
+                        "\(label): option descriptions differ from the contract detection text")
+                    let row = WarmUpFailureClassifier.row(scriptIdentifier: activity.scriptIdentifier,
+                        platform: name, step: stepContract, screenState: "foregroundApp",
+                        playbackSummary: nil, ocrText: ["fixture"])
+                    try expect(row.question == step.successCriteria.joined(separator: "; "),
+                        "\(label): question is not the step's successCriteria")
+                    try SemanticIfPrompt.validate(row.decision)
+                    // Every mode maps to exactly one recovery branch, and no
+                    // terminal mode maps to a runner-owned input (the runner
+                    // forces needsInput for terminal modes regardless).
+                    for mode in step.failureModes {
+                        let branch = WarmUpFailureClassifier.recoveryBranch(for: mode.id)
+                        if case .perform(let action) = branch {
+                            try expect(!(mode.terminal ?? false),
+                                "\(label): terminal mode \(mode.id) maps to a runner-owned input")
+                            try expect(action == .swipe(.up) || action == .press(.enter),
+                                "\(label): unexpected runner-owned recovery input for \(mode.id)")
+                        }
+                        modeCount += 1
+                    }
+                    stepCount += 1
+                }
+            }
+        }
+        // The store the runner loads decodes the same steps and budgets.
+        var accountStepCount = 0
+        var accountModeCount = 0
+        for platform in contract.platforms.values {
+            for activity in platform.activities.values {
+                if let account = activity.steps.first(where: { $0.id == .account }) {
+                    accountStepCount += 1
+                    accountModeCount += account.failureModes.count
+                }
+            }
+        }
+        let store = try WarmUpContractStore(data: Data(contentsOf: URL(fileURLWithPath: "Contracts/warmup-tasks.json")))
+        try expect(store.stepCount == stepCount + accountStepCount, "Store step count differs from the contract")
+        try expect(store.failureModeCount == modeCount + accountModeCount, "Store failure-mode count differs from the contract")
+        for definition in WarmUpScriptRegistry.definitions {
+            let script = try WarmUpScriptRegistry.script(network: definition.network, activity: definition.activity,
+                itemLimit: 1, duration: 300)
+            for step in script.steps {
+                let found = store.step(scriptIdentifier: definition.identifier, stepID: step.id.rawValue)
+                try expect(found != nil, "\(definition.identifier).\(step.id.rawValue): missing from the decoded store")
+                try expect(found?.budget.maxPlannerDecisions ?? 0 > 0 && found?.budget.maxSeconds ?? 0 > 0,
+                    "\(definition.identifier).\(step.id.rawValue): store lost the budget")
             }
         }
     }

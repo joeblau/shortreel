@@ -20,6 +20,15 @@ final class PhoneVisualRunner {
     /// closure — or a nil verdict from it, when no scorer is loaded — keeps
     /// the run on exactly the planner-only path of today.
     private let classifyAccount: ((PhoneScreenFrame, WarmUpScript, String) async throws -> WarmUpAccountDecision?)?
+    /// The per-step failure-mode classifier (contract TASK-5, issue #16),
+    /// called with the current frame, script, step id, and the playback
+    /// evidence summary before the planner is asked. Nil in or nil out keeps
+    /// the planner-only path.
+    private let classifyFailure: ((PhoneScreenFrame, WarmUpScript, WarmUpScript.StepID, String?) async throws -> WarmUpFailureDecision?)?
+    /// Per-step budgets from the warm-up contract (contract TASK-6 / INV-6).
+    /// Enforced whether or not a scorer is loaded; nil means no contract
+    /// budget for the step and only the run-wide limits apply.
+    private let stepBudget: ((WarmUpScript, WarmUpScript.StepID) -> WarmUpStepBudget?)?
     private var isRunning = false
 
     init(capture: @escaping (Date) async throws -> PhoneScreenFrame,
@@ -36,7 +45,9 @@ final class PhoneVisualRunner {
          validateSubmissionAction: @escaping (PhonePromptAction, PhoneScreenFrame, Bool) async throws -> Void = {
              try await PhoneSubmissionGuard.validate(action: $0, frame: $1, isFinalSubmission: $2)
          },
-         classifyAccount: ((PhoneScreenFrame, WarmUpScript, String) async throws -> WarmUpAccountDecision?)? = nil) {
+         classifyAccount: ((PhoneScreenFrame, WarmUpScript, String) async throws -> WarmUpAccountDecision?)? = nil,
+         classifyFailure: ((PhoneScreenFrame, WarmUpScript, WarmUpScript.StepID, String?) async throws -> WarmUpFailureDecision?)? = nil,
+         stepBudget: ((WarmUpScript, WarmUpScript.StepID) -> WarmUpStepBudget?)? = nil) {
         self.readText = readText
         self.capture = capture
         self.decide = decide
@@ -48,6 +59,8 @@ final class PhoneVisualRunner {
         self.prepareCleanupAction = prepareCleanupAction
         self.validateSubmissionAction = validateSubmissionAction
         self.classifyAccount = classifyAccount
+        self.classifyFailure = classifyFailure
+        self.stepBudget = stepBudget
     }
 
     /// A controlled input diagnostic, separate from model-chosen workflows.
@@ -174,6 +187,14 @@ final class PhoneVisualRunner {
         // whether the one Home + reopen recovery was already spent.
         var unreadableAccountFrames = 0
         var accountRecoverySent = false
+        // Contract TASK-5/6 (#16): per-step budget bookkeeping (decision count
+        // and wall clock reset each time the cursor's step changes) and the
+        // recovery attempts already spent per step failure mode.
+        var budgetedStep: WarmUpScript.StepID?
+        var stepDecisions = 0
+        var stepStartedAt = ContinuousClock.now
+        var lastStepEvidence: String?
+        var recoveryAttempts: [String: Int] = [:]
         let brief = goal
 
         do {
@@ -214,6 +235,33 @@ final class PhoneVisualRunner {
                     steps[index].beforeFrame = nil
                     steps[index].afterFrame = nil
                     steps[index].playbackStartFrame = nil
+                }
+
+                // Contract TASK-6 / INV-6 (#16): every warm-up step has a
+                // decision and time budget from the contract. Exhausting
+                // either ends in needsInput naming the step and the last
+                // evidence — before another planner call or input, never a
+                // silent burn to the run-wide limit.
+                if let cursor = scriptCursor {
+                    if budgetedStep != cursor.step.id {
+                        budgetedStep = cursor.step.id
+                        stepDecisions = 0
+                        stepStartedAt = ContinuousClock.now
+                        lastStepEvidence = nil
+                        recoveryAttempts = [:]
+                    }
+                    stepDecisions += 1
+                    if let budget = stepBudget?(cursor.script, cursor.step.id) {
+                        let evidence = lastStepEvidence ?? "no frame evidence recorded for this step yet"
+                        if stepDecisions > budget.maxPlannerDecisions {
+                            throw PhonePromptPlanningError.needsClarification(
+                                "Warm-up step '\(cursor.step.id.rawValue)' (\(cursor.step.title)) exhausted its \(budget.maxPlannerDecisions)-decision budget. Last evidence: \(evidence)")
+                        }
+                        if ContinuousClock.now >= stepStartedAt + .seconds(budget.maxSeconds) {
+                            throw PhonePromptPlanningError.needsClarification(
+                                "Warm-up step '\(cursor.step.id.rawValue)' (\(cursor.step.title)) exhausted its \(budget.maxSeconds)-second budget. Last evidence: \(evidence)")
+                        }
+                    }
                 }
 
                 // Contract TASK-8 (#15): the account step is decided on this
@@ -305,7 +353,54 @@ final class PhoneVisualRunner {
                     pageState = page.kind.rawValue
                     route = stateTree.route(cursor: cursor, page: page, playback: playback, brief: brief)
                 }
+                // Contract TASK-5 (#16): before the planner is asked, classify
+                // the CURRENT frame against the active step's contract failure
+                // modes on this Mac. A detected mode routes to its one named
+                // recovery branch; terminal modes and spent recoveries end in
+                // needsInput before any further input. A none/uncertain/nil
+                // verdict leaves the decision to the route/planner as today.
+                var failureCheck: WarmUpFailureDecision?
+                var failureDecision: PhoneVisionDecision?
+                var failureDirective: String?
+                if let cursor = scriptCursor, cursor.step.id != .account, let classifyFailure {
+                    onProgress("Checking the step's failure modes on this Mac…")
+                    let playbackSummary = playbackEvidence
+                    failureCheck = try await beforeDeadline(deadline) {
+                        try await classifyFailure(frame, cursor.script, cursor.step.id, playbackSummary)
+                    }
+                    try checkAvailability(deadline: deadline)
+                    try checkFrameAge(frame)
+                    if let check = failureCheck, let modeID = check.failureModeID {
+                        let key = "\(cursor.step.id.rawValue).\(modeID)"
+                        let attempt = (recoveryAttempts[key] ?? 0) + 1
+                        recoveryAttempts[key] = attempt
+                        let branch: WarmUpFailureClassifier.RecoveryBranch =
+                            check.terminal || attempt > WarmUpFailureClassifier.attemptLimit(for: modeID)
+                            ? .needsInput
+                            : WarmUpFailureClassifier.recoveryBranch(for: modeID)
+                        switch branch {
+                        case .needsInput:
+                            let step = PhoneVisionStep(
+                                id: UUID(), number: decisionNumber,
+                                action: "Detected \(cursor.step.title) failure '\(modeID)'", detail: check.evidence,
+                                capturedAt: frame.capturedAt, playbackEvidence: playbackEvidence, pageState: pageState,
+                                decisionSource: "semantic if", failureCheck: check)
+                            onStep(step)
+                            steps.append(step)
+                            throw PhonePromptPlanningError.needsClarification(
+                                "Warm-up step '\(cursor.step.id.rawValue)' failure '\(modeID)': \(check.recovery) \(check.evidence)")
+                        case .perform(let action):
+                            failureDecision = .action(action, reason: "Recovery for failure '\(modeID)': \(check.recovery)")
+                        case .reobserve:
+                            failureDecision = .wait(seconds: 1, reason: "Recovery for failure '\(modeID)': \(check.recovery)")
+                        case .plannerDirective:
+                            failureDirective = WarmUpFailureClassifier.directive(
+                                modeID: modeID, detection: check.detection, recovery: check.recovery)
+                        }
+                    }
+                }
                 let goal = (scriptCursor?.goal(brief) ?? brief) + (route.map { "\n" + $0.context } ?? "")
+                    + (failureDirective.map { "\n\n" + $0 } ?? "")
                 guard goal.count <= DevicePromptPlanner.maximumPromptLength else {
                     throw PhonePromptPlanningError.needsClarification("Shorten the warm-up details before running.")
                 }
@@ -323,6 +418,12 @@ final class PhoneVisualRunner {
                     // The local check proves the account; no planner claim is
                     // asked for or accepted for this step.
                     decision = .finished(accountCheck.evidence)
+                    decisionSource = "semantic if"
+                } else if let failureDecision {
+                    // A detected failure mode owns this cycle: its runner-owned
+                    // recovery input or re-observation replaces the route and
+                    // planner decision, through the same validation pipeline.
+                    decision = try failureDecision.validated()
                     decisionSource = "semantic if"
                 } else if let routed = route?.decision {
                     decision = try routed.validated()
@@ -427,7 +528,7 @@ final class PhoneVisualRunner {
                             action: "Verified \(completedStep)", detail: result, capturedAt: frame.capturedAt,
                             progressNote: "Script step verified: \(completedStep). \(result)",
                             playbackEvidence: playbackEvidence, pageState: pageState, decisionSource: decisionSource,
-                            accountCheck: accountCheck)
+                            accountCheck: accountCheck, failureCheck: failureCheck)
                         onStep(step)
                         steps.append(step)
                         onScriptProgress(cursor.progress)
@@ -514,7 +615,8 @@ final class PhoneVisualRunner {
                         action: description(of: action), detail: reason, capturedAt: frame.capturedAt,
                         input: action, beforeFrame: frame, progressNote: workflow == nil ? nil : reason,
                         playbackEvidence: playbackEvidence, pageState: pageState, decisionSource: decisionSource,
-                        accountCheck: accountCheck)
+                        accountCheck: accountCheck, failureCheck: failureCheck)
+                    lastStepEvidence = reason
                     onProgress("Step \(decisionNumber): \(step.action)")
                     var displayStep = step
                     displayStep.beforeFrame = nil
@@ -556,7 +658,8 @@ final class PhoneVisualRunner {
                         action: "Wait for the screen", detail: reason, capturedAt: frame.capturedAt, beforeFrame: frame,
                         progressNote: workflow == nil ? nil : reason,
                         playbackStartFrame: playbackStartFrame, playbackEvidence: playbackEvidence, pageState: pageState,
-                        decisionSource: decisionSource, accountCheck: accountCheck)
+                        decisionSource: decisionSource, accountCheck: accountCheck, failureCheck: failureCheck)
+                    lastStepEvidence = reason
                     onProgress("Waiting for the phone’s screen to change…")
                     var displayStep = step
                     displayStep.beforeFrame = nil

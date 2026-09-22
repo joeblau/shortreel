@@ -41,6 +41,10 @@ struct PhoneVisionStep: Identifiable, Sendable, Equatable {
     /// with the probabilities, margin, and prompt hash behind it. Journaled
     /// with the step so a stopped run names the local decision.
     var accountCheck: WarmUpAccountDecision? = nil
+    /// The local SemanticIf failure-mode verdict for the active step (contract
+    /// TASK-5, issue #16). Journaled with the step so a recovered or stopped
+    /// run names the detected failureMode id and its contract recovery.
+    var failureCheck: WarmUpFailureDecision? = nil
 
     var executionFeedback: String {
         let command = input?.modelInputDescription ?? action
@@ -75,6 +79,31 @@ struct WarmUpAccountDecision: Codable, Equatable, Sendable {
 
     var outcome: Outcome
     /// Finished/needsInput message the runner uses for this verdict.
+    var evidence: String
+    /// Probability of each option id, in the row's declared option order.
+    var probabilities: [String: Double]
+    var margin: Double
+    var threshold: Double
+    var promptHash: String
+}
+
+/// The local failure-mode verdict for one warm-up step (contract TASK-5,
+/// issue #16): the SemanticIf scorer's decision on the current frame scored
+/// against the step's contract failureModes. `failureModeID == nil` means no
+/// failure was detected (or the margin was too close to call) and the planner
+/// decides as before. `Codable` so `DeviceRunJournal` persists it with the step.
+struct WarmUpFailureDecision: Codable, Equatable, Sendable {
+    var stepID: String
+    /// The detected contract `failureModes[].id`; nil for none/uncertain.
+    var failureModeID: String?
+    /// The margin was below threshold; never an assertive branch.
+    var uncertain: Bool
+    /// The contract's `terminal` flag for the detected mode.
+    var terminal: Bool
+    /// The contract's detection and recovery text for the detected mode.
+    var detection: String
+    var recovery: String
+    /// Message the runner journals and uses for needsInput.
     var evidence: String
     /// Probability of each option id, in the row's declared option order.
     var probabilities: [String: Double]

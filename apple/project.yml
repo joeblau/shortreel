@@ -32,6 +32,10 @@ targets:
       # Semif scorer + prompt contract live in the SPM package so its tests
       # can link MLX (issue #12); the app compiles the same files.
       - path: SemanticIf/Sources/SemanticIf
+      # The warm-up contract supplies per-step failure modes and budgets at
+      # runtime (contract TASK-5/6, issue #16).
+      - path: Contracts/warmup-tasks.json
+        buildPhase: resources
     info:
       path: ShortReel/Info.plist
       properties:

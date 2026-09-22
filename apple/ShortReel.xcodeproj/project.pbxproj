@@ -58,12 +58,14 @@
 		7220952A5A6801449F20E824 /* PhonePlannerProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A69CE7F09709617F2C3F30A /* PhonePlannerProcess.swift */; };
 		7AE81C19144C7637726B610E /* UITarsPhonePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10541CA6BA27250DC0FE75BD /* UITarsPhonePlanner.swift */; };
 		7B0C160689061791C18F65BA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5E9AA251BD0C01F7006B100 /* ContentView.swift */; };
+		7B80C96E5A7757EAE7AF4B58 /* warmup-tasks.json in Resources */ = {isa = PBXBuildFile; fileRef = E5F3ACC44758713A8641760B /* warmup-tasks.json */; };
 		7E84B828201884A72EF4515A /* PhoneVisualRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70CD7A63765E5B1F9E02A0C3 /* PhoneVisualRunner.swift */; };
 		82C15156CB2CBE1EE33FB01C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8F9D17B1E23AE149DA481298 /* AVFoundation.framework */; };
 		8451F24AE3C4EAEF503209FA /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5392515B443A64A2145BDB2C /* CoreBluetooth.framework */; };
 		8767A12EE5A78137E4C841EA /* RunnerDeviceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44757B1CDFC4E4381EDB8410 /* RunnerDeviceHost.swift */; };
 		8AC0AEE27C12E457FDD650C6 /* DevicePromptPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F0846537B96DF26FF9F688 /* DevicePromptPlan.swift */; };
 		8D8358A2D72540F409B9B2F6 /* WarmUpPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9B36AE8D1615521173731DB /* WarmUpPlan.swift */; };
+		8FEB2407FDA9690973189288 /* WarmUpFailureClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB3318564DF9B710B5844C0 /* WarmUpFailureClassifier.swift */; };
 		9EC029263C1289C808C7A169 /* RunnerProvisioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40B6F972DE9BDE58A17E6AE3 /* RunnerProvisioning.swift */; };
 		A20AB44578E1D54775D37BDD /* DeviceRunJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EAC38C0F9E72B3877C53C65 /* DeviceRunJournal.swift */; };
 		A3E995CDDCF1F8254D03B420 /* LocalUITarsServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBED7F5324F4FDC26FA1E0F8 /* LocalUITarsServer.swift */; };
@@ -166,6 +168,7 @@
 		88BB5C8ECE860D56C92F56D2 /* RunnerOracle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerOracle.swift; sourceTree = "<group>"; };
 		8A1D44CBA5C390F49ADCD312 /* PhoneAutoLockConfigurator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneAutoLockConfigurator.swift; sourceTree = "<group>"; };
 		8A2A068FA1C1E168E2EC690E /* BluetoothHIDHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothHIDHost.swift; sourceTree = "<group>"; };
+		8BB3318564DF9B710B5844C0 /* WarmUpFailureClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpFailureClassifier.swift; sourceTree = "<group>"; };
 		8F9D17B1E23AE149DA481298 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		8FF9D7203A56D8D70CDB8858 /* PhoneSubmissionCheckpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneSubmissionCheckpoint.swift; sourceTree = "<group>"; };
 		9134244B0B05D94B966E3561 /* SemanticIfSharedMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticIfSharedMode.swift; sourceTree = "<group>"; };
@@ -212,6 +215,7 @@
 		E144B3427256B20055F97CA0 /* PhonePlaybackTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePlaybackTracker.swift; sourceTree = "<group>"; };
 		E4B61D3753B86BC3065C0B52 /* USBPhoneBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = USBPhoneBridge.h; sourceTree = "<group>"; };
 		E5E9AA251BD0C01F7006B100 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		E5F3ACC44758713A8641760B /* warmup-tasks.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "warmup-tasks.json"; sourceTree = "<group>"; };
 		E746318EAF9E27AE09E8673D /* DevicePromptExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptExecutor.swift; sourceTree = "<group>"; };
 		EA9465A252DF3A8045176580 /* DeviceRunQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRunQueueView.swift; sourceTree = "<group>"; };
 		EAFB7E56B4BDF0D041D75AC3 /* PhonePlannerContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePlannerContext.swift; sourceTree = "<group>"; };
@@ -336,6 +340,14 @@
 			path = PhoneScreenCapture;
 			sourceTree = "<group>";
 		};
+		9C0F5032C7B6B97136E1D26E /* Contracts */ = {
+			isa = PBXGroup;
+			children = (
+				E5F3ACC44758713A8641760B /* warmup-tasks.json */,
+			);
+			path = Contracts;
+			sourceTree = "<group>";
+		};
 		A8F2BA8F62771365C538529D /* BluetoothHID */ = {
 			isa = PBXGroup;
 			children = (
@@ -403,6 +415,7 @@
 				10541CA6BA27250DC0FE75BD /* UITarsPhonePlanner.swift */,
 				97C36C7E725C9CC83D4E592F /* UITarsScreenVerification.swift */,
 				1673C5CE4421456F953F948B /* WarmUpAccountClassifier.swift */,
+				8BB3318564DF9B710B5844C0 /* WarmUpFailureClassifier.swift */,
 				ACC04184FCB60567DE8ADA2F /* WarmUpPlaybook.swift */,
 				16C4D43E1780F3361DC26327 /* WarmUpScript.swift */,
 				096C1D0DC92C4A3FB6FBE9FC /* WarmUpStateTree.swift */,
@@ -426,6 +439,7 @@
 		E0344FCF7A2C9CF260650C12 = {
 			isa = PBXGroup;
 			children = (
+				9C0F5032C7B6B97136E1D26E /* Contracts */,
 				B5E697F39EBBBCE3B40E1D5A /* PhoneRunnerShared */,
 				8C2583B1E276133444315451 /* SemanticIf */,
 				25CB797C96428E96AA519648 /* ShortReel */,
@@ -506,6 +520,7 @@
 			buildConfigurationList = 724B69DBCF8EF690AF4A53AB /* Build configuration list for PBXNativeTarget "ShortReel" */;
 			buildPhases = (
 				8FDE04D057A53DB51B730E46 /* Sources */,
+				89F4F68E417B2E69F7FA0744 /* Resources */,
 				3AE49D44308BF9B2CBACEAFC /* Frameworks */,
 			);
 			buildRules = (
@@ -579,6 +594,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		89F4F68E417B2E69F7FA0744 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7B80C96E5A7757EAE7AF4B58 /* warmup-tasks.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		8FDE04D057A53DB51B730E46 /* Sources */ = {
@@ -662,6 +688,7 @@
 				1A7C7D0709C787A52CBAA137 /* USBPhoneSetup.swift in Sources */,
 				685956B047BB34B66564FFA4 /* WarmUpAccountClassifier.swift in Sources */,
 				C4C7C2EA22E18A7907AF9BF6 /* WarmUpAgent.swift in Sources */,
+				8FEB2407FDA9690973189288 /* WarmUpFailureClassifier.swift in Sources */,
 				8D8358A2D72540F409B9B2F6 /* WarmUpPlan.swift in Sources */,
 				1288DDBA969AE1D8D2C2D71C /* WarmUpPlaybook.swift in Sources */,
 				2AB2E01753DEB24DBDAE7CB8 /* WarmUpScript.swift in Sources */,
