@@ -3319,11 +3319,17 @@
     {
       "id": "TASK-8",
       "title": "Local OCR account check",
-      "status": "todo",
+      "status": "done",
       "outcome": "The account step compares the OCR'd '@' token to persona.handle on the Mac; the planner only navigates to the profile.",
       "files": [
+        "ShortReel/Services/DevicePrompts/WarmUpAccountClassifier.swift",
+        "ShortReel/Services/DevicePrompts/PhoneVisualRunner.swift",
         "ShortReel/Services/DevicePrompts/PhoneSubmissionGuard.swift",
-        "ShortReel/Services/DevicePrompts/WarmUpScript.swift"
+        "ShortReel/Services/DevicePrompts/DeviceRunJournal.swift",
+        "ShortReel/Services/DeviceManager.swift",
+        "Tests/WarmUpAccountClassifierTests.swift",
+        "Tests/PhoneVisualRunnerTests.swift",
+        "Tests/Fixtures/AccountOCR/"
       ],
       "acceptance": [
         "mismatch and signed-out fixtures → needsInput with zero engagement input",

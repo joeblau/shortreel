@@ -1,6 +1,6 @@
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift ShortReel/Services/DevicePrompts/PhoneVisionTypes.swift ShortReel/Services/DevicePrompts/DevicePromptExecutor.swift Tests/DevicePromptExecutorTests.swift -o /tmp/shortreel-prompt-executor-tests
+// swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/DevicePrompts/{WarmUpScript,WarmUpPlaybook,DeviceWorkflow,DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,DevicePromptExecutor}.swift Tests/DevicePromptExecutorTests.swift -o /tmp/shortreel-prompt-executor-tests
 @main
 enum DevicePromptExecutorTests {
     @MainActor

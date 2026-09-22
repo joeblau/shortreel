@@ -1,6 +1,6 @@
 import Foundation
 
-// From apple/: swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{WarmUpScript,DevicePromptPlan,DevicePromptPlanner}.swift Tests/WarmUpTasksContractTests.swift -o /tmp/shortreel-contract-tests && /tmp/shortreel-contract-tests
+// From apple/: swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/DevicePrompts/{WarmUpScript,WarmUpPlaybook,DeviceWorkflow,DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,PhoneSubmissionGuard,WarmUpAccountClassifier}.swift SemanticIf/Sources/SemanticIf/{SemanticIfPrompt,SemanticIfScoring}.swift Tests/WarmUpTasksContractTests.swift -o /tmp/shortreel-contract-tests && /tmp/shortreel-contract-tests
 /// Contracts/warmup-tasks.json is state, not documentation: it must match the
 /// Swift registry exactly and describe a success case and recoveries for every
 /// step of every platform × activity.
@@ -39,6 +39,7 @@ enum WarmUpTasksContractTests {
         try expect(contract.schemaVersion == 1, "Unknown contract schema")
         try registryParity(contract)
         try completeness(contract)
+        try accountClassifierRows(contract)
         try taskGraph(contract)
         print("Warm-up contract tests passed: \(contract.platforms.count) platforms, \(WarmUpScriptRegistry.definitions.count) scripts, \(contract.tasks.count) tasks")
     }
@@ -89,6 +90,42 @@ enum WarmUpTasksContractTests {
                         try expect(step.budget.maxPlannerDecisions <= 2, "\(label): submission budget allows repeated taps")
                     }
                 }
+            }
+        }
+    }
+
+    /// TASK-8 (#15): every account step's failureModes build the classifier's
+    /// decision row — a valid Semif row with ≤16 unique options, the contract's
+    /// detection text as descriptions — and the Swift copies of the success
+    /// criteria and accountLocation match this file verbatim.
+    static func accountClassifierRows(_ contract: Contract) throws {
+        for (name, platform) in contract.platforms {
+            guard let appPlatform = Platform.allCases.first(where: { $0.displayName == name }) else {
+                throw Failure.assertion("\(name): no Platform case")
+            }
+            try expect(WarmUpPlaybook.accountLocation(for: appPlatform) == platform.accountLocation,
+                "\(name): accountLocation differs from WarmUpPlaybook")
+            for (kind, activity) in platform.activities {
+                let label = "\(name).\(kind).account"
+                guard let account = activity.steps.first(where: { $0.id == .account }) else {
+                    throw Failure.assertion("\(label): missing from the contract")
+                }
+                try expect(account.successCriteria.first == platform.accountLocation,
+                    "\(label): first success criterion is not the accountLocation")
+                try expect(account.successCriteria.dropFirst().joined(separator: "; ") == WarmUpAccountClassifier.successCriteria,
+                    "\(label): success criteria differ from WarmUpAccountClassifier.successCriteria")
+                let modes = account.failureModes.map { WarmUpAccountClassifier.FailureMode(id: $0.id, detection: $0.detection) }
+                for mode in WarmUpAccountClassifier.failureModes {
+                    try expect(modes.first(where: { $0.id == mode.id }) == mode,
+                        "\(label): failure mode \(mode.id) detection differs from WarmUpAccountClassifier")
+                }
+                let options = try WarmUpAccountClassifier.options(failureModes: modes)
+                try expect(options.count >= 2 && options.count <= 16, "\(label): option count out of Semif range")
+                try expect(Set(options.map(\.id)).count == options.count, "\(label): option ids repeat")
+                try expect(options.map(\.id) == WarmUpAccountClassifier.optionIDs, "\(label): option order drifted")
+                let row = try WarmUpAccountClassifier.row(platform: name, accountLocation: platform.accountLocation,
+                    handle: "persona", ocrText: ["@persona"], failureModes: modes)
+                try SemanticIfPrompt.validate(row.decision)
             }
         }
     }

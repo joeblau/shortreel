@@ -12,15 +12,18 @@ struct DeviceRunJournal {
         let screenChanged: Bool?
         let progressNote: String?
         let playbackEvidence: String?
+        let accountCheck: WarmUpAccountDecision?
 
         init(_ step: PhoneVisionStep) {
             id = step.id; number = step.number; action = step.action; detail = step.detail
             capturedAt = step.capturedAt; screenChanged = step.screenChanged; progressNote = step.progressNote
-            playbackEvidence = step.playbackEvidence
+            playbackEvidence = step.playbackEvidence; accountCheck = step.accountCheck
         }
         var restored: PhoneVisionStep {
-            .init(id: id, number: number, action: action, detail: detail, capturedAt: capturedAt,
+            var step = PhoneVisionStep(id: id, number: number, action: action, detail: detail, capturedAt: capturedAt,
                   screenChanged: screenChanged, progressNote: progressNote, playbackEvidence: playbackEvidence)
+            step.accountCheck = accountCheck
+            return step
         }
     }
     struct Record: Codable {

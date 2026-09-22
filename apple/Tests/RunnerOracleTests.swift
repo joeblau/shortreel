@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-// swiftc -swift-version 6 PhoneRunnerShared/PhoneRunnerProtocol.swift ShortReel/Services/PhoneRunner/RunnerClient.swift ShortReel/Services/PhoneRunner/RunnerOracle.swift ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift ShortReel/Services/DevicePrompts/PhoneVisionTypes.swift ShortReel/Services/DevicePrompts/PhoneVisionClient.swift ShortReel/Services/DevicePrompts/DevicePromptVerifier.swift ShortReel/Services/DeviceHost.swift ShortReel/Models/*.swift ShortReel/Services/DevicePrompts/DevicePromptExecutor.swift Tests/RunnerOracleTests.swift -o /tmp/sr-oracle-tests
+// swiftc -swift-version 6 PhoneRunnerShared/PhoneRunnerProtocol.swift ShortReel/Services/PhoneRunner/RunnerClient.swift ShortReel/Services/PhoneRunner/RunnerOracle.swift ShortReel/Services/DevicePrompts/WarmUpScript.swift ShortReel/Services/DevicePrompts/WarmUpPlaybook.swift ShortReel/Services/DevicePrompts/DeviceWorkflow.swift ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift ShortReel/Services/DevicePrompts/PhoneVisionTypes.swift ShortReel/Services/DevicePrompts/PhoneVisionClient.swift ShortReel/Services/DevicePrompts/DevicePromptVerifier.swift ShortReel/Services/DeviceHost.swift ShortReel/Models/*.swift ShortReel/Services/DevicePrompts/DevicePromptExecutor.swift Tests/RunnerOracleTests.swift -o /tmp/sr-oracle-tests
 @main @MainActor
 enum RunnerOracleTests {
     static func main() async throws {

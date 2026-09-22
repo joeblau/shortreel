@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{WarmUpScript,PhonePlaybackTracker,PhoneSubmissionGuard,PhoneSubmissionCheckpoint,DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner,WarmUpStateTree}.swift Tests/PhoneVisualRunnerTests.swift -o /tmp/shortreel-visual-runner-tests
+// swiftc -swift-version 6 SemanticIf/Sources/SemanticIf/{SemanticIfPrompt,SemanticIfScoring}.swift ShortReel/Services/DevicePrompts/{WarmUpScript,PhonePlaybackTracker,PhoneSubmissionGuard,PhoneSubmissionCheckpoint,DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner,WarmUpStateTree,WarmUpAccountClassifier}.swift Tests/PhoneVisualRunnerTests.swift -o /tmp/shortreel-visual-runner-tests
 @main @MainActor
 enum PhoneVisualRunnerTests {
     private enum TestError: LocalizedError {
@@ -52,7 +52,232 @@ enum PhoneVisualRunnerTests {
         try await submissionJournalPrecedesInput()
         try await submissionStorageFailureBlocksInput()
         try await submissionCannotBeRepeatedDuringVerification()
-        print("Phone visual runner tests passed (24 scenarios)")
+        try await accountMatchFinishesStepWithoutPlannerClaim()
+        try await accountMismatchSendsNoInput()
+        try await accountSignedOutSendsNoInput()
+        try await accountUnreadableRecoveryThenNeedsInput()
+        try await accountCheckUnavailableKeepsPlannerPath()
+        try await accountCheckTikTokStateTreeInterplay()
+        print("Phone visual runner tests passed (30 scenarios)")
+    }
+
+    // MARK: - Account-step classifier (contract TASK-8, issue #15)
+
+    struct AccountFixture: Decodable {
+        struct Region: Decodable {
+            let text: String
+            let confidence: Float
+            let x: Double, y: Double, width: Double, height: Double
+        }
+        let platform: String
+        let handle: String
+        let outcome: String
+        let regions: [Region]
+
+        static func load(_ name: String) throws -> AccountFixture {
+            try JSONDecoder().decode(AccountFixture.self,
+                from: Data(contentsOf: URL(fileURLWithPath: "Tests/Fixtures/AccountOCR/\(name).json")))
+        }
+
+        var textRegions: [PhoneSubmissionGuard.TextRegion] {
+            regions.map {
+                PhoneSubmissionGuard.TextRegion(text: $0.text, confidence: $0.confidence,
+                    bounds: CGRect(x: $0.x, y: $0.y, width: $0.width, height: $0.height))
+            }
+        }
+    }
+
+    /// Scripted `SemanticIfScoring`: the winner takes 0.7, the rest share 0.3,
+    /// so the margin policy decides `.option(winner)`.
+    final class AccountStubScorer: SemanticIfScoring, @unchecked Sendable {
+        let winner: String
+        init(winner: String) { self.winner = winner }
+
+        func score(_ row: SemanticIfRow) async throws -> SemanticIfResult {
+            var probabilities = [winner: 0.7]
+            for id in row.options.map(\.id) where id != winner { probabilities[id] = 0.1 }
+            return SemanticIfResult(score: SemanticIfScore(
+                rowID: row.id, probabilities: probabilities, argmaxOptionID: winner,
+                margin: 0.6, optionLogits: [], inputTokens: 0, forwardSeconds: 0,
+                totalSeconds: 0, promptHash: "stub-\(winner)", peakMemoryBytes: 0))
+        }
+    }
+
+    private static func accountClassifier(
+        fixture: AccountFixture
+    ) -> (PhoneScreenFrame, WarmUpScript, String) async throws -> WarmUpAccountDecision? {
+        { _, _, _ in
+            try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
+                platform: fixture.platform, accountLocation: "test account location",
+                handle: fixture.handle, scorer: AccountStubScorer(winner: fixture.outcome))
+        }
+    }
+
+    /// A local `matches` verdict finishes the account step on its own: the
+    /// planner is only asked about the next step, and no input is sent.
+    private static func accountMatchFinishesStepWithoutPlannerClaim() async throws {
+        let fixture = try AccountFixture.load("x-matches")
+        var decideGoals: [String] = []
+        var inputs: [PhonePromptAction] = []
+        var accountSteps: [PhoneVisionStep] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { goal, _, _ in
+                decideGoals.append(goal)
+                return .needsInput("Stopping after the account check.")
+            }, perform: { inputs.append($0) }, blockedReason: { nil },
+            classifyAccount: accountClassifier(fixture: fixture))
+        do {
+            _ = try await runner.run(goal: "Account check: Verify exactly @janedoe, ignoring case.",
+                workflow: .warmUp, warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { if $0.accountCheck != nil { accountSteps.append($0) } })
+            throw TestError.failed("Run continued past the stop marker")
+        } catch is PhonePromptPlanningError { }
+        try expect(decideGoals.count == 1 && decideGoals[0].contains("Prepare post"),
+            "The planner was asked to decide the account step")
+        try expect(inputs.isEmpty, "A verified account check sent input")
+        try expect(accountSteps.count == 1 && accountSteps[0].decisionSource == "semantic if"
+            && accountSteps[0].accountCheck?.outcome == .matches
+            && accountSteps[0].accountCheck?.promptHash == "stub-matches"
+            && accountSteps[0].accountCheck?.margin == 0.6,
+            "The local account decision was not journaled with the step")
+    }
+
+    /// HARD SAFETY: a local mismatch verdict is terminal needsInput before the
+    /// planner is even asked — zero engagement input can be sent.
+    private static func accountMismatchSendsNoInput() async throws {
+        let fixture = try AccountFixture.load("x-mismatch")
+        var decideCalls = 0
+        var inputs: [PhonePromptAction] = []
+        var accountSteps: [PhoneVisionStep] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { _, _, _ in
+                decideCalls += 1
+                return .action(.tap(0.5, 0.5), reason: "Follow the visible account")
+            }, perform: { inputs.append($0) }, blockedReason: { nil },
+            classifyAccount: accountClassifier(fixture: fixture))
+        do {
+            _ = try await runner.run(goal: "Account check: Verify exactly @janedoe, ignoring case.",
+                workflow: .warmUp, warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { if $0.accountCheck != nil { accountSteps.append($0) } })
+            throw TestError.failed("A mismatched account ran the warm-up")
+        } catch let error as PhonePromptPlanningError {
+            try expect(error.localizedDescription.contains("@jane.doe88")
+                && error.localizedDescription.contains("@janedoe"),
+                "Mismatch did not name both handles")
+        }
+        try expect(decideCalls == 0 && inputs.isEmpty, "A mismatched account engaged the phone")
+        try expect(accountSteps.count == 1 && accountSteps[0].accountCheck?.outcome == .mismatch,
+            "The terminal mismatch was not journaled")
+    }
+
+    /// HARD SAFETY: a signed-out verdict is terminal needsInput with no input.
+    private static func accountSignedOutSendsNoInput() async throws {
+        let fixture = try AccountFixture.load("x-signed-out")
+        var decideCalls = 0
+        var inputs: [PhonePromptAction] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { _, _, _ in
+                decideCalls += 1
+                return .action(.typeText("password"), reason: "Sign in")
+            }, perform: { inputs.append($0) }, blockedReason: { nil },
+            classifyAccount: accountClassifier(fixture: fixture))
+        do {
+            _ = try await runner.run(goal: "Account check: Verify exactly @janedoe, ignoring case.",
+                workflow: .warmUp, warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { _ in })
+            throw TestError.failed("A signed-out app ran the warm-up")
+        } catch let error as PhonePromptPlanningError {
+            try expect(error.localizedDescription.contains("signed out"),
+                "Signed-out verdict did not explain itself")
+        }
+        try expect(decideCalls == 0 && inputs.isEmpty, "A signed-out app received credentials or engagement")
+    }
+
+    /// Unreadable verdicts never trust a planner finish claim; the contract's
+    /// recovery fires once (one Home + reopen), then needsInput.
+    private static func accountUnreadableRecoveryThenNeedsInput() async throws {
+        let fixture = try AccountFixture.load("x-unreadable")
+        var captures = 0
+        var decideCalls = 0
+        var inputs: [PhonePromptAction] = []
+        let runner = PhoneVisualRunner(capture: { after in
+                captures += 1
+                // Alternate visibly distinct screens so the stalled-input
+                // guard measures the waits, not JPEG-identical frames.
+                return try frame(after: after, shade: captures.isMultiple(of: 2) ? 0 : 0.5)
+            }, decide: { _, _, _ in
+                decideCalls += 1
+                // A planner claim is not proof while the local check is unreadable.
+                return .finished("I can see the handle clearly.")
+            }, perform: { inputs.append($0) }, blockedReason: { nil },
+            classifyAccount: accountClassifier(fixture: fixture))
+        do {
+            _ = try await runner.run(goal: "Account check: Verify exactly @janedoe, ignoring case.",
+                workflow: .warmUp, warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { _ in })
+            throw TestError.failed("An unreadable account was verified by a planner claim")
+        } catch let error as PhonePromptPlanningError {
+            try expect(error.localizedDescription.contains("after reopening the app once"),
+                "Unreadable did not end in the contract's recovery outcome")
+        }
+        // Two unreadable windows of three fresh frames each: the planner was
+        // consulted only for navigation, the recovery sent exactly one Home,
+        // and no engagement input ever fired.
+        try expect(decideCalls == 4, "Planner finish claims were accepted while unreadable")
+        try expect(inputs == [.home], "The unreadable recovery sent more than one Home")
+    }
+
+    /// No loaded scorer (disabled or failed) is exactly today's planner-only
+    /// path: the planner's own finish claim advances the account step.
+    private static func accountCheckUnavailableKeepsPlannerPath() async throws {
+        var decideCalls = 0
+        var accountSteps: [PhoneVisionStep] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { _, _, _ in
+                decideCalls += 1
+                return decideCalls == 1
+                    ? .finished("Planner-verified account")
+                    : .needsInput("Stopping after the account check.")
+            }, perform: { _ in throw TestError.failed("Unexpected input") }, blockedReason: { nil },
+            classifyAccount: { _, _, _ in nil })
+        do {
+            _ = try await runner.run(goal: "Account check: Verify exactly @janedoe, ignoring case.",
+                workflow: .warmUp, warmUpScript: WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 30),
+                onProgress: { _ in }, onStep: { if $0.action.hasPrefix("Verified") { accountSteps.append($0) } })
+            throw TestError.failed("Run continued past the stop marker")
+        } catch is PhonePromptPlanningError { }
+        try expect(decideCalls == 2, "Planner-only path lost the account decision")
+        try expect(accountSteps.count == 1 && accountSteps[0].accountCheck == nil,
+            "Planner-only path recorded a local account decision")
+    }
+
+    /// With the TikTok state tree active, the local verdict still owns the
+    /// account step's finish; the tree and planner handle the later steps.
+    private static func accountCheckTikTokStateTreeInterplay() async throws {
+        let fixture = try AccountFixture.load("tiktok-matches")
+        var decideTitles: [String] = []
+        var inputs: [PhonePromptAction] = []
+        var accountSteps: [PhoneVisionStep] = []
+        let runner = PhoneVisualRunner(capture: { after in try frame(after: after) },
+            decide: { goal, _, _ in
+                for title in ["Search niche", "Choose search result", "Find video with >10K hearts", "Watch to completion"] {
+                    if goal.contains(": \(title).") { decideTitles.append(title) }
+                }
+                return .finished("Current milestone verified from the screenshot")
+            }, perform: { inputs.append($0) }, blockedReason: { nil },
+            readText: { frame, platform in
+                .init(sourceID: frame.sourceID, capturedAt: frame.capturedAt, platform: platform, regions: [])
+            }, classifyAccount: accountClassifier(fixture: fixture))
+        let result = try await runner.run(
+            goal: "Platform: TikTok\nAccount check: Verify exactly @janedoe, ignoring case.",
+            workflow: .warmUp, warmUpScript: WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 1, duration: 60),
+            onProgress: { _ in }, onStep: { if $0.accountCheck != nil { accountSteps.append($0) } })
+        try expect(result.contains("completed"), "Script did not complete after the local account check")
+        try expect(decideTitles == ["Search niche", "Choose search result", "Find video with >10K hearts", "Watch to completion"],
+            "The planner decided the account step or skipped a later step")
+        try expect(inputs.isEmpty, "The classified account run sent input")
+        try expect(accountSteps.count == 1 && accountSteps[0].accountCheck?.outcome == .matches,
+            "The TikTok account step was not decided locally")
     }
 
     private static func submissionJournalPrecedesInput() async throws {
