@@ -31,7 +31,7 @@
     {
       "id": "INV-6",
       "rule": "Every step has a decision and time budget; exhausting it ends in needsInput with the step id and last evidence, never a silent 300-step burn.",
-      "enforcedBy": "TASK-6 (pending)"
+      "enforcedBy": "PhoneVisualRunner.run per-step budget pass via stepBudget closure + WarmUpContractStore (budgets decoded from this file)"
     },
     {
       "id": "INV-7",
@@ -3268,11 +3268,13 @@
     {
       "id": "TASK-5",
       "title": "Local precondition observer per step",
-      "status": "todo",
+      "status": "done",
       "outcome": "Before each planner call the runner checks screen.state and the step's OCR anchors locally; a failed precondition routes to the step's failureModes instead of a free planner decision.",
       "files": [
         "ShortReel/Services/DevicePrompts/PhoneVisualRunner.swift",
-        "ShortReel/Services/DevicePrompts/PhonePlaybackTracker.swift"
+        "ShortReel/Services/DevicePrompts/PhonePlaybackTracker.swift",
+        "ShortReel/Services/DevicePrompts/WarmUpFailureClassifier.swift",
+        "Tests/PhoneVisualRunnerTests.swift"
       ],
       "acceptance": [
         "each failureMode.id in this file maps to one recovery branch",
@@ -3285,11 +3287,13 @@
     {
       "id": "TASK-6",
       "title": "Per-step budgets",
-      "status": "todo",
+      "status": "done",
       "outcome": "Enforce budget.maxPlannerDecisions / maxSeconds per step id; exhaustion → needsInput naming the step and last evidence.",
       "files": [
         "ShortReel/Services/DevicePrompts/PhoneVisualRunner.swift",
-        "ShortReel/Services/DevicePrompts/WarmUpScript.swift"
+        "ShortReel/Services/DevicePrompts/WarmUpScript.swift",
+        "ShortReel/Services/DevicePrompts/WarmUpFailureClassifier.swift",
+        "Tests/PhoneVisualRunnerTests.swift"
       ],
       "acceptance": [
         "INV-6 enforcedBy updated to code",

@@ -124,6 +124,17 @@ final class DeviceManager {
         semanticIfScorer
     }
 
+    /// The bundled warm-up contract (per-step failure modes and budgets,
+    /// contract TASK-5/6, issue #16), decoded once from warmup-tasks.json.
+    /// `WarmUpTasksContractTests` pins the JSON to the Swift registry.
+    private var warmUpContractStore: WarmUpContractStore?
+    func warmUpContracts() -> WarmUpContractStore? {
+        if let warmUpContractStore { return warmUpContractStore }
+        guard let store = WarmUpContractStore.bundled() else { return nil }
+        warmUpContractStore = store
+        return store
+    }
+
 
     /// The model the current planner will use.
     var visionModel: String {
@@ -615,6 +626,26 @@ final class DeviceManager {
                 return try? await WarmUpAccountClassifier.classify(frame: frame,
                     platform: platform.displayName, accountLocation: WarmUpPlaybook.accountLocation(for: platform),
                     handle: handle, scorer: scorer)
+            }, classifyFailure: { [weak self] frame, script, stepID, playbackSummary in
+                // Contract TASK-5 (#16): non-account steps are scored against
+                // their contract failureModes locally once the checkpoint is
+                // loaded. While it loads — or when scoring is disabled, the
+                // contract is missing, or scoring errors — the verdict is nil
+                // and the run keeps exactly the planner-only path of today.
+                guard let self else { throw PhoneVisionError.unavailable("This device is no longer available.") }
+                guard let scorer = self.readySemanticIfScorer() else {
+                    if self.semanticIfEnabled { self.warmSemanticIfScorer() }
+                    return nil
+                }
+                guard let step = self.warmUpContracts()?.step(scriptIdentifier: script.identifier, stepID: stepID.rawValue)
+                else { return nil }
+                return try? await WarmUpFailureClassifier.classify(frame: frame,
+                    scriptIdentifier: script.identifier, platform: script.network.rawValue,
+                    step: step, playbackSummary: playbackSummary, scorer: scorer)
+            }, stepBudget: { [weak self] script, stepID in
+                // Contract TASK-6 / INV-6 (#16): per-step budgets apply whether
+                // or not the local scorer is loaded.
+                self?.warmUpContracts()?.step(scriptIdentifier: script.identifier, stepID: stepID.rawValue)?.budget
             })
         let session = DevicePromptSession(deviceName: descriptor.name, deviceIdentifier: descriptor.identifier, blockedReason: blockedReason,
             visualRunner: runner, visualBlockedReason: visualBlockedReason,
