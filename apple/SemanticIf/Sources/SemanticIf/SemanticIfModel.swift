@@ -27,8 +27,11 @@ public actor SemanticIfModel {
     /// so it does not hold RAM while UI-TARS's Qwen2.5-VL is also resident.
     public static let gpuCacheLimitBytes = 256 * 1024 * 1024
 
-    private let container: ModelContainer
-    private let tokenizer: SemanticIfTokenizer
+    // Internal (not private) so the shared-mode extension in
+    // `SemanticIfSharedMode.swift` (issue #17) can drive the container without
+    // duplicating the scorer.
+    let container: ModelContainer
+    let tokenizer: SemanticIfTokenizer
 
     /// Loads the pinned checkpoint, downloading it via `HubApi` when missing.
     ///
@@ -104,7 +107,7 @@ public actor SemanticIfModel {
         return score
     }
 
-    private static func seconds(since start: ContinuousClock.Instant) -> Double {
+    static func seconds(since start: ContinuousClock.Instant) -> Double {
         let components = start.duration(to: .now).components
         return Double(components.seconds) + Double(components.attoseconds) / 1e18
     }
@@ -112,7 +115,7 @@ public actor SemanticIfModel {
     /// `softmax` in core.py: rejects unless every score is finite, subtracts
     /// the max, exponentiates, normalizes — computed in Float32 per the issue
     /// contract (Semif computes in Python doubles).
-    private static func softmax(_ values: [Float]) throws -> [Float] {
+    static func softmax(_ values: [Float]) throws -> [Float] {
         guard values.count >= 2, values.allSatisfy(\.isFinite) else {
             throw SemanticIfModelError.nonFiniteScores
         }

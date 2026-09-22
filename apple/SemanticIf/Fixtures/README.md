@@ -50,3 +50,14 @@ from the upstream repo.
 
 Observed parity numbers (the gate result) are recorded in `PARITY.md` in this
 directory.
+
+## Shared-mode fixture (issue #17)
+
+`shared-decisions.jsonl` holds four decision rows that share one exact state
+(the `support-1` row's state from `decisions.jsonl`) with four different
+criteria — the multi-criterion shape Semif's `shared` mode serves ("prefill
+once, then independent batch-1 suffixes"). Row `shared-success` repeats
+`support-1`'s question and options verbatim, so its prompt hash and scores can
+also be compared 1:1 against Semif's published direct-mode row for `support-1`
+in `decisions-bf16.jsonl`. Observed shared-vs-direct numbers and the measured
+speedup are recorded in `SHARED.md` in this directory.
