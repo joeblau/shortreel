@@ -58,6 +58,15 @@ struct DeviceStageView: View {
                         .padding(16)
                 }
 
+                // A failed scorer load never blocks a stage; say here why
+                // local checks are off instead.
+                if let notice = deviceManager.semanticIfState.localChecksOffNotice {
+                    Text(notice)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                }
+
                 DeviceRunQueueView(session: session)
                     .padding(.horizontal, 16)
                     .padding(.top, 8)

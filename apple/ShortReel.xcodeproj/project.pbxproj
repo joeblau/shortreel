@@ -36,6 +36,7 @@
 		2DDDEFDE740F48C4C84D322B /* PhoneScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC75CFDBF497B370A2487B50 /* PhoneScreenCaptureService.swift */; };
 		318769E50C4CA3162473ABAD /* RunnerExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC6C2ACE5756BAA8418C05E5 /* RunnerExecutor.swift */; };
 		36298C0D414A8A73AB9F812F /* CBClassicDiscovery.m in Sources */ = {isa = PBXBuildFile; fileRef = 1AED36D2FE1068896F3CAE72 /* CBClassicDiscovery.m */; };
+		4120F9DC0D42684BAF1B7F08 /* SemanticIfScorerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 314163F6B013975E8CEDDC78 /* SemanticIfScorerState.swift */; };
 		44E8C59ED96B97C5A4A9EC3A /* DevicePromptSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF9E7091BEFE15778B1F7D50 /* DevicePromptSession.swift */; };
 		460DF7A2DFAC92384825F61F /* CodexPhonePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28DE9209E31E64FA863419FF /* CodexPhonePlanner.swift */; };
 		4C1F0730AE4E3FF2DEC47881 /* PhoneVisionTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C4C867582A66B1699096BD /* PhoneVisionTypes.swift */; };
@@ -49,6 +50,7 @@
 		5DA7512E3A88C131E74DA156 /* BluetoothHIDHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A2A068FA1C1E168E2EC690E /* BluetoothHIDHost.swift */; };
 		5DB8598C01D6BC22FC2CEA0D /* CoreMediaIO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9CE65DBA70C8DF036D5D3321 /* CoreMediaIO.framework */; };
 		6AADFA23E9B815E9A8316B21 /* GrokPhonePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CC43FE179B172CD344F30E /* GrokPhonePlanner.swift */; };
+		6CF6CA84E78BD489884BB6AE /* SemanticIfScoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D0EFAB86E5D6ABD9AF466BA /* SemanticIfScoring.swift */; };
 		6E448BC9A4BA1AFD2F14F127 /* RunnerClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D491E0962A4539BC0EB620 /* RunnerClient.swift */; };
 		721337496DD75EFF2C25F975 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 222C1C07E462A90176921255 /* MLXLLM */; };
 		7220952A5A6801449F20E824 /* PhonePlannerProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A69CE7F09709617F2C3F30A /* PhonePlannerProcess.swift */; };
@@ -134,6 +136,7 @@
 		25301F554B562932915EF030 /* DeviceStageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStageView.swift; sourceTree = "<group>"; };
 		28DE9209E31E64FA863419FF /* CodexPhonePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexPhonePlanner.swift; sourceTree = "<group>"; };
 		2D748206D2366B27A440EAD2 /* AddDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDeviceView.swift; sourceTree = "<group>"; };
+		314163F6B013975E8CEDDC78 /* SemanticIfScorerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticIfScorerState.swift; sourceTree = "<group>"; };
 		318A73F3E800902771F9151D /* DevicePromptPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptPlanner.swift; sourceTree = "<group>"; };
 		33B920666FA127F957A17C22 /* ShortReel-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ShortReel-Bridging-Header.h"; sourceTree = "<group>"; };
 		399A52CD1FE15865901DB711 /* PhoneVisionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneVisionClient.swift; sourceTree = "<group>"; };
@@ -146,6 +149,7 @@
 		4C1DDD23D35C5356F6CE79C2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		52749801244FE485B01392EB /* PhoneScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenView.swift; sourceTree = "<group>"; };
 		5392515B443A64A2145BDB2C /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
+		6D0EFAB86E5D6ABD9AF466BA /* SemanticIfScoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticIfScoring.swift; sourceTree = "<group>"; };
 		6D3BD33728E2425B6E3E3FF5 /* ClaudePhonePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudePhonePlanner.swift; sourceTree = "<group>"; };
 		709224EAB1DF11CE31C00D85 /* CBHIDBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CBHIDBridge.h; sourceTree = "<group>"; };
 		70CD7A63765E5B1F9E02A0C3 /* PhoneVisualRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneVisualRunner.swift; sourceTree = "<group>"; };
@@ -310,6 +314,7 @@
 			children = (
 				DE7DCA1DF9F8A876A6B46F48 /* SemanticIfModel.swift */,
 				B3876A1D246A6C037034188A /* SemanticIfPrompt.swift */,
+				6D0EFAB86E5D6ABD9AF466BA /* SemanticIfScoring.swift */,
 			);
 			name = SemanticIf;
 			path = SemanticIf/Sources/SemanticIf;
@@ -388,6 +393,7 @@
 				1858E168352352BB12C19916 /* PhoneVisionProvider.swift */,
 				C4C4C867582A66B1699096BD /* PhoneVisionTypes.swift */,
 				70CD7A63765E5B1F9E02A0C3 /* PhoneVisualRunner.swift */,
+				314163F6B013975E8CEDDC78 /* SemanticIfScorerState.swift */,
 				0356F3AE9ED9B41A09ABB0F0 /* UITarsActionDecoder.swift */,
 				10541CA6BA27250DC0FE75BD /* UITarsPhonePlanner.swift */,
 				97C36C7E725C9CC83D4E592F /* UITarsScreenVerification.swift */,
@@ -636,6 +642,8 @@
 				F188BA69F1CDB7D98CF99F3A /* RunnerSupervisor.swift in Sources */,
 				F120BAE826439F20B2F7EE1D /* SemanticIfModel.swift in Sources */,
 				BC80B11728EF18030D492B6E /* SemanticIfPrompt.swift in Sources */,
+				4120F9DC0D42684BAF1B7F08 /* SemanticIfScorerState.swift in Sources */,
+				6CF6CA84E78BD489884BB6AE /* SemanticIfScoring.swift in Sources */,
 				D695B98064CD329C887FED3D /* ShortReelApp.swift in Sources */,
 				0B7EC575615925AF2994386F /* SimulatedDeviceController.swift in Sources */,
 				A87595764A28F1B87DE1323E /* SocialLink.swift in Sources */,
