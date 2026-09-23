@@ -5,13 +5,11 @@ import SwiftData
 final class Persona {
     var handle: String
     var displayName: String
-    /// Legacy label kept for stores created before `device` existed.
     var deviceName: String
     var narrative: String
     var personalityBrief: String = ""
     var isActive: Bool
     var createdAt: Date
-    /// Empty in older stores; preserve the first existing social profile's network.
     var networkRawValue: String = ""
 
     @Relationship(deleteRule: .cascade, inverse: \SocialLink.persona)
@@ -22,7 +20,6 @@ final class Persona {
 
     var farm: Farm?
 
-    /// The physical phone this persona's agent drives.
     var device: Device?
 
     init(
@@ -50,7 +47,6 @@ final class Persona {
         set { networkRawValue = newValue.rawValue }
     }
 
-    /// Only a live device relationship represents an assignment.
     var boundDeviceName: String {
         guard let device, device.isLive else { return "" }
         return device.name
@@ -67,7 +63,6 @@ final class Persona {
     }
 }
 
-/// Removes the old seeded identities before any persona tasks start.
 enum LegacySamplePersonaCleanup {
     @MainActor
     static func remove(in context: ModelContext) throws {
@@ -79,7 +74,6 @@ enum LegacySamplePersonaCleanup {
         let personas = try context.fetch(FetchDescriptor<Persona>())
         let samples = personas.filter { sampleNames[$0.handle] == $0.displayName }
         let sampleIDs = Set(samples.map(\.persistentModelID))
-        // Plans have no inverse cascade relationship on Persona.
         for plan in try context.fetch(FetchDescriptor<WarmUpPlan>()) {
             if let persona = plan.persona, sampleIDs.contains(persona.persistentModelID) {
                 context.delete(plan)

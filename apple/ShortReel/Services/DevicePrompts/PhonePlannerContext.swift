@@ -1,7 +1,5 @@
 import Foundation
 
-/// One phone-control contract shared by Codex and Claude. Transport adapters only
-/// package these instructions, images and schemas for their respective CLIs.
 enum PhonePlannerContext {
     static let locationInstructions = """
         Locate one predetermined phone input on the current screenshot. The application owns all
@@ -52,7 +50,6 @@ enum PhonePlannerContext {
             """
     }
 
-    /// Preserve page/folder coverage across long tasks without retaining old images.
     static func progressNotes(_ history: [PhoneVisionStep]) -> String {
         let limit = history.last?.pageState == nil ? 300 : 8
         return history.suffix(limit).compactMap { step -> String? in
@@ -63,7 +60,6 @@ enum PhonePlannerContext {
         }.joined(separator: "\n")
     }
 
-    /// Only this phone's earlier frames can be context; current is always last.
     static func images(frame: PhoneScreenFrame, history: [PhoneVisionStep]) -> [(String, PhoneScreenFrame)] {
         var result: [(String, PhoneScreenFrame)] = []
         var seen: Set<UUID> = [frame.id]

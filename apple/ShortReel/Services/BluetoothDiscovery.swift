@@ -15,9 +15,6 @@ struct DiscoveredBluetoothDevice: Identifiable, Equatable {
     }
 }
 
-/// Classic Bluetooth discovery and bonding. A successful bond is separate
-/// from the HID channels that BluetoothHIDHost uses to control the phone.
-/// Discovery and pairing callbacks are marshalled onto the main run loop.
 @Observable
 @MainActor
 final class BluetoothDiscovery: NSObject, @preconcurrency IOBluetoothDevicePairDelegate, @preconcurrency CBCentralManagerDelegate {
@@ -136,7 +133,6 @@ final class BluetoothDiscovery: NSObject, @preconcurrency IOBluetoothDevicePairD
             self?.fail("Pairing timed out. Keep the phone’s Bluetooth settings open and try again.")
         }
         if let inquiry, isScanning {
-            // The SDK requires inquiry to finish before starting a connection.
             inquiry.stop()
         } else {
             beginPairing()
@@ -190,7 +186,6 @@ final class BluetoothDiscovery: NSObject, @preconcurrency IOBluetoothDevicePairD
         device.isPaired = true
         if let index = devices.firstIndex(where: { $0.id == device.id }) { devices[index] = device }
         let completion = onPaired
-        // Do not call stop() on success: it would disconnect the new bond.
         pairer?.delegate = nil
         pairer = nil
         cancelPairing()
@@ -234,7 +229,6 @@ final class BluetoothDiscovery: NSObject, @preconcurrency IOBluetoothDevicePairD
 
     func devicePairingUserConfirmationRequest(_ sender: Any!, numericValue: BluetoothNumericValue) {
         guard let sender = sender as? IOBluetoothDevicePair, sender === pairer else { return }
-        // iPhone pairing alerts time out (HCI 0x1F) if the Mac waits for a second confirmation.
         let code = String(format: "%06u", numericValue)
         log.info("Numeric comparison \(code, privacy: .public) with \(self.pairingAddress ?? "device", privacy: .public); confirming")
         status = "Confirm code \(code) on your iPhone to finish pairing."

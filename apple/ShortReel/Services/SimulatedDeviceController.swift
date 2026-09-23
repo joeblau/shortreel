@@ -1,7 +1,5 @@
 import Foundation
 
-/// Stand-in for a real device driver: waits a randomized 1–3s like a real UI
-/// automation pass would, then returns a plausible result string.
 @MainActor
 struct SimulatedDeviceController: DeviceControlling {
     enum SimulatedFailure: Error {

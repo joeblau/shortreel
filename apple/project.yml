@@ -26,10 +26,7 @@ targets:
     sources:
       - path: ShortReel
       - path: PhoneRunnerShared
-      # Native Laya Core ML classifier; the app and package tests share sources.
       - path: SemanticIf/Sources/SemanticIf
-      # The warm-up contract supplies per-step failure modes and budgets at
-      # runtime (contract TASK-5/6, issue #16).
       - path: Contracts/warmup-tasks.json
         buildPhase: resources
       - path: Contracts/tiktok-watch.json

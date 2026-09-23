@@ -1,10 +1,6 @@
 import CoreGraphics
 import Foundation
 
-// From apple/: swiftc -swift-version 6 SemanticIf/Sources/SemanticIf/{SemanticIfPrompt,SemanticIfScoring}.swift ShortReel/Services/DevicePrompts/{DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,PhoneSubmissionGuard,WarmUpAccountClassifier}.swift Tests/WarmUpAccountClassifierTests.swift -o /tmp/shortreel-account-classifier-tests && /tmp/shortreel-account-classifier-tests
-/// Account-step classifier tests (contract TASK-8, issue #15): golden OCR
-/// fixtures per platform × outcome scored through a scripted SemanticIfScoring
-/// stub — no MLX, no checkpoint.
 @main
 enum WarmUpAccountClassifierTests {
     enum Failure: Error { case assertion(String) }
@@ -32,9 +28,6 @@ enum WarmUpAccountClassifierTests {
         }
     }
 
-    /// A scripted `SemanticIfScoring`: the given winner takes `winnerP`, the
-    /// other options share the rest. It records every row so tests can inspect
-    /// the state the classifier built from OCR.
     final class StubScorer: SemanticIfScoring, @unchecked Sendable {
         let winner: String
         let winnerP: Double
@@ -69,8 +62,6 @@ enum WarmUpAccountClassifierTests {
         print("Warm-up account classifier tests passed (including the reported empty TikTok profile)")
     }
 
-    /// Every platform × outcome fixture classifies to its golden verdict, from
-    /// a scored row carrying the fixture's OCR text, handle, and location.
     static func goldenFixtures() async throws {
         let names = ["tiktok", "instagram", "x", "youtube"]
             .flatMap { platform in ["matches", "mismatch", "signed-out", "unreadable"].map { "\(platform)-\($0)" } }
@@ -91,7 +82,6 @@ enum WarmUpAccountClassifierTests {
             try expect(row.options.map(\.id) == LayaAccountPrompt.options.map(\.id), "\(name): option order drifted")
             guard case .string(let state) = row.state else { throw Failure.assertion("Malformed state") }
             let texts = state.components(separatedBy: "\n")
-            // OCR order in the prompt is top-to-bottom, not recognition order.
             let expectedOrder = fixture.regions
                 .sorted { ($0.y, $0.x) < ($1.y, $1.x) }
                 .map(\.text)
@@ -103,11 +93,8 @@ enum WarmUpAccountClassifierTests {
         }
     }
 
-    /// A below-margin score is the contract's unreadable path even when the
-    /// argmax is a real option; the runner owns the recovery from there.
     static func belowMarginIsUnreadable() async throws {
         let fixture = try loadFixture("tiktok-matches")
-        // p(profile) = 0.34, others 0.33: margin 0.01 < 0.12 threshold.
         let scorer = StubScorer(winner: "profile", winnerP: 0.34)
         let decision = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
             platform: fixture.platform, accountLocation: "test account location",
@@ -116,8 +103,6 @@ enum WarmUpAccountClassifierTests {
         try expect(decision.margin < decision.threshold, "Margin diagnostics lost")
     }
 
-    /// The row satisfies the Semif prompt contract: 2–16 options, unique ids,
-    /// failure options carrying the contract's detection text.
     static func rowContract() throws {
         let row = try WarmUpAccountClassifier.row(platform: "TikTok",
             accountLocation: "Tap the Profile tab.", handle: "janedoe", ocrText: ["@janedoe"])

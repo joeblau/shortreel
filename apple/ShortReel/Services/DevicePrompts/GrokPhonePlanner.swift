@@ -3,14 +3,10 @@ import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
 
-/// Optional remote vision planner using the user's existing Grok CLI login.
-/// It returns decisions only; ShortReel remains the sole device-input executor.
 @MainActor
 enum GrokPhonePlanner {
-    /// Set after the sandbox isolation check succeeds once; see `nextDecision`.
     private static var isolationValidated = false
 
-    /// Whether the Grok CLI is on this Mac at all, independent of login.
     static var isInstalled: Bool { executableURL != nil }
 
     static var unavailabilityReason: String? {
@@ -43,8 +39,6 @@ enum GrokPhonePlanner {
         defer { try? fileManager.removeItem(at: directory) }
         let profile = directory.appendingPathComponent("profile", isDirectory: true)
         try fileManager.createDirectory(at: profile, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
-        // Only Grok reads its credential file through normal authentication. No
-        // credential content is copied into ShortReel or into a prompt.
         try fileManager.createSymbolicLink(at: profile.appendingPathComponent("auth.json"), withDestinationURL: authenticationURL)
         try """
             [cli]
@@ -60,9 +54,6 @@ enum GrokPhonePlanner {
         let environment = isolatedEnvironment(profile: profile)
         let prefix = ["-p", sandboxProfile(), grok.path, "--cwd", directory.path,
                       "--leader-socket", profile.appendingPathComponent("leader.sock").path]
-        // The CLI binary and sandbox profile do not change between steps, so the
-        // isolation check runs once per session instead of spawning a second
-        // process on every decision.
         if !isolationValidated {
             let inspection = try await PhonePlannerProcess.run(
                 executable: sandboxURL, arguments: prefix + ["inspect", "--json"], directory: directory,
@@ -107,8 +98,6 @@ enum GrokPhonePlanner {
             "--model", "grok-4.6", "--reasoning-effort", "low", "--system-prompt-override", instructions,
             "--output-format", "json", "--json-schema", try schemaJSON(), "--prompt-json", promptJSON
         ]
-        // macOS exec arguments have a finite byte budget. Refuse before launch
-        // rather than dropping image data or truncating the user's goal.
         let argumentBytes = arguments.reduce(0) { $0 + $1.utf8.count + 1 }
         let environmentBytes = environment.reduce(0) { $0 + $1.key.utf8.count + $1.value.utf8.count + 2 }
         guard argumentBytes + environmentBytes < 200_000 else {
@@ -123,7 +112,6 @@ enum GrokPhonePlanner {
         return try decodeResult(result.stdout, goal: goal, targets: context.targets)
     }
 
-    /// Tests exercise the exact production decoder without Grok or a phone.
     static func decodeResult(_ data: Data, goal: String, targets: [PhoneVisionClient.GroundingTarget]) throws -> PhoneVisionDecision {
         guard let header = try? JSONDecoder().decode(ResultHeader.self, from: data),
               header.stopReason == "end_turn", header.num_turns == 1,
@@ -159,19 +147,11 @@ enum GrokPhonePlanner {
                 }
                 decision = .action(.tap(requestedX, requestedY), reason: payload.explanation)
             } else if payload.targetID == -1, !visualTarget.isEmpty {
-                // Evidence can correctly describe a different absent control
-                // while proposing navigation toward it. Check uncertainty only
-                // in the selected target's own description.
                 guard !describesUncertainTarget(visualTarget) else {
                     return .needsInput("Grok could not confidently locate that control in the current screen. Clarify which visible control to use.")
                 }
-                // Grok can identify an unlabeled control directly in the image.
-                // This validates its proposal, not the semantic accuracy of the
-                // model's perception; the next fresh frame verifies the result.
                 decision = .action(.tap(payload.x, payload.y), reason: "\(payload.explanation) Visible target: \(visualTarget)")
             } else {
-                // A supplied OCR ID must never fall back to model coordinates,
-                // including when its label is missing, duplicated, or mismatched.
                 decision = try PhoneVisionClient.groundedPointerDecision(
                     proposed: .tap(payload.x, payload.y), targetID: payload.targetID,
                     targets: targets, goal: goal, reason: payload.explanation
@@ -244,8 +224,6 @@ enum GrokPhonePlanner {
 
     private static func sandboxProfile() -> String {
         let userHome = FileManager.default.homeDirectoryForCurrentUser
-        // Grok 1.0.30 discovers Claude plugin hooks even with all compatibility
-        // flags off. Restrict those reads in the OS, then verify inspect output.
         let denied = [".claude", ".claude.json", ".cursor", ".codex", ".agents"].map {
             userHome.appendingPathComponent($0).path
         }
@@ -290,8 +268,6 @@ enum GrokPhonePlanner {
         ) != nil
     }
 
-    // Keep common execution rules aligned with the native planner while giving
-    // this image-capable provider its own tap rule. Native grounding is unchanged.
     private static let visualInstructions = PhoneVisionClient.instructions.split(separator: "\n", omittingEmptySubsequences: false).map { line in
         line.hasPrefix("tap:") ? """
             tap: tap one control clearly visible in this screenshot. Prefer its exact OCR targetID whenever a matching unique text anchor exists; your explanation MUST include that exact label. Supplied OCR IDs are checked and use OCR coordinates. For an unlabeled icon or input with no usable text anchor, use targetID -1, locate the center of the visible control from the image, and supply x,y plus visualTargetDescription identifying its appearance and location (for example, the rounded address field in Safari's bottom toolbar). Evidence must describe the observed control; explanation must say how tapping it advances the user goal. Coordinates are normalized to the complete attached image: x=0 left and x=1 right; y=0 top and y=1 bottom. Do not invent hidden controls or rely on a remembered layout. If the target is absent, obscured, or ambiguous, use needsInput. Never bypass a missing, duplicated, or mismatched text target by switching to image coordinates. For exact coordinates explicitly supplied by the user, use targetID -1 and those coordinates; visualTargetDescription may be empty. Use empty visualTargetDescription for OCR taps and other action kinds.

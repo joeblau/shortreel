@@ -21,8 +21,6 @@ struct ConnectedUSBPhone: Identifiable, Sendable, Equatable {
     }
 }
 
-/// USB identifies the attached phone and enables its pointer support; input
-/// still travels over Bluetooth. A cable by itself never means connected.
 @Observable @MainActor
 final class USBPhoneSetup {
     private(set) var phones: [ConnectedUSBPhone] = []

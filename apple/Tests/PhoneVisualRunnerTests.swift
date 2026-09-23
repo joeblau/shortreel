@@ -1,6 +1,5 @@
 import Foundation
 
-// Run Tests/run-transactions.sh from apple/.
 @main @MainActor enum PhoneVisualRunnerTests {
     typealias T = TransactionTestSupport
     static func main() async throws {
@@ -191,8 +190,6 @@ import Foundation
             "Runner discarded the state's specific classification question")
         try T.expect(visualQuestions.count == 3 && visualQuestions[1] == plan.phases[0].states[1].question
             && visualQuestions[2].contains("tiktok app is open"), "Screenshot inspection did not follow the current condition and postcondition")
-        // Laya can confuse a named Dock icon with the app itself. Even a high
-        // confidence 'confirmed' must not finish a launch while still on Home.
         let unchanged = T.Rig(); unchanged.plan = plan
         unchanged.classifyOverride = rig.classifyOverride
         try await T.rejects { _ = try await unchanged.run() }
@@ -254,7 +251,7 @@ import Foundation
                 return "present"
             case "account.profile": return "profile"
             case "account.verifyAccount": throw T.Failure.assertion("Exact account check was sent to a second generic classifier")
-            default: throw CancellationError() // Stop after account verification; no engagement inputs.
+            default: throw CancellationError()
             }
         }
         try await T.rejects { _ = try await rig.run(workflow: .warmUp, script: script) }
@@ -263,8 +260,6 @@ import Foundation
         try T.expect(rig.questions.contains { $0.id == "search.start" }, "Verified account did not advance to search")
         try T.expect(rig.accountCalls == 1, "Feed creators were read as the signed-in account before opening Profile")
 
-        // Reproduce the reported failure: Search never opens, but the classifier
-        // falsely confirms it. No query may be typed into the Home Screen.
         let failedSearch = T.Rig(); failedSearch.plan = plan(account); failedSearch.accountOutcome = .unreadable
         failedSearch.classifyOverride = { question in
             if question.id.hasSuffix(".verify") { return "confirmed" }
@@ -273,8 +268,6 @@ import Foundation
         try await T.rejects { _ = try await failedSearch.run(workflow: .warmUp, script: script) }
         try T.expect(failedSearch.actions == [.press(.search)], "Unopened Spotlight allowed typing or resent Search")
 
-        // Also reject Home if Spotlight closes after it was verified and before
-        // the query state gets its own fresh frame.
         let closedSearch = T.Rig(); closedSearch.plan = plan(account); closedSearch.accountOutcome = .unreadable
         closedSearch.classifyOverride = failedSearch.classifyOverride
         closedSearch.observeOverride = { _, _ in

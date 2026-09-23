@@ -1,4 +1,3 @@
-# Xcode
 xcuserdata/
 *.xcuserstate
 DerivedData/
@@ -9,27 +8,20 @@ build/
 *.dSYM.zip
 *.dSYM
 
-# Swift Package Manager
 .build/
 .swiftpm/
 Package.resolved
-# The ShortReel Xcode project pins its Swift packages for reproducible builds.
 !apple/ShortReel.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
-# macOS
 .DS_Store
 
-# Bun / local build output
 node_modules/
 .build/
 
-# Design-review scratch captures
 design-review/
 
-# go-ios local pairing identity
 selfIdentity.plist
 
-# Next.js / Cloudflare local output
 .next/
 next-env.d.ts
 .open-next/

@@ -1,7 +1,6 @@
 import Foundation
 import Observation
 
-/// Owns one XCTest session and one forwarded port per trusted USB phone.
 @Observable @MainActor
 final class RunnerCoordinator {
     private(set) var states: [String: RunnerState] = [:]
@@ -97,7 +96,6 @@ final class RunnerCoordinator {
 
     private func stop(_ identifier: String) async {
         watchers[identifier]?.cancel()
-        // Await preparation too, so it cannot publish a supervisor after stop.
         if let supervisor = supervisors[identifier] { await supervisor.stop() }
         await watchers.removeValue(forKey: identifier)?.value
         if let supervisor = supervisors.removeValue(forKey: identifier) { await supervisor.stop() }

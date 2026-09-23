@@ -13,8 +13,6 @@ struct PhoneScreenView: View {
         let capture = deviceManager.screenCapture(for: device)
         let prompt = deviceManager.promptSession(for: device)
 
-        // The gallery card already shows the live frame beside the inspector,
-        // so this pane only reports the screen's state and sets it up.
         InspectorSection("Phone Screen") {
             if capture.latestFrame != nil {
                 HStack(spacing: 8) {

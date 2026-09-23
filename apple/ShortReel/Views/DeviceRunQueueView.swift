@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Shared queue controls for the Stage inspector and Agent composer.
 struct DeviceRunQueueView: View {
     let session: DevicePromptSession
 

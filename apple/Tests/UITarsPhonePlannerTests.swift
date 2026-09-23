@@ -1,7 +1,6 @@
 import CoreGraphics
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,PhoneVisionProvider,UITarsActionDecoder,UITarsPhonePlanner,UITarsScreenVerification,LocalUITarsServer}.swift Tests/UITarsPhonePlannerTests.swift -o /tmp/shortreel-uitars-tests
 @main
 struct UITarsPhonePlannerTests {
     enum Failure: Error { case assertion(String) }
@@ -29,7 +28,6 @@ struct UITarsPhonePlannerTests {
             try expect(try decision("hotkey(key='\(key.rawValue)')") == .action(.press(key), reason: "The target is visible."), "Catalog key failed: \(key)")
         }
         try expect(UITarsPhonePlanner.instructions.contains(UITarsActionDecoder.actionSpace), "Planner prompt omitted the action catalog")
-        // Observation-settled verdicts never consult the model.
         let switcher = PhoneScreenObservation(state: .appSwitcher, appCardsVisible: true, evidence: "SWITCHER")
         let home = PhoneScreenObservation(state: .home, appCardsVisible: false, evidence: "HOME")
         try expect(UITarsPhonePlanner.deterministicReview(.action(.drag(0.3, 0.55, 0.3, 0.1), reason: ""), observation: switcher)?.verdict == .allow, "Upward card swipe in the App Switcher must be allowed without the model")
@@ -38,7 +36,6 @@ struct UITarsPhonePlannerTests {
         try expect(UITarsPhonePlanner.deterministicReview(.action(.press(.appSwitcher), reason: ""), observation: home)?.verdict == .allow, "Opening the App Switcher from Home must be allowed")
         try expect(UITarsPhonePlanner.deterministicReview(.action(.home, reason: ""), observation: home)?.verdict == .replan, "Home on Home must be rejected")
         try expect(UITarsPhonePlanner.deterministicReview(.finished("done"), observation: switcher) == nil, "Completion claims always go to the model")
-        // An allowed card swipe becomes a flick to the top edge; other inputs are untouched.
         try expect(UITarsPhonePlanner.normalized(.action(.drag(0.3, 0.55, 0.32, 0.3), reason: "r"), for: switcher)
             == .action(.timedDrag(0.3, 0.55, 0.3, 0.02, duration: 0.16, pressDuration: 0, holdDuration: 0), reason: "r"), "Card swipe was not carried to the top edge")
         try expect(UITarsPhonePlanner.normalized(.action(.drag(0.3, 0.55, 0.32, 0.3), reason: "r"), for: home)
@@ -81,8 +78,6 @@ struct UITarsPhonePlannerTests {
         try expect(try decision("wait()") == .wait(seconds: 2, reason: "The target is visible."), "Wait escaped runner limits")
         try expect(try UITarsActionDecoder.decode("```\nThought: Visible\nAction: press_home()\n```") == .action(.home, reason: "Visible"), "Fenced response failed")
 
-        // 7B models routinely append prose after the action or use the native
-        // finished(content=…) form; both must decode instead of killing a run.
         try expect(try UITarsActionDecoder.decode("Thought: Visible\nAction: press_home()\nThat should show the Home Screen.") == .action(.home, reason: "Visible"), "Trailing prose rejected")
         try expect(try UITarsActionDecoder.decode("Thought: Done\nAction: finished(content='Safari is open')") == .finished("Safari is open"), "finished(content=…) rejected")
         try expect(try UITarsActionDecoder.decode("Thought: Unsure\nAction: call_user(content='Which account?')") == .needsInput("Which account?"), "call_user(content=…) rejected")

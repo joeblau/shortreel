@@ -1,7 +1,5 @@
 import Foundation
 
-/// Emits a linear pointer drag, then a distinct button-up report immediately
-/// after the final movement unless an endpoint hold was explicitly requested.
 @MainActor
 enum HIDPointerDrag {
     static func run(from start: NormalizedPoint, to end: NormalizedPoint,
@@ -30,8 +28,6 @@ enum HIDPointerDrag {
         }
         if holdDuration > 0 { try await sleep(holdDuration) }
         try Task.checkCancellation()
-        // Keep the final movement pressed so AssistiveTouch receives it as a
-        // drag update, followed by button-up with no sleep/deceleration.
         try send(false, end)
         pressed = false
     }

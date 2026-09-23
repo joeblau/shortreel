@@ -1,17 +1,9 @@
 import Foundation
 
-/// Shared classification interface. Laya Core ML supplies local decisions;
-/// the existing name preserves the warm-up runner and journal contracts.
 public protocol SemanticIfScoring: Sendable {
-    /// Scores one decision row. The result carries the margin-policy verdict,
-    /// so callers route `.uncertain` to `needsInput` without re-implementing
-    /// the threshold.
     func score(_ row: SemanticIfRow) async throws -> SemanticIfResult
 }
 
-/// One decision row, as the protocol exposes it. This deliberately mirrors
-/// `SemanticIfDecision`'s fields instead of aliasing it, so the protocol
-/// contract stays stable if the Semif port's internals change.
 public struct SemanticIfRow: Sendable, Equatable {
     public var id: String
     public var state: SemanticIfJSON
@@ -29,19 +21,15 @@ public struct SemanticIfRow: Sendable, Equatable {
         self.init(id: decision.id, state: decision.state, question: decision.question, options: decision.options)
     }
 
-    /// The Semif-port decision this row encodes, validated on `score`.
     public var decision: SemanticIfDecision {
         SemanticIfDecision(id: id, state: state, question: question, options: options)
     }
 }
 
-/// One scored decision and its diagnostics, shared with standalone runner tests.
 public struct SemanticIfScore: Sendable, Equatable {
     public var rowID: String
-    /// Probability of each option id, in the row's declared option order.
     public var probabilities: [String: Double]
     public var argmaxOptionID: String
-    /// Top probability minus runner-up probability.
     public var margin: Double
     public var optionLogits: [Float]
     public var inputTokens: Int
@@ -52,26 +40,18 @@ public struct SemanticIfScore: Sendable, Equatable {
     public var peakMemoryBytes: Int
 }
 
-/// One scored row plus the margin-policy verdict. `decision` is the only
-/// field callers need to act on; everything else is diagnostics.
 public struct SemanticIfResult: Sendable, Equatable {
     public enum Decision: Sendable, Equatable {
-        /// The argmax option wins: its margin cleared the threshold.
         case option(String)
-        /// Top two options are too close to trust; route to `needsInput`.
         case uncertain
     }
 
     public var rowID: String
-    /// Probability of each option id, in the row's declared option order.
     public var probabilities: [String: Double]
     public var argmaxOptionID: String
-    /// Top probability minus runner-up probability.
     public var margin: Double
-    /// The threshold the margin was judged against.
     public var threshold: Double
     public var decision: Decision
-    /// Full readout diagnostics: logits, timings, prompt hash, peak memory.
     public var score: SemanticIfScore
 
     public init(score: SemanticIfScore, threshold: Double = SemanticIfMarginPolicy.defaultThreshold) {
@@ -85,12 +65,7 @@ public struct SemanticIfResult: Sendable, Equatable {
     }
 }
 
-/// The margin rule, in exactly one place: argmax wins only if
-/// `p(top) − p(second) ≥ threshold`; anything closer is `.uncertain` and the
-/// caller routes to `needsInput`. A probability margin is not an accuracy guarantee.
 public enum SemanticIfMarginPolicy {
-    /// Retained as the application's minimum decision margin. This is a
-    /// routing policy, not a calibrated accuracy guarantee for Laya.
     public static let defaultThreshold = 0.12
 
     public static func decision(
@@ -102,15 +77,12 @@ public enum SemanticIfMarginPolicy {
     }
 }
 
-/// The local classification runtime; no Python process or MLX dependency.
 public enum SemanticIfScorerBackend: String, Sendable, CaseIterable, Identifiable {
     case layaCoreML
     public var id: String { rawValue }
     public var displayName: String { "Laya Core ML (on this Mac)" }
 }
 
-/// Classify the screen semantically; compare identifiers exactly in the caller.
-/// A language model's similarity judgment must never authorize a different account.
 public enum LayaAccountPrompt {
     public static let question = "What kind of screen is this?"
     public static let options: [SemanticIfDecision.Option] = [
@@ -121,8 +93,6 @@ public enum LayaAccountPrompt {
 
     public static func row(platform: String, ocrText: [String], visualEvidence: String? = nil) -> SemanticIfRow {
         let visual = visualEvidence?.trimmingCharacters(in: .whitespacesAndNewlines)
-        // UI recognition and identifier matching are separate checks. Upload
-        // prompts, bios, and other OCR can dominate an otherwise clear profile.
         let evidence = visual.flatMap { $0.isEmpty ? nil : $0 }
             ?? (ocrText.isEmpty ? "[No readable screen text]" : ocrText.joined(separator: "\n"))
         return SemanticIfRow(id: "warmup.account.\(platform.lowercased())",
@@ -144,8 +114,6 @@ public enum LayaAccountPrompt {
             .map { string.substring(with: $0.range(at: 1)).lowercased() }
     }
 
-    /// No handle or conflicting handles means unreadable. Only a confident
-    /// profile classification with one exact, case-insensitive match can pass.
     public static func outcome(surface: SemanticIfResult.Decision, expectedHandle: String,
                                observedHandles: [String], signInControlsVisible: Bool? = nil) -> String? {
         if signInControlsVisible == true { return "signed-out" }

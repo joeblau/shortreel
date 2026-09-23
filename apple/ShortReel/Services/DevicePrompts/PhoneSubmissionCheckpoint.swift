@@ -1,7 +1,5 @@
 import Foundation
 
-/// Written before the irreversible input. A crash while `submitting` is an
-/// uncertain result, never permission to send the same comment/post again.
 struct PhoneSubmissionCheckpoint: Codable, Sendable, Equatable {
     enum State: String, Codable, Sendable {
         case preparing, submitting, confirmed, uncertain

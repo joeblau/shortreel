@@ -1,8 +1,5 @@
 import Foundation
 
-/// Native port of laya-coreml/common.py at 4619e0483f07adf39068532e85b42ec2347edb83.
-/// See apple/ThirdParty/laya-coreml/NOTICE and LICENSE for attribution.
-/// Only `choice` is needed by the warm-up classifier.
 enum LayaPrompt {
     static let version = "laya-coreml-choice-v1"
 
@@ -52,8 +49,6 @@ enum LayaPrompt {
         let state: String
         if case .string(let text) = row.state { state = text } else { state = row.state.pythonDumped }
         let evidence = encode(clean(state))
-        // Unlike upstream's generic helper, never silently discard OCR evidence.
-        // The existing caller handles this error by consulting the screenshot planner.
         let count = ids.count + evidence.count + 1
         guard count <= maxLength, let padded = lengths.first(where: { $0 >= count }) else {
             throw LayaCoreMLError.inputTooLong(count, maxLength)
@@ -65,8 +60,6 @@ enum LayaPrompt {
                      hash: SemanticIfPrompt.digest(signature))
     }
 
-    /// The checkpoint's per-question/per-option temperature, clamped like
-    /// laya-coreml 0.1.1 to prevent pathological confidence sharpening.
     static func temperature(count: Int, defaults: [Float], buckets: [String: Float]) throws -> Float {
         guard defaults.count == 3,
               (defaults + Array(buckets.values)).allSatisfy({ $0.isFinite && $0 > 0 }) else {

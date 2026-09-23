@@ -2,11 +2,6 @@ import Foundation
 import Observation
 import SwiftData
 
-/// Schedules and executes warm-up interactions for every active persona.
-/// One `Task` per running persona; each loop iteration plans an interaction
-/// (weighted by keywords in the persona's narrative), records it in SwiftData
-/// as it moves through scheduled → inProgress → completed/failed, then sleeps
-/// a randomized demo-friendly interval before planning the next one.
 @Observable
 @MainActor
 final class WarmUpAgent {
@@ -26,8 +21,6 @@ final class WarmUpAgent {
 
     private var context: ModelContext { container.mainContext }
 
-    // MARK: - Global control
-
     func start() {
         guard !isRunning else { return }
         isRunning = true
@@ -43,8 +36,6 @@ final class WarmUpAgent {
         tasks.removeAll()
         runningPersonaIDs.removeAll()
     }
-
-    // MARK: - Per-persona control
 
     func isPaused(_ persona: Persona) -> Bool {
         pausedIDs.contains(persona.persistentModelID)
@@ -66,12 +57,9 @@ final class WarmUpAgent {
         }
     }
 
-    /// Call before deleting a persona so its loop never touches dead objects.
     func stop(persona: Persona) {
         stopLoop(for: persona.persistentModelID)
     }
-
-    // MARK: - Loops
 
     private func startLoop(for id: PersistentIdentifier) {
         guard tasks[id] == nil else { return }
@@ -93,7 +81,6 @@ final class WarmUpAgent {
             runningPersonaIDs.remove(personaID)
         }
         while !Task.isCancelled {
-            // Re-resolve the persona every iteration: it may have been deleted.
             guard let persona = fetchPersona(personaID) else { break }
 
             let plan = nextInteraction(for: persona)
@@ -110,7 +97,7 @@ final class WarmUpAgent {
             do {
                 try await Task.sleep(for: .seconds(Double.random(in: 5...20)))
             } catch {
-                break // cancelled while waiting
+                break
             }
             guard !Task.isCancelled, fetchPersona(personaID) != nil else { break }
 
@@ -146,14 +133,10 @@ final class WarmUpAgent {
         }
     }
 
-    /// Fetch by identity rather than holding a model reference across awaits,
-    /// so a deleted persona can never be dereferenced.
     private func fetchPersona(_ id: PersistentIdentifier) -> Persona? {
         let personas = (try? context.fetch(FetchDescriptor<Persona>())) ?? []
         return personas.first { $0.persistentModelID == id }
     }
-
-    // MARK: - Interaction planning
 
     private struct PlannedInteraction {
         var kind: InteractionKind
@@ -210,7 +193,6 @@ final class WarmUpAgent {
         "profile", "like", "likes", "follow", "follows", "followers", "community",
     ]
 
-    /// Significant words in the narrative, reused as hashtags/search terms.
     private static func keywords(in narrative: String) -> [String] {
         var seen = Set<String>()
         var result: [String] = []

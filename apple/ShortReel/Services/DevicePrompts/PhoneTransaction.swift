@@ -1,12 +1,9 @@
 import Foundation
 
-/// An immutable program. Models compile it before execution and classify its
-/// declared conditions; they cannot add commands or transitions during a run.
 struct PhoneTransactionPlan: Codable, Equatable, Sendable {
     struct Command: Codable, Equatable, Sendable {
         enum Kind: String, Codable, Sendable { case tap, doubleTap, longPress, drag, swipe, typeText, press, home, wait }
         let kind: Kind
-        /// A visual target for pointer commands; literal text/direction/key for others.
         let value: String
         let destination: String
         let seconds: Double
@@ -28,8 +25,6 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
             if kind == .longPress || kind == .drag { guard (0.2...3).contains(seconds) else { throw PhoneTransactionError.invalidPlan } }
         }
 
-        /// Only coordinates come from the visual locator. All other payloads
-        /// are frozen in the saved program, including text and gesture timing.
         func resolved(using decision: PhoneVisionDecision? = nil) throws -> PhonePromptAction? {
             try validate()
             switch kind {
@@ -69,12 +64,8 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
         let id: String
         let condition: String
         let command: Command?
-        /// Must be observed on a fresh frame after this command, before next.
         let expected: String
-        /// A state ID in this phase, or $done / $stop.
         let next: String
-        /// Built-in workflows can require a concrete surface as well as Laya's
-        /// semantic postcondition, so a Home icon cannot prove an app launched.
         var expectedScreen: PhoneScreenObservation.State? = nil
         var requiredScreens: [PhoneScreenObservation.State]? = nil
     }
@@ -85,7 +76,6 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
         let branches: [Branch]
         var question: String? = nil
         var requiredScreens: [PhoneScreenObservation.State]? = nil
-        /// Use the existing Laya account check plus exact OCR handle comparison.
         var accountGate: Bool? = nil
         var check: Check? = nil
     }
@@ -147,7 +137,6 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
                     } else if !branch.expected.isEmpty { throw PhoneTransactionError.invalidPlan }
                 }
             }
-            // Reject unreachable states and any component without a terminal exit.
             var reached: Set<String> = [phase.entry]
             for _ in phase.states { for state in phase.states where reached.contains(state.id) {
                 reached.formUnion(state.branches.map(\.next).filter { ids.contains($0) })
@@ -161,8 +150,6 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
     }
 }
 
-/// The selected branch and resolved input are written before dispatch. A pending
-/// checkpoint always requires review after interruption, never automatic replay.
 struct PhoneTransactionCheckpoint: Codable, Equatable, Sendable {
     enum Status: String, Codable, Sendable { case observing, dispatching, verifying, completed }
     let phase: String
@@ -194,7 +181,6 @@ struct PhoneTransactionQuestion: Sendable {
     var question = "Which condition is clearly supported by the current screen evidence?"
 }
 
-/// One text-only compile request; it has no device tools and cannot execute.
 enum PhoneTransactionCompiler {
     static let instructions = """
         Compile the request into an immutable phone workflow, version 1. Return the supplied JSON schema.
@@ -286,8 +272,6 @@ extension PhoneTransactionCompiler {
 
     static let watchQuerySchema = Data(#"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"],"additionalProperties":false}"#.utf8)
 
-    /// Common launch requests have a reviewed program, including Home with
-    /// unlabeled Dock icons. No remote compilation is needed for these requests.
     static func builtIn(goal: String, script: WarmUpScript?) throws -> PhoneTransactionPlan? {
         guard script == nil, let parsed = try? DevicePromptPlanner.plan(goal), parsed.actions.count == 1,
               case .openApp(let app) = parsed.actions[0], app.count <= 60 else { return nil }
@@ -328,8 +312,6 @@ extension PhoneTransactionCompiler {
         return plan
     }
 
-    /// Agent and Stage warm-up reuse the same launch graph as an app-opening
-    /// request. The provider cannot regenerate launcher or account-check actions.
     static func accountPhase(script: WarmUpScript) throws -> PhoneTransactionPlan.Phase {
         let app = script.network.rawValue
         guard let launch = try builtIn(goal: "open \(app)", script: nil)?.phases.first else {
@@ -365,8 +347,6 @@ extension PhoneTransactionCompiler {
         return phase
     }
 
-    /// Compile bounded phases independently, at most three in flight. Assemble
-    /// and validate the full immutable program before returning any device work.
     @MainActor static func compilePhases(
         script: WarmUpScript,
         progress: @escaping @MainActor (String) -> Void,

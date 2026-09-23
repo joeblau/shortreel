@@ -1,7 +1,6 @@
 import CoreGraphics
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift ShortReel/Services/DevicePrompts/PhoneVisionTypes.swift ShortReel/Services/DevicePrompts/PhoneAutoLockConfigurator.swift Tests/PhoneAutoLockConfiguratorTests.swift -o /tmp/shortreel-autolock-tests
 @main @MainActor
 enum PhoneAutoLockConfiguratorTests {
     enum Failure: Error { case assertion(String) }
@@ -26,7 +25,6 @@ enum PhoneAutoLockConfiguratorTests {
     }
 
     static func main() async throws {
-        // The full run types the search, opens the page, and taps Never.
         var events: [String] = []
         let configurator = PhoneAutoLockConfigurator(openSearch: {
             events.append("search")
@@ -46,7 +44,6 @@ enum PhoneAutoLockConfiguratorTests {
         try expect(events == ["search", "type:Auto-Lock", "confirm", "capture", "tap:0.2,0.7", "capture"],
             "Unexpected sequence \(events)")
 
-        // The target picker requires the page shape, not just any "Never" text.
         let target = try PhoneAutoLockConfigurator.neverTarget(in: page)
         try expect(target.x == 0.2 && target.y == 0.7, "Never row not selected")
         for targets in [
@@ -61,7 +58,6 @@ enum PhoneAutoLockConfiguratorTests {
             } catch is PhoneVisionError {}
         }
 
-        // A stopped run performs no input.
         do {
             let blocked = PhoneAutoLockConfigurator(openSearch: { throw Failure.assertion("input while blocked") },
                 type: { _ in }, confirm: {}, capture: { _ in throw Failure.assertion("capture while blocked") },

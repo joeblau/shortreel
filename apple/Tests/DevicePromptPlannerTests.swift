@@ -1,6 +1,5 @@
 import Foundation
 
-// swiftc ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift Tests/DevicePromptPlannerTests.swift -o /tmp/shortreel-prompt-tests
 @main
 enum DevicePromptPlannerTests {
     static func main() throws {
@@ -32,8 +31,6 @@ enum DevicePromptPlannerTests {
         try expect("press the tab key twice", [.press(.tab), .press(.tab)])
         try expect("press escape; press backspace", [.press(.escape), .press(.backspace)])
 
-        // Separators inside quotes are literal payload. Neither punctuation nor
-        // whitespace inside a typed string may be silently lost.
         try expect("type \"Hello; then World!\" then press return", [.typeText("Hello; then World!"), .press(.enter)])
         try expect("type \"  Spaces & Case  \"", [.typeText("  Spaces & Case  ")])
         try expect("type \"Line 1\nLine 2\"", [.typeText("Line 1\nLine 2")])
@@ -45,8 +42,6 @@ enum DevicePromptPlannerTests {
         try expect("search for Cats & Dogs!", [.search("Cats & Dogs!")])
         try expect("search for \"cats then dogs; More\"", [.search("cats then dogs; More")])
 
-        // Every unsupported tail invalidates the whole request before any action
-        // is returned. Negation never accidentally becomes a positive action.
         let invalid = [
             "", "   ", "don't open Safari", "do not swipe up", "never press enter",
             "open Safari then tap Like", "go home; send a message to Joe",

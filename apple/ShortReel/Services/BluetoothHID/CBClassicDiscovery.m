@@ -3,7 +3,6 @@
 
 @interface CBClassicManager : CBManager
 - (instancetype)initWithQueue:(dispatch_queue_t)queue options:(NSDictionary *)options;
-// Verified from handlePeerDiscovered: — callback(manager, peer, info).
 - (void)startInquiryWithOptions:(NSDictionary *)options classicPeerDiscovered:(void (^)(id, id, NSDictionary *))callback;
 - (void)stopInquiry;
 - (void)setClassicPeerDiscovered:(id)callback;
@@ -61,7 +60,6 @@
     [_manager setClassicPeerDiscovered:nil];
     if (_started) [_manager stopInquiry];
     if (!_manager.inquiryState) [self finish];
-    // A missing state notification must not strand a pending pairing request.
     __weak CBClassicDiscovery *weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         CBClassicDiscovery *owner = weakSelf;

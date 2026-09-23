@@ -25,15 +25,11 @@ enum PhonePlannerProcessError: LocalizedError, Sendable {
     }
 }
 
-/// Executes an argument vector directly. Output stays in memory and is never
-/// logged; the shared byte budget includes both stdout and stderr.
 enum PhonePlannerProcess {
     static func environment(_ original: [String: String], executable: URL, authenticationKeys: [String] = []) -> [String: String] {
         let allowed = ["HOME", "USER", "LOGNAME", "PATH", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE",
                        "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "SSL_CERT_FILE", "SSL_CERT_DIR"] + authenticationKeys
         var result = original.filter { allowed.contains($0.key) }
-        // Finder-launched apps have a minimal PATH. npm/Bun installs use a
-        // /usr/bin/env node launcher, so include normal Node install locations.
         let home = original["HOME"].map { URL(fileURLWithPath: $0) } ?? FileManager.default.homeDirectoryForCurrentUser
         let paths = (original["PATH"] ?? "").split(separator: ":").map(String.init)
             + [executable.deletingLastPathComponent().path, home.appendingPathComponent(".volta/bin").path,
@@ -77,8 +73,6 @@ enum PhonePlannerProcess {
     }
 }
 
-/// All mutable state and all pipe I/O are confined to `queue`. Dispatch handlers
-/// only transfer immutable values into that queue; hence unchecked Sendable.
 private final class PhonePlannerProcessRunner: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.joeblau.shortreel.phone-planner-process", qos: .userInitiated)
     private let process = Process()
@@ -127,8 +121,6 @@ private final class PhonePlannerProcessRunner: @unchecked Sendable {
                 try makeNonblocking(outputPipe.fileHandleForReading.fileDescriptor)
                 try makeNonblocking(errorPipe.fileHandleForReading.fileDescriptor)
                 try makeNonblocking(inputPipe.fileHandleForWriting.fileDescriptor)
-                // A planner may exit before consuming its stdin. Never let an
-                // EPIPE write deliver SIGPIPE to the ShortReel application itself.
                 guard fcntl(inputPipe.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1) != -1 else {
                     throw PhonePlannerProcessError.pipeFailed(errno)
                 }
@@ -143,8 +135,6 @@ private final class PhonePlannerProcessRunner: @unchecked Sendable {
                 }
                 try process.run()
                 launched = true
-                // Only the child needs these ends. Closing our copies allows
-                // readers to observe EOF when the child exits.
                 try? outputPipe.fileHandleForWriting.close()
                 try? errorPipe.fileHandleForWriting.close()
                 try? inputPipe.fileHandleForReading.close()
@@ -198,8 +188,6 @@ private final class PhonePlannerProcessRunner: @unchecked Sendable {
         guard !finished, failure == nil, !(isError ? errorClosed : outputClosed) else { return }
         let descriptor = (isError ? errorPipe : outputPipe).fileHandleForReading.fileDescriptor
         var buffer = [UInt8](repeating: 0, count: 16_384)
-        // Bound each callback so a continuously writing process cannot starve
-        // cancellation, timeout, stderr, or stdin work on the same queue.
         for _ in 0..<16 {
             let count = buffer.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress!, $0.count) }
             if count > 0 {
@@ -239,8 +227,6 @@ private final class PhonePlannerProcessRunner: @unchecked Sendable {
                 let code = errno
                 if code == EAGAIN || code == EWOULDBLOCK { return }
                 if code == EINTR { continue }
-                // Early exit can legitimately close stdin while producing a
-                // useful error response. Preserve that response and exit code.
                 if code == EPIPE { closeInput(); return }
                 beginFailure(PhonePlannerProcessError.pipeFailed(code))
                 return
@@ -280,8 +266,6 @@ private final class PhonePlannerProcessRunner: @unchecked Sendable {
         closeReader(isError: true)
         guard launched, process.isRunning else { finish(.failure(error)); return }
         process.terminate()
-        // SIGTERM is cooperative. Escalate after a short grace period so an
-        // unresponsive planner cannot keep a cancelled request alive.
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + .milliseconds(250))
         timer.setEventHandler { [weak self] in

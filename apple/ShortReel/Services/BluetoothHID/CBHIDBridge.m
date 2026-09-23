@@ -7,23 +7,12 @@
 #import <CoreBluetooth/CoreBluetooth.h>
 #import <IOBluetooth/IOBluetooth.h>
 
-// Private CoreBluetooth surface, reconstructed from the CoreBluetooth binary
-// (arm64 dyld cache) and cross-checked against TapKit's HIDKit.
-// Signatures verified by disassembling the handlers that invoke the blocks:
-//   -[CBClassicPeer handleL2CAPChannelOpened:]       -> connectL2CAPCallback(channel, error.code)
-//   -[CBClassicPeer handleL2CAPChannelClosed:]       -> disconnectL2CAPCallback(channel, error.code)
-//   -[CBClassicManager handlePeerConnectionCompleted:] -> connectCallback(peer, error.code)
-//   -[CBClassicManager addServiceWithData:]          -> guarded by tccApproved, XPC msg 37,
-//                                                       args {kCBMsgArgSDPRecordData}, reply {kCBMsgArgServiceHandle}
 @interface CBClassicManager : CBManager
 - (instancetype)initWithQueue:(dispatch_queue_t)queue options:(nullable NSDictionary *)options;
 - (unsigned int)addServiceWithData:(NSData *)data;
 - (void)removeServiceHandle:(unsigned int)handle;
 - (void)removeAllServices;
 - (nullable id)getLocalSDPDatabase;
-// Verified in the installed runtime: @24@0:8@16 and v32@0:8@16@24.
-// Retrieval uses kCBMsgArgAddressString; connect sends message 45 with a
-// nonnil kCBMsgArgOptions dictionary. Neither operation performs pairing.
 - (nullable id)retrievePeerWithAddress:(NSString *)address;
 - (void)connectPeer:(id)peer options:(NSDictionary *)options;
 - (void)setBTDiscoverable:(BOOL)discoverable;
@@ -47,7 +36,6 @@
 - (void)handleL2CAPChannelOpened:(NSDictionary *)args;
 - (void)handleL2CAPChannelClosed:(NSDictionary *)args;
 - (void)closeL2CAPChannel:(unsigned short)psm;
-// Runtime encoding v20@0:8S16; sends message 29 with kCBMsgArgPSM.
 - (void)openL2CAPChannel:(unsigned short)psm;
 @property (nonatomic, readonly) NSInteger state;
 @property (nonatomic, readonly) id manager;
@@ -55,8 +43,6 @@
 @property (nonatomic, readonly) NSString *name;
 @end
 
-// CBL2CAPChannel is public in the SDK (for BLE channels); the classic
-// read/write surface stays private and is added here as a category.
 @interface CBL2CAPChannel (ClassicPrivate)
 - (void)sendData:(NSData *)data withCompletion:(nullable id)completion;
 - (void)setIsPacketBased:(BOOL)packetBased;
@@ -94,10 +80,6 @@ static const unsigned short kHIDInterruptPSM = 0x0013;
 - (void)attachChannelCallbacksToPeer:(CBClassicPeer *)peer;
 @end
 
-// CoreBluetooth normally drops channel events while an incoming HID peer is
-// not in its client-side "connected" state. TapKit intercepts this same method
-// and routes the channel event directly, installing callbacks first. Scope our
-// hook to this app's HID managers and these two PSMs only.
 static NSMapTable *CBHIDManagers;
 static IMP CBHIDOriginalPeerHandleMsg;
 static const void *CBHIDBridgeQueueKey = &CBHIDBridgeQueueKey;
@@ -128,7 +110,7 @@ static BOOL CBHIDInstallPeerHook(void) {
 }
 
 @implementation CBHIDBridge {
-    CBCentralManager *_central;       // public BLE manager — only used to trigger the Bluetooth TCC prompt
+    CBCentralManager *_central;
     CBClassicManager *_manager;
     dispatch_queue_t _queue;
     BOOL _published;
@@ -192,10 +174,6 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
     _serviceName = serviceName;
     _sdpRecord = sdpRecord;
 
-    // bluetoothd preflights kTCCServiceBluetoothAlways when the classic session
-    // checks in and reports state "Unsupported" until it is granted. Creating a
-    // public BLE manager is what makes the system actually show the Bluetooth
-    // permission prompt for this app.
     _central = [[CBCentralManager alloc] initWithDelegate:self queue:_queue];
     return YES;
 }
@@ -312,8 +290,6 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
     CBHIDConnectionRequest *request = _connectionRequests[address];
     if (!request) return;
     [_connectionRequests removeObjectForKey:address];
-    // Do not cancel the ACL: other phone services may share it. Close only
-    // partial HID channels this request opened, leaving complete sessions alone.
     CBHIDPeerEntry *entry = _entries[address];
     if (entry.controlSocket && entry.interruptSocket) return;
     if (request.interruptRequested) [request.peer closeL2CAPChannel:kHIDInterruptPSM];
@@ -359,8 +335,6 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
         request.peer = peer;
         [self attachChannelCallbacksToPeer:peer];
         [self log:[NSString stringWithFormat:@"Requesting bonded HID reconnect for %@ (peer state %ld)", peer.addressString, (long)peer.state]];
-        // handleSuccessfulConnection: sets this exact state, and the peer's
-        // channel-open implementation checks it before sending message 29.
         if (peer.state == 2) [self advanceConnectionRequest:address];
         else [_manager connectPeer:peer options:@{}];
     }
@@ -376,7 +350,6 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
     }
     BOOL control = !entry.controlSocket;
     unsigned short psm = control ? kHIDControlPSM : kHIDInterruptPSM;
-    // Reuse any incoming channel that won the race with this request.
     CBL2CAPChannel *existing = [request.peer channelWithPSM:psm];
     if (existing) {
         [self handleChannel:existing opened:YES peer:request.peer address:address errorCode:0];
@@ -435,15 +408,12 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
     [self publishServiceWhenReady];
 }
 
-/// Success of addServiceWithData: is delivered asynchronously here (the sync
-/// reply always reports handle 0). Verified against bluetoothd logs: the record
-/// lands with 22 attributes and PSMs 0x11/0x13 published.
 - (void)handleServiceRecordAdded:(id)serviceUUID errorCode:(long)errorCode {
     if (errorCode != 0) {
         [self log:[NSString stringWithFormat:@"SDP record rejected (error %ld)", errorCode]];
         return;
     }
-    if (_published) return; // retries replace the same record; only the first counts
+    if (_published) return;
     _published = YES;
     [self log:[NSString stringWithFormat:@"Published HID SDP record as \"%@\" (service %@); discoverable %d, connectable %d",
                _serviceName, serviceUUID, _manager.discoverable, _manager.connectable]];
@@ -455,8 +425,6 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
     [self startConnectionRequestsWhenReady];
 }
 
-/// bluetoothd only talks to the session once it is in the powered on state and
-/// TCC-approved; publish then, retrying while either side is still catching up.
 - (void)publishServiceWhenReady {
     if (_published || !_manager) return;
     if (_manager.state != CBManagerStatePoweredOn) return;
@@ -465,11 +433,6 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
     [_manager setBTDiscoverable:YES];
     [_manager performTCCCheck];
 
-    // addServiceWithData: is guarded client-side by the tccApproved ivar, which
-    // is only set when the manager thinks TCC is required (it does not on
-    // macOS). Real enforcement happens daemon-side at session check-in, so once
-    // the user has granted Bluetooth permission (seen through the public BLE
-    // manager) it is safe to mark the client approved ourselves.
     if (!_manager.tccApproved && CBCentralManager.authorization == CBManagerAuthorizationAllowedAlways) {
         [_manager setTccApproved:YES];
     }
@@ -479,8 +442,6 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
     if (++_publishAttempts <= 60) {
         __weak CBHIDBridge *weakSelf = self;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC), _queue, ^{
-            // The added-handler normally fires within milliseconds; republish
-            // only if it never did (state churn, daemon restart).
             [weakSelf republishServiceIfNeeded];
         });
     } else {
@@ -492,8 +453,6 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
     if (_published || !_manager) return;
     if (_manager.state != CBManagerStatePoweredOn) return;
 
-    // bluetoothd gives no client-side confirmation for the raw-data path, so
-    // confirm by finding our service name in the local SDP database.
     id db = [_manager getLocalSDPDatabase];
     if ([db isKindOfClass:[NSData class]] &&
         [(NSData *)db rangeOfData:[_serviceName dataUsingEncoding:NSUTF8StringEncoding]
@@ -594,8 +553,6 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
 - (void)handleChannel:(CBL2CAPChannel *)channel opened:(BOOL)opened peer:(CBClassicPeer *)peer
               address:(NSString *)address errorCode:(long)errorCode {
     unsigned short psm = channel.PSM;
-    // A failed outbound open may have no channel object (and therefore no
-    // PSM). Still release the matching request instead of waiting 45 seconds.
     if (opened && errorCode != 0 && (!channel || psm == kHIDControlPSM || psm == kHIDInterruptPSM)) {
         if (_connectionRequests[address].peer == peer)
             [self failConnectionRequest:address code:errorCode message:[NSString stringWithFormat:@"The phone could not open its Bluetooth HID channel (error %ld). Reconnect this Mac from the phone's AssistiveTouch device list.", errorCode]];
@@ -612,7 +569,7 @@ static NSString *CBHIDFormattedAddress(NSString *address) {
     BOOL control = psm == kHIDControlPSM;
     CBL2CAPChannel *current = control ? entry.controlChannel : entry.interruptChannel;
     if (opened && errorCode == 0 && current == channel) return;
-    if (!opened && current != channel) return; // stale close from a replaced channel
+    if (!opened && current != channel) return;
     if (control) { [entry.controlSocket close]; entry.controlSocket = nil; entry.controlChannel = nil; }
     else { [entry.interruptSocket close]; entry.interruptSocket = nil; entry.interruptChannel = nil; }
     if (opened && errorCode == 0) {

@@ -1,9 +1,6 @@
 import SwiftData
 import SwiftUI
 
-/// The inspector's Settings segment: screen setup, connection, automation,
-/// identity, and agent bindings for the selected phone. Rows match the other
-/// panes — titled groups separated by whitespace, no cards.
 struct DeviceSettingsView: View {
     let device: Device
 
@@ -173,8 +170,6 @@ struct DeviceSettingsView: View {
     }
 }
 
-/// Key/value rows outside a Form: a quiet label followed by the value on the
-/// same line, so the value is what the eye lands on.
 struct InspectorLabeledContentStyle: LabeledContentStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -189,8 +184,6 @@ extension LabeledContentStyle where Self == InspectorLabeledContentStyle {
     static var inspector: InspectorLabeledContentStyle { .init() }
 }
 
-/// A titled group of rows for the inspector's plain panes. Groups are
-/// separated by whitespace rather than cards or dividers.
 struct InspectorSection<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content

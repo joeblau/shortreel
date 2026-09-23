@@ -1,7 +1,5 @@
 import Foundation
 
-/// A deliberately bounded command parser. It returns a complete validated plan or
-/// asks for clarification; it never guesses visual targets or executes a prefix.
 enum DevicePromptPlanner {
     static let maximumActions = 12
     static let maximumRepetitions = 5
@@ -30,8 +28,6 @@ enum DevicePromptPlanner {
         return result
     }
 
-    /// Also validates plans produced by a model before the first input is sent.
-    /// It does not change, trim, clamp, or truncate any planned input.
     static func validate(_ plan: PhonePromptPlan) throws {
         guard !plan.actions.isEmpty, plan.actions.count <= maximumActions else {
             throw clarification("Use between 1 and \(maximumActions) actions in one request.")
@@ -78,8 +74,6 @@ enum DevicePromptPlanner {
             step = match[0]
         }
 
-        // Payload commands are parsed before repetition so literal text such as
-        // ‘type "hello 3 times"’ remains literal.
         if let match = captures(#"^(?:open|launch)\s+(.+)$"#, in: step) {
             var value = match[0]
             if let namedApp = captures(#"^the app\s+(.+)$"#, in: value) {
@@ -151,8 +145,6 @@ enum DevicePromptPlanner {
         if let first = raw.first, let closing = closingQuote(for: first) {
             payload = try unquote(raw, closing: closing)
         } else {
-            // Conjunctions in app names can be quoted. In plain instructions they
-            // commonly introduce a second action, which must not become a name.
             let appTail = #"\s(?:and|or|to|with|without|before|after|if|when|unless|until|while|because|but|also|not|except)\s"#
             let appAction = #"\s(?:open|launch|go|search|type|tap|click|swipe|scroll|press|send|post|publish|delete|remove|buy|purchase|like|follow|unfollow|message|reply|share)\b"#
             let actionTail = #"(?:\s|[,.!?])(?:and|or|to|before|after|while|but|also)\s+(?:please\s+)?(?:open|launch|go|return|search|type|tap|click|swipe|scroll|press|send|post|publish|delete|remove|buy|purchase|like|follow|unfollow|message|reply|share|don't|do not)\b"#
@@ -251,8 +243,6 @@ enum DevicePromptPlanner {
                String(characters[index..<(index + 4)]).lowercased() == "then",
                (index == 0 || characters[index - 1].isWhitespace),
                (index + 4 == characters.count || characters[index + 4].isWhitespace) {
-                // In ‘Open Safari, then scroll down’, the comma joins the
-                // instructions. Quoted payload punctuation remains untouched.
                 buffer = buffer.trimmingCharacters(in: .whitespaces)
                 if buffer.hasSuffix(",") { buffer.removeLast() }
                 try appendStep()
@@ -304,7 +294,6 @@ enum DevicePromptPlanner {
     }
 
     private static func isClosingQuote(_ quote: Character, at index: Int, in text: [Character]) -> Bool {
-        // An apostrophe inside a single-quoted word is part of the payload.
         if (quote == "'" || quote == "’"), index + 1 < text.count,
            text[index + 1].isLetter || text[index + 1].isNumber {
             return false

@@ -1,4 +1,3 @@
-// From apple/: swiftc -swift-version 6 ShortReel/Services/PersonalityGenerator.swift Tests/PersonalityGeneratorTests.swift -o /tmp/shortreel-personality-tests && /tmp/shortreel-personality-tests
 import Foundation
 
 @main
@@ -46,7 +45,6 @@ struct PersonalityGeneratorTests {
 
         let task = Task {
             try await PersonalityGenerator.generate(brief: "Photographer", network: "Instagram") { _, _, _ in
-                // Simulate a provider that returns after cancellation anyway.
                 try? await Task.sleep(for: .milliseconds(50))
                 return Data(#"{"personality":"Late result"}"#.utf8)
             }

@@ -1,6 +1,5 @@
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Services/PhoneScreenCapture/PhoneScreenSource.swift ShortReel/Services/PhoneScreenCapture/PhoneScreenAssociation.swift Tests/PhoneScreenAssociationTests.swift -o /tmp/shortreel-screen-association-tests
 @main
 enum PhoneScreenAssociationTests {
     private static let phoneID = "00008130-000161141E43001C"
@@ -15,8 +14,6 @@ enum PhoneScreenAssociationTests {
         let phone = identity()
         let source = screen()
 
-        // The attached phone's AVFoundation identity is a privacy UUID, while
-        // MobileDevice reports a different physical USB identity.
         expect([phone], [source], privacyID)
         expect([identity(name: " SOCIAL15PRO\n")], [screen(name: "social15pro")], privacyID)
         expect([identity(name: "Renée")], [screen(name: "Rene\u{301}e")], privacyID)
@@ -32,8 +29,6 @@ enum PhoneScreenAssociationTests {
             expect([identity(address: invalid)], [source], nil)
         }
 
-        // Physical IDs are authoritative, independent of friendly names and the
-        // number or order of other connected phones/screens.
         let physical = screen(id: "physical-source", name: "Another visible name", uniqueID: phoneID.lowercased().replacingOccurrences(of: "-", with: ""))
         expect([phone], [physical], "physical-source")
         expect([identity(id: phoneID.replacingOccurrences(of: "-", with: ""))], [screen(id: "physical-source", uniqueID: phoneID)], "physical-source")
@@ -44,7 +39,6 @@ enum PhoneScreenAssociationTests {
         expect([phone, other], [physical, otherPhysical], "physical-source")
         expect([phone, other], [source, physical], "physical-source")
 
-        // Name fallback only when the name is unique on both sides.
         expect([phone, other], [source], privacyID)
         expect([phone], [source, screen(id: secondPrivacyID, name: "Other Phone")], privacyID)
         expect([phone, other], [source, screen(id: secondPrivacyID, name: "Other Phone")], privacyID)
@@ -65,8 +59,6 @@ enum PhoneScreenAssociationTests {
         expect([], [source], nil)
         expect([phone], [], nil)
 
-        // Duplicate identities and duplicate matching Bluetooth addresses reject
-        // the entire association instead of selecting whichever appears first.
         expect([phone, phone], [physical], nil)
         expect([phone, identity(id: phoneID.replacingOccurrences(of: "-", with: ""), address: otherAddress)], [physical], nil)
         expect([phone, identity(id: otherPhoneID)], [physical], nil)

@@ -108,7 +108,6 @@ final class LayaCoreMLTests: XCTestCase {
         } catch is CancellationError { }
     }
 
-    /// Runs the actual Swift tokenizer and Core ML graph against upstream outputs.
     func testNativeRuntimeMatchesPythonReference() async throws {
         guard let path = ProcessInfo.processInfo.environment["SHORTREEL_LAYA_MODEL_DIR"] else {
             throw XCTSkip("Set SHORTREEL_LAYA_MODEL_DIR to the pinned downloaded model.")
@@ -127,8 +126,6 @@ final class LayaCoreMLTests: XCTestCase {
             }
         }
     }
-    /// Actual Codex inspection and OCR from the reported empty-grid Home Screen.
-    /// Its Dock icons have no labels: both routing and launch must recognize them.
     func testHomeScreenLaunchWithNativeModel() async throws {
         guard let path = ProcessInfo.processInfo.environment["SHORTREEL_LAYA_MODEL_DIR"] else {
             throw XCTSkip("Set SHORTREEL_LAYA_MODEL_DIR to run screenshot classification fixtures.")
@@ -172,8 +169,6 @@ final class LayaCoreMLTests: XCTestCase {
             let result = try await model.score(row)
             XCTAssertEqual(result.decision, .option(expected), "\(row.id): \(result.probabilities)")
         }
-        // All three observations from the failed run, including the OCR noise
-        // that is absent from a prose-only screen description.
         let observations = [
             "The iPhone Home screen has an empty grid. A Search pill sits above the Dock. The Dock contains YouTube, TikTok, and Instagram icons.",
             "The iPhone Home screen has an empty grid and a Search pill above the Dock. The Dock contains YouTube, TikTok, and Instagram icons.",

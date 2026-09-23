@@ -6,9 +6,6 @@ struct PhoneScreenSource: Identifiable, Hashable, Sendable {
     let deviceUniqueID: String
 }
 
-/// The capture source ID is an opaque AVFoundation identifier, not necessarily a
-/// USB UDID. macOS 27 reports a UUID for its external muxed "iOS Device" sources.
-/// A friendly name is never enough to distinguish a screen from a webcam.
 enum PhoneScreenSourceIdentity {
     static func canonicalPhysicalDeviceID(_ identifier: String) -> String? {
         guard identifier.range(of: #"^(?:[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}|[0-9A-Fa-f]{24}|[0-9A-Fa-f]{40})$"#,
@@ -23,9 +20,6 @@ enum PhoneScreenSourceIdentity {
     static func isEligible(uniqueID: String, manufacturer: String, isExternal: Bool,
                            modelID: String = "", isMuxed: Bool = false) -> Bool {
         guard isExternal, ["apple inc.", "apple"].contains(manufacturer.lowercased()) else { return false }
-        // Confirmed with the attached iPhone: unlike its cameras, the screen is
-        // a muxed iOS Device input. Its persistent opaque ID is still selected
-        // exactly; this does not associate it with a USB phone by its name.
         return modelID == "iOS Device" && isMuxed
             && !uniqueID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }

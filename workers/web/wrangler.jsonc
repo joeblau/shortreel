@@ -8,7 +8,6 @@
   "assets": {
     "binding": "ASSETS",
     "directory": ".open-next/assets",
-    // Service bindings enter the Worker directly; let OpenNext resolve assets.
     "run_worker_first": true,
   },
   "services": [

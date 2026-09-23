@@ -1,8 +1,6 @@
 import Foundation
 import CoreGraphics
 
-/// Page recognition supplies evidence; this tree owns only unambiguous routes.
-/// Unsupported platforms and ambiguous layouts always use the visual planner.
 struct WarmUpPage: Sendable {
     enum Kind: String, Sendable {
         case feed, ownProfile, searchSuggestions, searchResults, videoPlayer
@@ -52,8 +50,6 @@ struct WarmUpPage: Sendable {
         if hasSearch && ["top", "videos", "users"].allSatisfy({ find($0, y: 0.1...0.25) != nil }) {
             return .init(kind: .searchResults)
         }
-        // A player has a lower comment field, a creator/caption block, and
-        // multiple engagement counts in the right rail. A grid lacks these.
         let comment = regions.contains {
             $0.bounds.minY > 0.88 && (text($0).hasPrefix("add comment") || text($0).hasPrefix("add a comment"))
         }
@@ -140,8 +136,6 @@ struct WarmUpStateTree {
             lastRoute = ""; repetitions = 0
             return .init(decision: nil, context: context + " Inspect this page; return one decision for the current step.")
         }
-        // Repeated local navigation or playback waits get one model review;
-        // the runner's independent stale-frame/input/step limits still apply.
         let key = node + String(describing: decision)
         if key == lastRoute { repetitions += 1 } else { lastRoute = key; repetitions = 1 }
         guard repetitions <= 2 else {

@@ -7,7 +7,6 @@ struct PhoneScreenPhoneIdentity: Sendable, Equatable {
     let trusted: Bool
 }
 
-/// Associates an already-filtered iOS screen source with the phone receiving HID input.
 enum PhoneScreenAssociation {
     static func selectedPhone(bluetoothAddress: String, phones: [PhoneScreenPhoneIdentity]) -> PhoneScreenPhoneIdentity? {
         guard let address = canonicalBluetoothAddress(bluetoothAddress),
@@ -32,7 +31,6 @@ enum PhoneScreenAssociation {
         if physicalMatches.count == 1 { return physicalMatches[0].id }
         guard physicalMatches.isEmpty else { return nil }
 
-        // macOS may expose the iOS screen as a privacy UUID instead of the USB UDID.
         let phoneName = canonicalName(phone.name)
         guard !phoneName.isEmpty else { return nil }
         let namedPhones = phones.filter { canonicalName($0.name) == phoneName }
@@ -44,8 +42,6 @@ enum PhoneScreenAssociation {
 
     private static func canonicalBluetoothAddress(_ input: String) -> String? {
         let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Accept conventional address spellings, never remove arbitrary text to
-        // manufacture twelve hex digits from a malformed identifier.
         let validPatterns = [
             #"^[0-9A-Fa-f]{12}$"#,
             #"^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"#,

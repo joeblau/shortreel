@@ -1,8 +1,6 @@
 import Foundation
 import SwiftData
 
-/// Per-persona, per-platform warm-up schedule. The phase is derived from
-/// the elapsed days since `startDate`, so the ramp advances day over day.
 @Model
 final class WarmUpPlan {
     var platform: Platform
@@ -28,7 +26,6 @@ final class WarmUpPlan {
         self.persona = persona
     }
 
-    /// Days since the schedule started, counting the first day as day 1.
     var dayIndex: Int {
         max(Calendar.current.dateComponents([.day], from: startDate, to: .now).day ?? 0, 0) + 1
     }

@@ -1,16 +1,9 @@
 import Foundation
 
-/// Readback side of the runner: the scalar and tree queries feeding the
-/// verification ladder (docs/execute-leg-design.md §command protocol).
-/// A nil client means runner mode is unavailable; every query then answers
-/// `.unavailable` instead of throwing.
 struct RunnerOracle: Sendable {
-    /// Result of one runner query.
     enum Answer<Value: Sendable>: Sendable {
         case value(Value)
-        /// No runner is attached.
         case unavailable
-        /// The runner rejected or failed the query.
         case failed(String)
 
         var value: Value? {
@@ -19,14 +12,9 @@ struct RunnerOracle: Sendable {
         }
     }
 
-    /// What the runner can tell about one app's foreground status.
     enum ForegroundCheck: Sendable, Equatable {
-        /// The queried app is in the foreground; `observed` is the runner-reported bundle ID.
         case foreground(observed: String)
-        /// The runner sees a different app (or the app is not foreground); `observed` names it.
         case mismatch(observed: String)
-        /// Public XCTest cannot enumerate the foreground app, so the runner has
-        /// no handle yet and cannot answer.
         case indeterminate(String)
     }
 
@@ -63,7 +51,6 @@ struct RunnerOracle: Sendable {
         }
     }
 
-    /// System alerts render in SpringBoard's hierarchy, so they are queried there.
     func springboardAlerts() async -> Answer<[AlertInfo]> {
         await query { try await $0.alerts(target: .springboard).alerts }
     }
@@ -76,9 +63,6 @@ struct RunnerOracle: Sendable {
         await query { try await $0.tree(target: target, maxDepth: maxDepth).tree }
     }
 
-    /// Planners carry display names ("Safari") while the runner reports bundle
-    /// IDs ("com.apple.mobilesafari"); containment bridges the two until plans
-    /// carry real bundle IDs.
     static func refersToSameApp(_ observed: String, _ query: String) -> Bool {
         guard !observed.isEmpty, !query.isEmpty else { return false }
         return observed.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil

@@ -1,11 +1,8 @@
 import Foundation
 
-/// One phase of a platform's warm-up schedule: what the agent may do,
-/// how much of it, and what is still off-limits that day.
 struct WarmUpPhasePlan: Sendable {
     var title: String
     var firstDay: Int
-    /// nil means the phase continues indefinitely.
     var lastDay: Int?
     var activities: [InteractionKind]
     var maxLikes: Int
@@ -14,7 +11,6 @@ struct WarmUpPhasePlan: Sendable {
     var maxPosts: Int
     var allowsDirectMessages: Bool
     var allowsPosting: Bool { maxPosts > 0 }
-    /// Platform- and phase-specific behavior injected into the prompt.
     var guidance: String
 
     func contains(day: Int) -> Bool {
@@ -22,8 +18,6 @@ struct WarmUpPhasePlan: Sendable {
     }
 }
 
-/// Gradual, human-looking activity ramps for new accounts. Consume more
-/// than you post early; raise volume slowly; keep early content casual.
 enum WarmUpPlaybook {
     static let platforms: [Platform] = [.tikTok, .instagram, .x, .youtube]
 
@@ -123,8 +117,6 @@ enum WarmUpPlaybook {
         }
     }
 
-    /// Where each app shows the signed-in account's handle, so the agent can
-    /// confirm it is driving the persona's account before any engagement.
     static func accountLocation(for platform: Platform) -> String {
         switch platform {
         case .tikTok:
@@ -146,7 +138,6 @@ enum WarmUpPlaybook {
     }
 }
 
-/// Form values become the explicit brief for the phone warm-up workflow.
 struct WarmUpConfiguration: Sendable {
     var activity: WarmUpActivity = .watch
     var contentInstructions = ""
@@ -178,7 +169,6 @@ struct WarmUpConfiguration: Sendable {
         """
     }
 
-    /// The handle as the app displays it: no surrounding whitespace or leading @.
     var normalizedHandle: String {
         var handle = trim(profileHandle)
         while handle.hasPrefix("@") { handle.removeFirst() }
@@ -187,8 +177,6 @@ struct WarmUpConfiguration: Sendable {
 
     var hasHandle: Bool { !normalizedHandle.isEmpty }
 
-    /// The first thing the agent does: prove the phone is signed in as this
-    /// persona. Any other account, or a signed-out app, stops the run.
     var accountCheck: String {
         """
         Account check, before anything else: open \(platform.displayName). \(WarmUpPlaybook.accountLocation(for: platform)) Confirm the signed-in handle is exactly @\(normalizedHandle) (ignore letter case). If the app shows a sign-in or sign-up screen, an account picker, no handle, or any other handle, STOP and request input; do not browse, like, follow, comment, search, or post. Never sign in, sign out, switch accounts, or enter credentials. Only after confirming the handle, return to the feed and start the session.

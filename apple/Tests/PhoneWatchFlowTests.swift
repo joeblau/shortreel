@@ -117,8 +117,6 @@ import Foundation
         try T.expect((estimated.durationSeconds ?? 0) > 60, "Two consistent progress intervals did not establish an overlong video")
         let readable = tracker.observe(longVideo(0.22, duration: 30), at: date.addingTimeInterval(12))
         try T.expect(readable.durationSeconds == 30, "Estimated duration overrode the readable duration")
-        // A successful-looking model answer cannot authorize browsing if the
-        // exact typed query is absent from the actual search-field OCR.
         let observe = rig.observeOverride!
         rig.actions = []; rig.captures = 0; rig.locatorCalls = 0
         rig.readTextOverride = { frame, platform in
@@ -134,8 +132,6 @@ import Foundation
         }
         try await T.rejects { _ = try await rig.run(workflow: .warmUp, script: script) }
         try T.expect(rig.actions.last == .typeText("swing trading") && !rig.actions.contains(.swipe(.up)), "Missing query allowed browsing")
-        // A model can recognize a player after a failed swipe; its identity
-        // must still change before the next item can be watched or counted.
         rig.actions = []; rig.captures = 0; rig.locatorCalls = 0
         rig.readTextOverride = { frame, platform in
             .init(sourceID: frame.sourceID, capturedAt: frame.capturedAt, platform: platform,

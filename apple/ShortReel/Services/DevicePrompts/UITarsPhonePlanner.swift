@@ -1,7 +1,5 @@
 import Foundation
 
-/// Uses the model service configured by @ui-tars/cli. ShortReel retains screen
-/// capture and phone input; the CLI's desktop/ADB operators are never started.
 enum UITarsPhonePlanner {
     struct Configuration: Decodable, Sendable {
         let baseURL: String
@@ -10,7 +8,6 @@ enum UITarsPhonePlanner {
         var useResponsesApi: Bool = false
         enum CoordinateSpace: String, Decodable, Sendable { case normalized1000, uiTars15 }
         var coordinateSpace: CoordinateSpace
-
 
         enum CodingKeys: String, CodingKey { case baseURL, apiKey, model, useResponsesApi, coordinateSpace }
 
@@ -36,8 +33,6 @@ enum UITarsPhonePlanner {
             return name.contains("ui-tars") && (name.contains("1.5") || name.contains("1-5")) ? .uiTars15 : .normalized1000
         }
 
-        /// Matches UI-TARS' smartResizeForV15: coordinates refer to the model's
-        /// 28-pixel-aligned image, not a square 1000-unit coordinate system.
         func coordinateDimensions(width: Int, height: Int) throws -> (width: Double, height: Double) {
             guard (1...8192).contains(width), (1...8192).contains(height) else {
                 throw PhoneVisionError.invalidDecision("Invalid screenshot dimensions.")
@@ -95,7 +90,6 @@ enum UITarsPhonePlanner {
         }
     }
 
-    /// A saved @ui-tars/cli configuration wins; otherwise the local server.
     @MainActor static var unavailabilityReason: String? {
         if FileManager.default.fileExists(atPath: configurationURL.path) {
             do { _ = try loadConfiguration(); return nil }
@@ -128,7 +122,6 @@ enum UITarsPhonePlanner {
             configuration: resolveConfiguration(), session: session)
     }
 
-    /// Injectable transport for request/response tests, without a model or phone.
     static func nextDecision(goal: String, frame: PhoneScreenFrame, history: [PhoneVisionStep],
                              configuration: Configuration, session: URLSession) async throws -> PhoneVisionDecision {
         try Task.checkCancellation()
@@ -136,8 +129,6 @@ enum UITarsPhonePlanner {
         if [.foregroundApp, .unknown].contains(observation.state),
            let plan = try? DevicePromptPlanner.plan(goal), plan.actions.count == 1,
            case .openApp(let app) = plan.actions.first {
-            // Layout recognition is not app identity. In particular, an UNKNOWN
-            // browser page must not prevent switching to the requested app.
             let launch = try await inspectAppLaunch(app: app, frame: frame,
                 configuration: configuration, session: session)
             switch launch.state {
@@ -147,8 +138,6 @@ enum UITarsPhonePlanner {
                 if observation.state == .unknown {
                     return .action(.press(.assistiveTouch), reason: "Open AssistiveTouch to locate its Home control. " + launch.evidence)
                 }
-                // Plan a tap on the visible AssistiveTouch button, then inspect
-                // its menu on the next frame before selecting Home.
                 break
             case .unavailable:
                 return .needsInput("The phone’s screen needs attention before opening \(app). " + launch.evidence)
@@ -180,8 +169,6 @@ enum UITarsPhonePlanner {
         throw PhoneVisionError.invalidDecision("The screen check did not authorize an action.")
     }
 
-    /// Home launches prefer a visible icon; Spotlight is the fallback.
-    /// Coordinates always come from the current phone's screenshot.
     static func isHomeLaunch(goal: String, observation: PhoneScreenObservation) -> Bool {
         guard observation.state == .home,
               let plan = try? DevicePromptPlanner.plan(goal),
@@ -212,7 +199,6 @@ enum UITarsPhonePlanner {
             let (bytes, response) = try await session.bytes(for: request, delegate: NoRedirects())
             guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
             guard (200...299).contains(response.statusCode) else {
-                // Never echo server bodies: they can contain credentials or request data.
                 throw PhoneVisionError.unavailable("UI-TARS model service returned HTTP \(response.statusCode). Check its endpoint, credentials, and model configuration.")
             }
             guard response.expectedContentLength <= 1_048_576 else { throw oversizedResponse() }
@@ -260,8 +246,6 @@ enum UITarsPhonePlanner {
         return try makeImageRequest(text: prompt, frame: frame, configuration: configuration, maxTokens: 1000, history: history)
     }
 
-    /// The two most recent transitions plus the CURRENT frame, labelled and
-    /// bounded. Never include a frame from another phone or a later timestamp.
     static func makeImageRequest(text prompt: String, frame: PhoneScreenFrame,
                                  configuration: Configuration, maxTokens: Int,
                                  history: [PhoneVisionStep] = []) throws -> URLRequest {
@@ -312,7 +296,6 @@ enum UITarsPhonePlanner {
         return try UITarsActionDecoder.decode(prediction, coordinateWidth: coordinateWidth, coordinateHeight: coordinateHeight)
     }
 
-    /// The single assistant message in a completed response, or nothing.
     static func responseText(_ data: Data, useResponsesApi: Bool) throws -> String {
         guard data.count <= 1_048_576,
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw oversizedResponse() }
@@ -320,7 +303,6 @@ enum UITarsPhonePlanner {
         if useResponsesApi {
             guard object["status"] as? String == "completed",
                   let output = object["output"] as? [[String: Any]] else { throw invalidResponse() }
-            // Ignore reasoning metadata; only an assistant message can authorize input.
             let messages = output.filter { $0["type"] as? String == "message" }
             guard output.allSatisfy({ ["message", "reasoning"].contains($0["type"] as? String ?? "") }),
                   messages.count == 1, messages[0]["role"] as? String == "assistant",

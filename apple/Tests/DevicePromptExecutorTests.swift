@@ -1,6 +1,5 @@
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/DevicePrompts/{WarmUpScript,WarmUpPlaybook,DeviceWorkflow,DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,DevicePromptExecutor}.swift Tests/DevicePromptExecutorTests.swift -o /tmp/shortreel-prompt-executor-tests
 @main
 enum DevicePromptExecutorTests {
     @MainActor
@@ -44,9 +43,6 @@ enum DevicePromptExecutorTests {
 
     @MainActor
     private static func compoundActionsThrowBeforeInput(_ device: DeviceDescriptor) async throws {
-        // Compound scripted sequences are gone: openApp/search must be rejected
-        // before any input reaches the driver. The visual loop only ever emits
-        // single primitives (validated() rejects these model-side as well).
         for action: PhonePromptAction in [.openApp("App Store"), .search("Safari")] {
             let host = RecordingDeviceHost()
             do {
@@ -110,8 +106,6 @@ enum DevicePromptExecutorTests {
         for (key, name): (PhoneKey, String) in [(.selectAll, "selectAll"), (.addressBar, "addressBar")] {
             let host = RecordingDeviceHost()
             try await DevicePromptExecutor.perform(.press(key), using: host, on: device)
-            // The visual loop must be able to observe the selected field after
-            // this shortcut, before any typing or subsequent key is dispatched.
             expect(host, [.key(name)], on: device)
         }
         let failing = RecordingDeviceHost()

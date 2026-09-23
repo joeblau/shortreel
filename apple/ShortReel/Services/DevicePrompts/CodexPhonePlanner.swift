@@ -1,8 +1,5 @@
 import Foundation
 
-/// Codex supplies vision decisions; ShortReel alone sends inputs to the phone.
-/// Each invocation is ephemeral and owns its files, so concurrent phones never
-/// share a CLI conversation, screenshot, or output path.
 enum CodexPhonePlanner {
     static let defaultModel = "gpt-6-astra"
 
@@ -116,15 +113,12 @@ enum CodexPhonePlanner {
         }
         let arguments = try arguments(directory: directory, instructions: instructions, schema: schemaURL,
                                       output: output, images: imageURLs, model: configuration.model)
-        // Retain CLI authentication, but do not inherit this parent agent's
-        // thread attribution or logging. Never read or copy credential contents.
         let environment = PhonePlannerProcess.environment(configuration.environment, executable: configuration.executable, authenticationKeys: ["CODEX_HOME"])
         let result = try await PhonePlannerProcess.run(executable: configuration.executable, arguments: arguments,
             directory: directory, input: Data((prompt + (labels.isEmpty ? "" : "\nAttached images, in order:\n" + labels.joined(separator: "\n"))).utf8),
             environment: environment, timeout: configuration.timeout, maximumOutputBytes: 1_000_000)
         try Task.checkCancellation()
         guard result.exitCode == 0 else {
-            // CLI diagnostics can contain prompts or credentials; never echo them.
             throw PhoneVisionError.unavailable("The Codex CLI exited with status \(result.exitCode). Run ‘codex login’ and check that ‘codex exec’ works in Terminal. A current Codex CLI is required.")
         }
         guard let handle = try? FileHandle(forReadingFrom: output) else {
@@ -140,8 +134,6 @@ enum CodexPhonePlanner {
 
     static func arguments(directory: URL, instructions: URL, schema: URL, output: URL, images: [URL], model: String = defaultModel) throws -> [String] {
         guard PhoneVisionProvider.isValidModel(model) else { throw PhoneVisionError.invalidDecision("Choose a valid Codex model ID.") }
-        // JSON string encoding without escaped slashes is valid TOML here.
-        // These are literal argv entries, never interpolated shell commands.
         let encoder = JSONEncoder()
         encoder.outputFormatting = .withoutEscapingSlashes
         let instructionPath = String(decoding: try encoder.encode(instructions.path), as: UTF8.self)

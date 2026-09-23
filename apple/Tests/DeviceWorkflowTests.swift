@@ -1,7 +1,6 @@
 import AppKit
 import Foundation
 
-// Run Tests/run-transactions.sh from apple/.
 @main @MainActor enum DeviceWorkflowTests {
     typealias T = TransactionTestSupport
     enum Failure: Error { case assertion(String) }
@@ -93,7 +92,6 @@ import Foundation
         let screenshot = frame(after: .distantPast, labels: [
             ("Delete App", 500), ("Remove from Home Screen", 400), ("Cancel", 300)
         ])
-        // Labels are drawn with a bottom-left origin; inputs use top-left.
         let prepared = try await HomeScreenRemovalGuard.prepare(.tap(0.95, 1 - 415.0 / 1000), frame: screenshot)
         guard case .tap(let x, _) = prepared else { throw Failure.assertion("OCR did not return a tap") }
         try expect(abs(x - 0.5) < 0.03, "Real OCR failed to ground an off-label removal tap")

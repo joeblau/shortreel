@@ -29,14 +29,14 @@ static NSData *HIDHandshake(uint8_t status) { return HIDBytes(&status, 1); }
     const uint8_t *bytes = packet.bytes;
     uint8_t header = bytes[0], transaction = header >> 4, parameter = header & 0x0F;
     switch (transaction) {
-        case 0: return nil; // A handshake is never itself acknowledged.
-        case 1: // HID_CONTROL is not acknowledged.
+        case 0: return nil;
+        case 1:
             if (packet.length != 1) return nil;
             if (parameter == 3) _suspended = YES;
             if (parameter == 4) _suspended = NO;
             if (parameter == 5) _unplugged = YES;
             return nil;
-        case 4: { // GET_REPORT, optionally limited by the host buffer size.
+        case 4: {
             BOOL sized = (parameter & 8) != 0;
             if ((parameter & 4) || packet.length != (sized ? 4 : 2)) return HIDHandshake(4);
             uint8_t type = parameter & 3, reportID = bytes[1];
@@ -54,24 +54,24 @@ static NSData *HIDHandshake(uint8_t status) { return HIDBytes(&status, 1); }
             [response appendData:[report subdataWithRange:NSMakeRange(0, length)]];
             return response;
         }
-        case 5: // SET_REPORT supports the keyboard LED output report.
+        case 5:
             if (parameter != 2 || packet.length < 2) return HIDHandshake(4);
             if (bytes[1] != 1) return HIDHandshake(2);
             if (packet.length != 3) return HIDHandshake(4);
             _keyboardLEDs = bytes[2] & 0x1F;
             return HIDHandshake(0);
-        case 6: { // GET_PROTOCOL: report mode.
+        case 6: {
             if (parameter || packet.length != 1) return HIDHandshake(4);
             uint8_t response[] = {0xA0, 1};
             return HIDBytes(response, sizeof(response));
         }
-        case 7: // Boot mode is not advertised by the service record.
+        case 7:
             if (packet.length != 1 || parameter > 1) return HIDHandshake(4);
             return HIDHandshake(parameter == 1 ? 0 : 3);
-        case 10: // Unacknowledged keyboard output DATA.
+        case 10:
             if (parameter == 2 && packet.length == 3 && bytes[1] == 1) _keyboardLEDs = bytes[2] & 0x1F;
             return nil;
-        default: return HIDHandshake(3); // Unsupported request.
+        default: return HIDHandshake(3);
     }
 }
 @end

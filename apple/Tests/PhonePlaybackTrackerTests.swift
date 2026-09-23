@@ -2,7 +2,6 @@ import AppKit
 import CoreGraphics
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,PhonePlaybackTracker}.swift Tests/PhonePlaybackTrackerTests.swift -o /tmp/shortreel-playback-tests && /tmp/shortreel-playback-tests
 @main
 enum PhonePlaybackTrackerTests {
     enum Failure: Error { case assertion(String) }
@@ -25,8 +24,6 @@ enum PhonePlaybackTrackerTests {
         try check(!tracker.observe(observation("0:09 / 0:10", at: 3)).replayCandidate, "Near-end timer cannot prove completion")
         try check(tracker.observe(observation("0:00 / 0:10", at: 5)).replayCandidate, "Same-player progress reset should flag replay for review")
 
-        // Each boundary must prevent history from one viewing establishing a
-        // different viewing's completion.
         let boundaries: [PhonePlaybackTracker.Observation] = [
             observation("0:00/0:10", at: 5, source: "SR2"),
             observation("0:00/0:10", at: 5, platform: "YouTube"),

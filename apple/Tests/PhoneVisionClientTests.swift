@@ -1,7 +1,5 @@
 import Foundation
 
-// Compile with DevicePromptPlan.swift, DevicePromptPlanner.swift,
-// PhoneVisionTypes.swift, and PhoneVisionClient.swift. No model or phone is used.
 @main
 enum PhoneVisionClientTests {
     @MainActor
@@ -9,7 +7,6 @@ enum PhoneVisionClientTests {
         let photos = PhoneVisionClient.GroundingTarget(id: 0, text: "Photos", x: 0.74, y: 0.83)
         let trash = PhoneVisionClient.GroundingTarget(id: 1, text: "Trash", x: 0.25, y: 0.12)
 
-        // OCR geometry replaces every model-supplied coordinate for a label.
         let grounded = try PhoneVisionClient.groundedPointerDecision(
             proposed: .tap(0.1, 0.2), targetID: 0, targets: [photos],
             goal: "Open Photos", reason: "Tap the visible Photos label."
@@ -50,7 +47,6 @@ enum PhoneVisionClientTests {
         try expectNeedsInput(.init(proposed: .drag(0, 0, 1, 1), targetID: 0, endTargetID: 0, targets: [photos], goal: "Drag Photos", reason: "Drag Photos."))
         try expectNeedsInput(.init(proposed: .drag(0, 0, 1, 1), goal: "Drag the icon", reason: "Drag the icon."))
 
-        // The public action validator is still enforced after OCR resolution.
         let invalid = PhoneVisionClient.GroundingTarget(id: 0, text: "Photos", x: .nan, y: 0.4)
         do {
             _ = try PhoneVisionClient.groundedPointerDecision(proposed: .tap(0, 0), targetID: 0, targets: [invalid], goal: "Open Photos", reason: "Tap Photos.")

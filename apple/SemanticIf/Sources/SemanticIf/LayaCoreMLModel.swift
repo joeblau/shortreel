@@ -4,8 +4,6 @@ import Foundation
 import Hub
 import Tokenizers
 
-/// Laya's released multilingual Core ML model, with native Swift tokenization,
-/// input construction and calibrated choice readout. No Python runtime is used.
 public actor LayaCoreMLModel: SemanticIfScoring {
     public static let modelID = "aac6fef/laya-multilingual-coreml"
     public static let checkpointRevision = "8139e9089273319512c730218903784074133187"
@@ -17,8 +15,6 @@ public actor LayaCoreMLModel: SemanticIfScoring {
     private let manifest: Manifest
     private let agent: AgentConfiguration
 
-    /// An explicit directory supports offline installations and integration tests.
-    /// Otherwise the pinned bundle downloads once into Application Support.
     public init(modelDirectory: URL? = nil) async throws {
         try Task.checkCancellation()
         let directory: URL
@@ -60,13 +56,10 @@ public actor LayaCoreMLModel: SemanticIfScoring {
             try Task.checkCancellation()
             do { try FileManager.default.moveItem(at: temporary, to: compiled) }
             catch {
-                // A simultaneous load can finish the same immutable bundle first.
                 guard FileManager.default.fileExists(atPath: compiled.path) else { throw error }
             }
         }
         let configuration = MLModelConfiguration()
-        // This general-purpose export is validated on CPU + GPU. Merely selecting
-        // Neural Engine here does not turn it into upstream's separate ANE graph.
         configuration.computeUnits = .cpuAndGPU
         model = try MLModel(contentsOf: compiled, configuration: configuration)
     }
@@ -102,7 +95,6 @@ public actor LayaCoreMLModel: SemanticIfScoring {
         let input = try prepare(row)
         let batch = try Self.batch(input, pad: tokens.pad, maxOptions: manifest.shape.max_options)
         let forwardStarted = ContinuousClock.now
-        // The actor serializes predictions; MLModel and MLMultiArray stay inside it.
         let output = try predict(batch)
         try Task.checkCancellation()
         let forwardSeconds = Self.seconds(since: forwardStarted)
@@ -118,7 +110,6 @@ public actor LayaCoreMLModel: SemanticIfScoring {
         let temperature = try LayaPrompt.temperature(count: values.count,
             defaults: agent.temperature, buckets: agent.temperature_by_options)
         let probabilities = try LayaPrompt.probabilities(logits: values, temperature: temperature)
-        // Resolve ties in declaration order, matching numpy.argmax.
         let ranked = probabilities.indices.sorted {
             probabilities[$0] == probabilities[$1] ? $0 < $1 : probabilities[$0] > probabilities[$1]
         }
@@ -141,7 +132,7 @@ public actor LayaCoreMLModel: SemanticIfScoring {
             return array
         }
         let qtype = try MLMultiArray(shape: [1], dataType: .int32)
-        qtype[0] = 0  // choice
+        qtype[0] = 0
         return try MLDictionaryFeatureProvider(dictionary: [
             "input_ids": array(input.ids, count: input.paddedLength, fill: pad),
             "attention_mask": array(Array(repeating: 1, count: input.ids.count), count: input.paddedLength),
@@ -181,8 +172,6 @@ public actor LayaCoreMLModel: SemanticIfScoring {
         let temperature_by_options: [String: Float]
     }
 
-    /// Pin the release and stream-check every asset, including the weights.
-    /// This also detects incomplete downloads before loading cached compiled code.
     private static func validateBundle(_ directory: URL) throws -> Manifest {
         let manifestURL = directory.appending(path: "coreml_config.json")
         guard try digestFile(manifestURL) == manifestHash else {

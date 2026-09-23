@@ -1,8 +1,5 @@
 import Foundation
 
-// From apple/: swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift
-// ShortReel/Services/DevicePrompts/{WarmUpScript,WarmUpPlaybook,DeviceWorkflow,DevicePromptPlanner,DevicePromptPlan}.swift Tests/WarmUpConfigurationTests.swift
-// -o /tmp/shortreel-warmup-tests && /tmp/shortreel-warmup-tests
 @main
 enum WarmUpConfigurationTests {
     enum Failure: Error { case assertion(String) }

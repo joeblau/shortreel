@@ -1,7 +1,5 @@
 import Foundation
 
-/// Workflow goals. Warm-up can additionally use a script of verified milestones;
-/// every physical input is still chosen from a fresh screen.
 enum DeviceWorkflow: String, CaseIterable, Identifiable, Sendable {
     case clearHomeScreen, warmUp, createContent
 
@@ -70,7 +68,6 @@ enum ContentCreationType: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Form values become the explicit brief for the existing phone workflow.
 struct SlideshowConfiguration: Sendable {
     var destination = "TikTok"
     var topic = ""

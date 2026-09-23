@@ -5,13 +5,6 @@ import OSLog
 
 private let log = Logger(subsystem: "com.joeblau.shortreel", category: "BluetoothHID")
 
-/// Real device host: publishes this Mac as a Bluetooth Classic HID
-/// mouse + keyboard (the TapKit approach — see docs/tapkit-reverse-engineering.md)
-/// and drives iPhones that pair with it from AssistiveTouch.
-///
-/// BluetoothDiscovery initiates bonding with the selected phone. `connect`
-/// requests a bonded reconnect and waits for both HID channels before reporting
-/// that the phone is controllable.
 @MainActor
 final class BluetoothHIDHost: DeviceHost {
     let events: AsyncStream<DeviceHostEvent>
@@ -19,16 +12,11 @@ final class BluetoothHIDHost: DeviceHost {
     private let bridge = CBHIDBridge()
 
     private var started = false
-    /// Device identifiers currently waiting for a phone to pair.
     private var waiting: Set<String> = []
-    /// Device identifier → continuation to resume once its phone connects.
     private var pending: [String: CheckedContinuation<Void, Error>] = [:]
     private var connectionTimeouts: [String: Task<Void, Never>] = [:]
-    /// Normalized Bluetooth address → device identifier, learned on connect.
     private var identifiersByAddress: [String: String] = [:]
-    /// Device identifier → normalized Bluetooth address.
     private var addressesByIdentifier: [String: String] = [:]
-    /// Addresses with both HID channels open.
     private var liveAddresses: Set<String> = []
 
     init() {
@@ -53,8 +41,6 @@ final class BluetoothHIDHost: DeviceHost {
             }
         }
     }
-
-    // MARK: - DeviceHost
 
     func prepareForPairing() throws {
         try ensureStarted()
@@ -81,9 +67,6 @@ final class BluetoothHIDHost: DeviceHost {
             try await withCheckedThrowingContinuation { (cc: CheckedContinuation<Void, Error>) in
                 pending[device.identifier] = cc
                 connectionTimeouts[device.identifier] = Task { [weak self] in
-                    // A first connection can trigger the system permission prompt.
-                    // Surface a denial promptly instead of waiting for HID channels
-                    // that macOS cannot deliver without authorization.
                     for _ in 0..<180 {
                         do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
                         guard let self, self.pending[device.identifier] != nil else { return }
@@ -118,9 +101,6 @@ final class BluetoothHIDHost: DeviceHost {
         continuation.yield(.connectionChanged(identifier: device.identifier, state: .disconnected))
     }
 
-    /// A saved phone may reconnect on its own only while its bond with this
-    /// Mac still exists; everything else (stale entries, invented addresses)
-    /// must wait for an explicit selection in the scan sheet.
     func canAutoConnect(_ device: DeviceDescriptor) -> Bool {
         guard let address = normalizedAddress(for: device) else { return false }
         return IOBluetoothDevice(addressString: Self.format(address: address))?.isPaired() ?? false
@@ -131,7 +111,6 @@ final class BluetoothHIDHost: DeviceHost {
         try Task.checkCancellation()
         defer { try? send(mouseReport(buttons: 0, point: point), to: device) }
         try send(mouseReport(buttons: 0, point: point), to: device)
-        // Let AssistiveTouch finish moving/snapping the pointer before pressing.
         try await Task.sleep(for: .milliseconds(100))
         try Task.checkCancellation()
         try send(mouseReport(buttons: 1, point: point), to: device)
@@ -151,7 +130,6 @@ final class BluetoothHIDHost: DeviceHost {
         try send(mouseReport(buttons: 0, point: point), to: device)
     }
 
-    /// A visible, non-clicking check of the actual input path.
     func testPointer(on device: DeviceDescriptor) async throws {
         try ensureConnected(device)
         for point in [NormalizedPoint(x: 0.25, y: 0.25), NormalizedPoint(x: 0.75, y: 0.75), NormalizedPoint(x: 0.5, y: 0.5)] {
@@ -226,9 +204,9 @@ final class BluetoothHIDHost: DeviceHost {
         case .home:
             try await goHome(on: device)
             return
-        case .search: (code, modifiers) = (0x2C, 0x08) // Command-Space
+        case .search: (code, modifiers) = (0x2C, 0x08)
         case .selectAll: (code, modifiers) = (0x04, 0x08)
-        case .addressBar: (code, modifiers) = (0x0F, 0x08) // Command-L
+        case .addressBar: (code, modifiers) = (0x0F, 0x08)
         case .enter: (code, modifiers) = (0x28, 0)
         case .escape: (code, modifiers) = (0x29, 0)
         case .backspace: (code, modifiers) = (0x2A, 0)
@@ -240,11 +218,11 @@ final class BluetoothHIDHost: DeviceHost {
         case .arrowLeft: (code, modifiers) = (0x50, 0)
         case .arrowDown: (code, modifiers) = (0x51, 0)
         case .arrowUp: (code, modifiers) = (0x52, 0)
-        case .copy: (code, modifiers) = (0x06, 0x08) // Command-C
-        case .cut: (code, modifiers) = (0x1B, 0x08) // Command-X
-        case .paste: (code, modifiers) = (0x19, 0x08) // Command-V
-        case .undo: (code, modifiers) = (0x1D, 0x08) // Command-Z
-        case .redo: (code, modifiers) = (0x1D, 0x0A) // Command-Shift-Z
+        case .copy: (code, modifiers) = (0x06, 0x08)
+        case .cut: (code, modifiers) = (0x1B, 0x08)
+        case .paste: (code, modifiers) = (0x19, 0x08)
+        case .undo: (code, modifiers) = (0x1D, 0x08)
+        case .redo: (code, modifiers) = (0x1D, 0x0A)
         }
         defer { try? send(keyboardReport(modifiers: 0, keycode: 0), to: device) }
         try send(keyboardReport(modifiers: modifiers, keycode: code), to: device)
@@ -252,11 +230,6 @@ final class BluetoothHIDHost: DeviceHost {
         try send(keyboardReport(modifiers: 0, keycode: 0), to: device)
     }
 
-    /// TapKit's verified Home gesture (docs/tapkit-reverse-engineering.md):
-    /// settle at the bottom edge, hold the press half a second so iOS grabs
-    /// the home indicator, then a smoothstep drag to the very top with
-    /// continuous motion through release. A short flick is ignored, and a
-    /// short swipe with a pause opens App Switcher instead.
     private func goHome(on device: DeviceDescriptor) async throws {
         try Task.checkCancellation()
         let start = NormalizedPoint(x: 0.5, y: 0.99)
@@ -282,9 +255,6 @@ final class BluetoothHIDHost: DeviceHost {
         try send(mouseReport(buttons: 0, point: end), to: device)
     }
 
-    /// App Switcher starts at the bottom edge and moves immediately,
-    /// then stops mid-screen and holds there before release.
-    /// Continuing to the top would go Home instead.
     func openAppSwitcher(on device: DeviceDescriptor) async throws {
         try ensureConnected(device)
         try Task.checkCancellation()
@@ -295,8 +265,6 @@ final class BluetoothHIDHost: DeviceHost {
         try send(mouseReport(buttons: 0, point: start), to: device)
         try await Task.sleep(for: .milliseconds(100))
         try send(mouseReport(buttons: 1, point: start), to: device)
-        // Start moving immediately. Holding down on Home before moving can
-        // trigger icon editing when AssistiveTouch snaps to a dock item.
 
         let steps = 18
         for step in 1...steps {
@@ -309,19 +277,13 @@ final class BluetoothHIDHost: DeviceHost {
         try await Task.sleep(for: .milliseconds(900))
     }
 
-    // MARK: - Bridge events
-
     private func peerChannelsChanged(address: String, name: String, fullyOpen: Bool) {
         if fullyOpen {
-            // Bonding can open channels before the registry saves the phone.
             liveAddresses.insert(address)
             let identifier: String
             if let known = resolveIdentifier(for: address) {
                 identifier = known
             } else {
-                // A phone can initiate pairing while the scan sheet is open.
-                // Both real HID channels prove its identity; no manual entry
-                // or guessed address is needed to save that phone.
                 guard address.count == 12, address.allSatisfy(\.isHexDigit) else { return }
                 identifier = Self.format(address: address)
                 continuation.yield(.discovered(DeviceDescriptor(identifier: identifier,
@@ -334,7 +296,6 @@ final class BluetoothHIDHost: DeviceHost {
             pending.removeValue(forKey: identifier)?.resume()
             connectionTimeouts.removeValue(forKey: identifier)?.cancel()
         } else if liveAddresses.contains(address) {
-            // One of the two HID channels closed — the phone is gone.
             liveAddresses.remove(address)
             if let identifier = identifiersByAddress[address] {
                 continuation.yield(.connectionChanged(identifier: identifier, state: .disconnected))
@@ -345,16 +306,13 @@ final class BluetoothHIDHost: DeviceHost {
     private func peerDisconnected(address: String) {
         liveAddresses.remove(address)
         guard let identifier = identifiersByAddress[address] else { return }
-        if waiting.contains(identifier) { return } // will reconnect via a fresh connect()
+        if waiting.contains(identifier) { return }
         continuation.yield(.connectionChanged(identifier: identifier, state: .disconnected))
     }
 
-    /// Only the address selected in discovery may control a saved device.
     private func resolveIdentifier(for address: String) -> String? {
         identifiersByAddress[address]
     }
-
-    // MARK: - Reports
 
     private func send(_ report: [UInt8], to device: DeviceDescriptor) throws {
         guard let address = addressesByIdentifier[device.identifier] ?? normalizedAddress(for: device) else {
@@ -369,8 +327,6 @@ final class BluetoothHIDHost: DeviceHost {
         }
     }
 
-    /// Report ID 2: 4 button bytes, then absolute X and Y as little-endian
-    /// 16-bit values in 0...32767 (iOS maps that to the whole screen).
     private func mouseReport(buttons: UInt32, point: NormalizedPoint) -> [UInt8] {
         func axis(_ value: Double) -> (UInt8, UInt8) {
             let scaled = UInt16(max(0, min(1, value)) * 32767)
@@ -386,15 +342,11 @@ final class BluetoothHIDHost: DeviceHost {
         ]
     }
 
-    /// Report ID 1: modifier byte, reserved byte, six keycodes.
     private func keyboardReport(modifiers: UInt8, keycode: UInt8) -> [UInt8] {
         [0xA1, 0x01, modifiers, 0x00, keycode, 0x00, 0x00, 0x00, 0x00, 0x00]
     }
 
-    // MARK: - Helpers
-
     private func ensureStarted() throws {
-        // Permission can change after the bridge has already been initialized.
         try ensureBluetoothPermission()
         guard !started else { return }
         let name = Host.current().localizedName ?? "ShortReel"
@@ -442,15 +394,12 @@ final class BluetoothHIDHost: DeviceHost {
         pending.resume(throwing: error)
     }
 
-    /// Registers the device's stored Bluetooth address, if it holds one.
     private func registerAddress(for device: DeviceDescriptor) {
         guard let address = normalizedAddress(for: device) else { return }
         identifiersByAddress[address] = device.identifier
         addressesByIdentifier[device.identifier] = address
     }
 
-    /// A stored identifier is a real address only if it looks like one —
-    /// placeholders ("pending-…", random IDs from older stores) are ignored.
     private func normalizedAddress(for device: DeviceDescriptor) -> String? {
         let raw = device.identifier
         guard raw.allSatisfy({ $0.isASCII && ($0.isHexDigit || $0 == ":" || $0 == "-") }) else { return nil }
@@ -465,7 +414,6 @@ final class BluetoothHIDHost: DeviceHost {
     }
 }
 
-/// US-QWERTY character → USB HID keycode (usage page 0x07).
 enum HIDKeyMap {
     struct Key { var code: UInt8; var shift: Bool }
 

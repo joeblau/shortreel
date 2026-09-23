@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// The message composer, pinned to the bottom of the inspector so it stays
-/// reachable while the transcript above scrolls. Return sends; Option-Return
-/// inserts a newline.
 struct DevicePromptView: View {
     let device: Device
 
@@ -14,8 +11,6 @@ struct DevicePromptView: View {
 
         VStack(alignment: .leading, spacing: 8) {
             DeviceRunQueueView(session: session)
-            // Say why a message cannot be sent, or why the planner will not
-            // see the screen, instead of silently disabling the button.
             if let notice = notice(session) {
                 Label(notice.text, systemImage: notice.symbol)
                     .font(.caption)
@@ -52,7 +47,6 @@ struct DevicePromptView: View {
         .padding(16)
     }
 
-    /// Round send button inside the field; becomes Stop while a run is active.
     @ViewBuilder
     private func sendButton(_ session: DevicePromptSession) -> some View {
         if session.isRunning {
@@ -105,9 +99,6 @@ struct DevicePromptView: View {
     }
 }
 
-/// The transcript, oldest first. Each request is an outgoing bubble followed
-/// by the agent's incoming bubbles: what it saw, what it did, and how it
-/// ended — with a typing indicator while it is still working.
 struct DevicePromptHistory: View {
     let device: Device
 
@@ -126,9 +117,6 @@ struct DevicePromptHistory: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    // A transcript entry can grow to many screens. Lazy layout
-                    // estimated its height and scrolled before the final bubble
-                    // existed, leaving the newest result below the viewport.
                     VStack(alignment: .leading, spacing: 16) {
                         ForEach(session.entries) { entry in
                             ChatTranscriptEntry(entry: entry)
@@ -140,7 +128,6 @@ struct DevicePromptHistory: View {
                 }
                 .defaultScrollAnchor(.bottom)
                 .task(id: scrollRevision(session)) {
-                    // Wait until changed text/disclosures have their final size.
                     await Task.yield()
                     guard !Task.isCancelled else { return }
                     proxy.scrollTo("bottom", anchor: .bottom)
@@ -228,7 +215,6 @@ private struct ChatTranscriptEntry: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    // Red only for a failure — the one moment it should read as a signal.
     private func statusColor(_ status: DevicePromptStatus) -> Color {
         switch status {
         case .planning, .running: .accentColor
@@ -239,7 +225,6 @@ private struct ChatTranscriptEntry: View {
         }
     }
 
-    /// Emoji + verb for an action bubble; the full action stays in the tooltip.
     static func actionLabel(_ action: String) -> String {
         let lower = action.lowercased()
         if lower.hasPrefix("go home") || lower == "home" { return "🏠 Home" }
@@ -260,8 +245,6 @@ private enum ChatBubbleRole {
     case outgoing, incoming
 }
 
-/// A Messages-style bubble: accent-filled on the right for the user,
-/// neutral on the left for the agent.
 private struct ChatBubble<Content: View>: View {
     let role: ChatBubbleRole
     @ViewBuilder let content: Content
@@ -289,10 +272,8 @@ private struct ChatBubble<Content: View>: View {
     }
 }
 
-/// Three dots that pulse in sequence while the agent is thinking or acting.
 private struct TypingIndicator: View {
     var body: some View {
-        // Reserve a message line's height; the symbol alone is only dot-height.
         Text("…")
             .font(.body)
             .hidden()
@@ -308,10 +289,6 @@ private struct TypingIndicator: View {
     }
 }
 
-/// Picks the model client or an installed CLI planner. Lives in the inspector
-/// header, since it applies to every phone. Planners with a model choice are
-/// submenus holding their own models, so every planner's model is visible
-/// and choosing one selects that planner in the same click.
 struct PlannerMenu: View {
     @Environment(DeviceManager.self) private var deviceManager
     @State private var editingModel = false
@@ -361,7 +338,6 @@ struct PlannerMenu: View {
                 }
             }
 
-            // Classification is required for every workflow.
             Divider()
             Text("Workflow Classification (Required)")
             Text("Laya Core ML: \(deviceManager.semanticIfState.menuStatus)")
@@ -414,7 +390,6 @@ struct PlannerMenu: View {
         }
     }
 
-    /// The selected planner carries a checkmark, like a picker row.
     @ViewBuilder
     private func providerLabel(_ provider: PhoneVisionProvider) -> some View {
         if provider == deviceManager.visionProvider {
@@ -424,7 +399,6 @@ struct PlannerMenu: View {
         }
     }
 
-    /// Choosing a model also selects its planner.
     private func modelSelection(for provider: PhoneVisionProvider) -> Binding<String> {
         Binding(
             get: { deviceManager.visionModel(for: provider) },

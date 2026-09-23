@@ -14,9 +14,6 @@ enum RunnerClientError: Error, LocalizedError {
     }
 }
 
-/// HTTP client for the on-device ShortReelRunner server. The transport is
-/// injectable so tests can run without a device; production uses URLSession
-/// against the go-ios-forwarded localhost port.
 struct RunnerClient: PhoneRunnerServing {
     typealias Transport = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
@@ -109,8 +106,6 @@ struct RunnerClient: PhoneRunnerServing {
         try validate(response, data: data)
         return data
     }
-
-    // MARK: - Plumbing
 
     private func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {
         let (data, response) = try await send(request(path: path, method: "GET", query: query))

@@ -1,7 +1,6 @@
 import CoreGraphics
 import Foundation
 
-// swiftc -swift-version 6 PhoneRunnerShared/PhoneRunnerProtocol.swift ShortReel/Services/PhoneRunner/RunnerClient.swift ShortReel/Services/PhoneRunner/RunnerOracle.swift ShortReel/Services/DevicePrompts/WarmUpScript.swift ShortReel/Services/DevicePrompts/WarmUpPlaybook.swift ShortReel/Services/DevicePrompts/DeviceWorkflow.swift ShortReel/Services/DevicePrompts/DevicePromptPlan.swift ShortReel/Services/DevicePrompts/DevicePromptPlanner.swift ShortReel/Services/DevicePrompts/PhoneVisionTypes.swift ShortReel/Services/DevicePrompts/PhoneVisionClient.swift ShortReel/Services/DevicePrompts/DevicePromptVerifier.swift ShortReel/Services/DeviceHost.swift ShortReel/Models/*.swift ShortReel/Services/DevicePrompts/DevicePromptExecutor.swift Tests/RunnerOracleTests.swift -o /tmp/sr-oracle-tests
 @main @MainActor
 enum RunnerOracleTests {
     static func main() async throws {
@@ -21,8 +20,6 @@ enum RunnerOracleTests {
     private static func expect(_ condition: Bool, _ message: String) {
         precondition(condition, message)
     }
-
-    // MARK: - RunnerOracle
 
     private static func unavailableWithoutClient() async {
         let oracle = RunnerOracle()
@@ -109,15 +106,12 @@ enum RunnerOracleTests {
         expect(box.url == "http://runner.test/state/app?target=foreground", "app state path and query")
     }
 
-    // MARK: - DevicePromptVerifier ladder
-
     private static func verifierSettle() async {
         var verifier = DevicePromptVerifier(capture: capture(sizes: [1000]))
         verifier.settleTimeout = 1
         var check = await verifier.checkFactory(.screenSettles)
         guard case .satisfied = await check() else { preconditionFailure("a steady screen must settle") }
 
-        // Encoder noise within tolerance still counts as settled.
         verifier = DevicePromptVerifier(capture: capture(sizes: [1000, 1200]))
         verifier.settleTimeout = 1
         check = await verifier.checkFactory(.screenSettles)
@@ -150,7 +144,6 @@ enum RunnerOracleTests {
         guard case .failed(let mismatch) = await check() else { preconditionFailure("wrong app must fail") }
         expect(mismatch.contains("mobilesafari"), "the mismatch names the observed app")
 
-        // An indeterminate scalar falls back to frame-settle.
         fake.appStateResponse = .init(bundleID: nil, state: .unknown, springboardForeground: false)
         verifier = DevicePromptVerifier(oracle: RunnerOracle(client: fake), capture: capture(sizes: [1000]))
         verifier.settleTimeout = 1
@@ -177,7 +170,6 @@ enum RunnerOracleTests {
         check = await verifier.checkFactory(.textDisappears("hello"))
         guard case .failed = await check() else { preconditionFailure("lingering text must fail disappearance") }
 
-        // Without a screen, the tree rung answers the same question.
         let fake = FakeRunner()
         fake.treeResponse = .init(target: .foreground, tree: "Button \"Save\" Label \"Cancel\"")
         verifier = DevicePromptVerifier(oracle: RunnerOracle(client: fake))
@@ -204,14 +196,12 @@ enum RunnerOracleTests {
         check = await verifier.checkFactory(.treeContains("x"))
         expect(await check() == .unverified, "no oracle skips the tree rung")
 
-        // The locked scalar beats every other rung.
         fake.lockedResponse = .init(locked: true)
         verifier = DevicePromptVerifier(oracle: RunnerOracle(client: fake), capture: capture(sizes: [1000]))
         check = await verifier.checkFactory(.screenSettles)
         guard case .failed(let locked) = await check() else { preconditionFailure("a locked phone must fail fast") }
         expect(locked.contains("locked"), "the locked failure says so")
 
-        // A showing alert is attached to failure evidence.
         fake.lockedResponse = .init(locked: false)
         fake.alertsResponse = .init(target: .springboard, alerts: [.init(title: "Allow?", buttonLabels: ["OK", "Cancel"])])
         verifier = DevicePromptVerifier(oracle: RunnerOracle(client: fake))
@@ -220,8 +210,6 @@ enum RunnerOracleTests {
         expect(withAlert.contains("Alert on the phone") && withAlert.contains("Allow?"),
             "failures surface the showing alert")
     }
-
-    // MARK: - Executor failure ladder
 
     private static func executorFailureLadder() async throws {
         let device = DeviceDescriptor(identifier: "phone", name: "Phone", transport: .bluetoothHID)
@@ -256,8 +244,6 @@ enum RunnerOracleTests {
         let box = OutcomeBox(outcomes)
         return { _ in { box.next() } }
     }
-
-    // MARK: - Fixtures
 
     private static let pixel: CGImage = {
         let context = CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,

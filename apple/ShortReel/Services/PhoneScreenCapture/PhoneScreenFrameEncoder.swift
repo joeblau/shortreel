@@ -2,9 +2,6 @@ import CoreImage
 import Foundation
 import ImageIO
 
-/// Encodes on the capture queue. Dimensions come from the integral raster
-/// bounds, and the JPEG is decoded once here so views render a ready CGImage
-/// instead of decoding on the main actor.
 enum PhoneScreenFrameEncoder {
     static func encode(_ image: CIImage, using context: CIContext,
                        capturedAt: Date, sourceID: String) -> PhoneScreenFrame? {
@@ -14,8 +11,6 @@ enum PhoneScreenFrameEncoder {
         let scale = min(1, 1280 / max(extent.width, extent.height))
         let translated = image.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
         let scaled = translated.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-        // Integral bounds prevent floating-point extents from adding a border
-        // pixel beyond the maximum size during JPEG rasterization.
         let bounds = CGRect(x: 0, y: 0, width: max(1, floor(min(1280, scaled.extent.width))),
                             height: max(1, floor(min(1280, scaled.extent.height))))
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),

@@ -1,6 +1,5 @@
 import Foundation
 
-// Run Tests/run-transactions.sh from apple/.
 @main @MainActor enum DevicePromptSessionTests {
     typealias T = TransactionTestSupport
     static func main() async throws {
@@ -182,9 +181,6 @@ import Foundation
         let fresh = DeviceRunJournal(deviceIdentifier: "phone", directory: old.fileURL.deletingLastPathComponent(), appSessionID: UUID())
         let watch = WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 3, duration: 300)
         let goal = "Platform: TikTok\nAccount check: Verify exactly @fixture, before browsing."
-        // Reproduce the screenshot: old transcript was already purged and only
-        // the legacy uncertainty flag remains. New Watch must reach the screen
-        // condition loop, launch the app, and verify the account before search.
         try old.save([], restartRequiresReview: true)
         let rig = T.Rig()
         rig.plan = .init(version: 1, phases: [try PhoneTransactionCompiler.accountPhase(script: watch)]
@@ -199,7 +195,7 @@ import Foundation
             case "account.start": return "home"
             case "account.launcher": return "present"
             case "account.profile": return "profile"
-            default: throw CancellationError() // Stop before browsing in this fixture.
+            default: throw CancellationError()
             }
         }
         let current = session(rig, journal: fresh)
@@ -213,7 +209,6 @@ import Foundation
             "Stage Watch did not enter the Semantic If screen loop after restart")
         try T.expect(!current.queuePaused, "Legacy review flag paused Watch after it started")
 
-        // A stopped Watch cannot poison the next launch's queue.
         let interrupted = DevicePromptEntry(id: UUID(), prompt: "old watch", status: .needsReview, message: "Interrupted",
             workflow: .warmUp, transactionCheckpoint: .init(phase: "account", state: "launcher", branch: nil,
                 status: .verifying, input: "tap", visits: [:]), warmUpScript: watch)
@@ -222,8 +217,6 @@ import Foundation
         try T.expect(cleared.entries.isEmpty && !cleared.restartRequiresReview && !cleared.queuePaused,
             "Interrupted Watch navigation still left a restart gate")
 
-        // A possible publication still blocks a new publishing request, survives
-        // further launches, and one acknowledgement starts only the new request.
         var publishing = interrupted
         publishing.submission = .init(state: .uncertain, activity: "post", updatedAt: Date(), detail: "Unconfirmed")
         try old.save([publishing])

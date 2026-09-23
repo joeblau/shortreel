@@ -1,7 +1,5 @@
 import Foundation
 
-/// Claude Code supplies one decision from attached images. ShortReel alone
-/// executes phone inputs, using the same instructions and decoder as Codex.
 enum ClaudePhonePlanner {
     static let defaultModel = "sonnet"
 
@@ -97,8 +95,6 @@ enum ClaudePhonePlanner {
         return data
     }
 
-    /// Ignore diagnostics and intermediate text. Only one successful final
-    /// result's structured_output can become phone input.
     static func response(from output: Data) throws -> Data {
         var final: [String: Any]?
         for line in output.split(separator: 0x0A) {

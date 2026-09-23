@@ -1,6 +1,5 @@
 import Foundation
 
-// swiftc -swift-version 6 SemanticIf/Sources/SemanticIf/SemanticIfPrompt.swift Tests/SemanticIfPromptTests.swift -o /tmp/shortreel-semif-prompt-tests
 @main
 enum SemanticIfPromptTests {
     enum Failure: Error { case assertion(String) }
@@ -38,8 +37,6 @@ enum SemanticIfPromptTests {
                 .init(id: "option-\($0)", description: "Description \($0).")
             })
     }
-
-    // MARK: - validate_row parity
 
     static func validationRejectsBadRows() throws {
         try expectThrows(SemanticIfPromptError.missingFields(["state"]), "Missing state accepted") {
@@ -108,8 +105,6 @@ enum SemanticIfPromptTests {
         .object([("id", .string(id)), ("description", .string("Description for \(id)."))])
     }
 
-    // MARK: - direct_messages parity
-
     static func letterAssignmentAndMessageShape() throws {
         let row = SemanticIfDecision(
             id: "route-1",
@@ -136,8 +131,6 @@ enum SemanticIfPromptTests {
         try expect(SemanticIfPrompt.promptVersion == "direct-options-v1", "PROMPT_VERSION drifted")
     }
 
-    // MARK: - json.dumps(value, ensure_ascii=False) parity
-
     static func pythonJSONRendering() throws {
         let value: SemanticIfJSON = .object([
             ("unicode", .string("héllo → 世界")),
@@ -157,8 +150,6 @@ enum SemanticIfPromptTests {
             && SemanticIfJSON.double(.nan).pythonDumped == "NaN", "Python non-finite rendering drifted")
     }
 
-    // MARK: - JSONL decoding
-
     static func jsonParsing() throws {
         let parsed = try SemanticIfJSON.parse(#"{"a": [1, 1.5, "x", true, null], "b": {"c": "😀"}}"#)
         let expected: SemanticIfJSON = .object([
@@ -176,8 +167,6 @@ enum SemanticIfPromptTests {
         try expect(roundTripped == parsed, "Parse/dump round trip drifted")
     }
 
-    // MARK: - answer slots and the boundary check
-
     static func answerSlotChecks() throws {
         let tokenizer = CharacterTokenizer()
         let encoded = try SemanticIfPrompt.encodePrompt(sampleRow(), tokenizer: tokenizer)
@@ -189,23 +178,18 @@ enum SemanticIfPromptTests {
         try expect(encoded.promptHash == SemanticIfPrompt.digest(renderedPrompt),
             "Prompt hash is not digest(rendered prompt)")
 
-        // A letter that needs two tokens is rejected, never approximated.
         try expectThrows(SemanticIfPromptError.invalidAnswerSlot("A"), "Multi-token slot accepted") {
             _ = try SemanticIfPrompt.encodePrompt(sampleRow(), tokenizer: SplittingSlotTokenizer())
         }
-        // A letter whose decode round trip differs is rejected.
         try expectThrows(SemanticIfPromptError.invalidAnswerSlot("B"), "Bad round trip accepted") {
             _ = try SemanticIfPrompt.encodePrompt(sampleRow(), tokenizer: MisdecodingSlotTokenizer())
         }
-        // Two letters sharing one token collide.
         try expectThrows(SemanticIfPromptError.answerSlotCollision, "Colliding slots accepted") {
             _ = try SemanticIfPrompt.answerSlotIDs(tokenizer: CollidingSlotTokenizer(script: DecodeScript()), count: 2)
         }
-        // A merge across the prompt/letter boundary shifts tokenization.
         try expectThrows(SemanticIfPromptError.answerBoundaryShift("A"), "Boundary merge accepted") {
             _ = try SemanticIfPrompt.encodePrompt(sampleRow(), tokenizer: CharacterTokenizer(merges: ["\nA": 900]))
         }
-        // Over-limit and empty encodings are rejected without truncation.
         let probe = CharacterTokenizer()
         let promptCount = try probe.encode(SemanticIfPrompt.applyQwen35ChatTemplate(
             SemanticIfPrompt.directMessages(sampleRow()))).count
@@ -219,13 +203,6 @@ enum SemanticIfPromptTests {
         }
     }
 
-    // MARK: - prompt hash parity with Semif's recorded pipeline
-
-    /// Golden hashes computed by rendering the pinned Qwen3.5-4B chat template
-    /// (chat_template.jinja sha256 a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715)
-    /// with jinja2 under Semif's exact flags and hashing with Semif's digest().
-    /// That pipeline reproduces the recorded prompt_sha256 values in Semif's
-    /// results/mlx/2026-09-17-cli-smoke rows byte-for-byte (3/3 matched).
     static func goldenPromptParity() throws {
         let fixture = try String(contentsOfFile: "SemanticIf/Fixtures/decisions.jsonl", encoding: .utf8)
         let rows = try fixture.split(separator: "\n", omittingEmptySubsequences: true)
@@ -257,7 +234,6 @@ enum SemanticIfPromptTests {
     }
 }
 
-/// One-token-per-character tokenizer; optional greedy merges model BPE pairs.
 struct CharacterTokenizer: SemanticIfTokenizing {
     var merges: [String: Int32] = [:]
 
@@ -285,7 +261,6 @@ struct CharacterTokenizer: SemanticIfTokenizing {
     }
 }
 
-/// Every "A" costs two tokens: the slot check must reject the row.
 struct SplittingSlotTokenizer: SemanticIfTokenizing {
     func encode(_ text: String) -> [Int32] {
         text.flatMap { $0 == "A" ? [65, 651] : [Int32($0.unicodeScalars.first!.value)] }
@@ -301,7 +276,6 @@ struct SplittingSlotTokenizer: SemanticIfTokenizing {
     }
 }
 
-/// "B" decodes back as "X": the round-trip check must reject the row.
 struct MisdecodingSlotTokenizer: SemanticIfTokenizing {
     func encode(_ text: String) -> [Int32] {
         text.map { Int32($0.unicodeScalars.first!.value) }
@@ -316,7 +290,6 @@ struct MisdecodingSlotTokenizer: SemanticIfTokenizing {
     }
 }
 
-/// Both "A" and "B" claim token 70 while round-tripping correctly: collision.
 final class DecodeScript: @unchecked Sendable {
     var results = ["A", "B"]
     var index = 0
@@ -340,7 +313,6 @@ struct CollidingSlotTokenizer: SemanticIfTokenizing {
     }
 }
 
-/// Encodes everything to nothing: Semif rejects empty encodings.
 struct EmptyTokenizer: SemanticIfTokenizing {
     func encode(_ text: String) -> [Int32] { [] }
     func decode(_ tokens: [Int32]) -> String { "" }

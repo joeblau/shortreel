@@ -1,6 +1,5 @@
 import Foundation
 
-// swiftc -swift-version 6 PhoneRunnerShared/PhoneRunnerProtocol.swift ShortReel/Services/PhoneRunner/RunnerClient.swift ShortReel/Services/PhoneRunner/RunnerSupervisor.swift ShortReel/Services/PhoneRunner/RunnerProvisioning.swift Tests/RunnerSupervisorTests.swift -o /tmp/sr-supervisor-tests
 @main
 enum RunnerSupervisorTests {
     private static let udid = "00008110-00123456789ABCDE"
@@ -194,7 +193,6 @@ enum RunnerSupervisorTests {
             expect(false, "appleDevelopmentIdentity threw unexpectedly: \(error)")
         }
 
-        // Missing products block readiness.
         if case .runnerProductsMissing = await provisioning.status(derivedData: root) {} else {
             expect(false, "status should report missing products before anything is built")
         }
@@ -206,7 +204,6 @@ enum RunnerSupervisorTests {
                    "product error is actionable, got \(error.localizedDescription)")
         }
 
-        // Once both bundles exist, status is ready.
         do {
             try FileManager.default.createDirectory(at: products.appending(path: "ShortReelRunner.app"), withIntermediateDirectories: true)
             try FileManager.default.createDirectory(at: products.appending(path: "ShortReelRunnerUITests-Runner.app"), withIntermediateDirectories: true)
@@ -222,7 +219,6 @@ enum RunnerSupervisorTests {
             expect(false, "status should be ready once go-ios, identity, and products exist")
         }
 
-        // No Apple Development identity is an actionable error, not an opaque failure.
         let distributionOnly = FakeProcessRunner()
         await distributionOnly.setBehavior(.result(ProcessResult(stdout: "1.3.0\n", stderr: "", exitCode: 0)),
                                            forCommandPrefix: ["version"])
@@ -241,13 +237,11 @@ enum RunnerSupervisorTests {
         expect(await unsigned.status(derivedData: root) == .noAppleDevelopmentIdentity,
                "status reports the missing identity")
 
-        // go-ios absence surfaces as its own status.
         let noGoIos = FakeProcessRunner()
         await noGoIos.setBehavior(.failure(FakeError.unhealthy), forCommandPrefix: ["version"])
         expect(await RunnerProvisioning(processes: noGoIos).status(derivedData: root) == .goIosNotInstalled,
                "status reports go-ios not installed")
 
-        // sign and install wrap the documented go-ios commands.
         do {
             let signed = try await provisioning.sign(runnerAppAt: productPath,
                                                      p12: URL(fileURLWithPath: "/tmp/dev.p12"),

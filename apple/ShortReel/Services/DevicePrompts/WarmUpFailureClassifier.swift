@@ -1,26 +1,11 @@
 import Foundation
 
-/// Per-step failure-mode classification (contract TASK-5, issue #16),
-/// generalizing the account-step classifier of #15: before each planner call
-/// the runner scores the CURRENT frame against the active step's contract
-/// `failureModes` on this Mac, and a detected mode routes to its named
-/// recovery branch instead of a free-form planner decision. The option set is
-/// built at runtime from the bundled `Contracts/warmup-tasks.json` — `none`
-/// plus each `failureModes[].id` with its `detection` text as the description —
-/// with an explicit failure-classification question and success criteria as context.
-///
-/// Unavailable or uncertain classification never authorizes an input. The
-/// transaction runner selects the saved branch named by a detected mode ID.
 enum WarmUpFailureClassifier {
     static let question = "Which failure mode, if any, is supported by the current screen and playback evidence? Choose none if no listed failure mode is supported."
     enum ClassifierError: Error, Equatable {
-        /// The scorer returned an option the step's contract never declared.
         case unknownOption(String)
     }
 
-    /// How many times one step visit may attempt a non-terminal recovery before
-    /// the mode reads as terminal. The contract texts name "max 2 attempts" for
-    /// search-not-focused and "once … then needsInput" for the rest.
     static func attemptLimit(for modeID: String) -> Int {
         switch modeID {
         case "search-not-focused": return 2
@@ -28,16 +13,11 @@ enum WarmUpFailureClassifier {
         }
     }
 
-    /// The decision options for one step: `none` plus each contract failure
-    /// mode's id, with the contract's detection text as each description.
     static func options(step: WarmUpStepContract) -> [SemanticIfDecision.Option] {
         [.init(id: "none", description: "No failure mode is visible on the CURRENT frame; the step's success criteria are being met or are still reachable without recovery.")]
             + step.failureModes.map { .init(id: $0.id, description: $0.detection) }
     }
 
-    /// The scored row: platform, step, screen state, the playback tracker's
-    /// evidence summary, and the current frame's OCR lines as state; the step's
-    /// success criteria as context for the failure-classification question.
     static func row(scriptIdentifier: String, platform: String, step: WarmUpStepContract,
                     screenState: String, playbackSummary: String?, ocrText: [String]) -> SemanticIfRow {
         SemanticIfRow(
@@ -54,8 +34,6 @@ enum WarmUpFailureClassifier {
             options: options(step: step))
     }
 
-    /// OCR the current frame with the submission guard's recognizer and score
-    /// it. An OCR failure reads as no regions: the scorer sees empty evidence.
     static func classify(frame: PhoneScreenFrame, scriptIdentifier: String, platform: String,
                          step: WarmUpStepContract, playbackSummary: String?,
                          scorer: any SemanticIfScoring) async throws -> WarmUpFailureDecision {
@@ -64,10 +42,6 @@ enum WarmUpFailureClassifier {
             step: step, playbackSummary: playbackSummary, scorer: scorer)
     }
 
-    /// Score already-recognized regions. A captured frame is a foreground app
-    /// screen, so `screenState` reads `foregroundApp`. `.uncertain` (margin
-    /// below the tuned threshold) is never an assertive branch: the verdict
-    /// carries no failure mode; the runner reobserves within a bounded budget.
     static func classify(regions: [PhoneSubmissionGuard.TextRegion], scriptIdentifier: String, platform: String,
                          step: WarmUpStepContract, playbackSummary: String?, screenState: String = "foregroundApp",
                          scorer: any SemanticIfScoring) async throws -> WarmUpFailureDecision {
@@ -101,14 +75,11 @@ enum WarmUpFailureClassifier {
     }
 }
 
-/// One step's per-decision and wall-clock budget from the contract (INV-6).
 struct WarmUpStepBudget: Equatable, Sendable {
     let maxPlannerDecisions: Int
     let maxSeconds: Int
 }
 
-/// One contract step's failure-mode and budget data, decoded from
-/// `Contracts/warmup-tasks.json` at runtime (never a second Swift copy).
 struct WarmUpStepContract: Equatable, Sendable {
     struct FailureMode: Equatable, Sendable {
         let id: String
@@ -124,10 +95,6 @@ struct WarmUpStepContract: Equatable, Sendable {
     let budget: WarmUpStepBudget
 }
 
-/// The bundled warm-up contract, keyed for runner lookups:
-/// script identifier → step id → step contract. `WarmUpTasksContractTests`
-/// pins this JSON to the Swift registry, so a lookup miss means an unknown
-/// script version and the runner stops before sending input.
 struct WarmUpContractStore: Equatable, Sendable {
     private let stepsByScript: [String: [String: WarmUpStepContract]]
 
@@ -154,7 +121,6 @@ struct WarmUpContractStore: Equatable, Sendable {
         self.stepsByScript = stepsByScript
     }
 
-    /// The contract bundled with the app (project.yml resources).
     static func bundled(in bundle: Bundle = .main) -> WarmUpContractStore? {
         guard let url = bundle.url(forResource: "warmup-tasks", withExtension: "json"),
               let data = try? Data(contentsOf: url) else { return nil }
@@ -165,7 +131,6 @@ struct WarmUpContractStore: Equatable, Sendable {
         stepsByScript[scriptIdentifier]?[stepID]
     }
 
-    /// Diagnostic totals for the contract parity tests.
     var stepCount: Int { stepsByScript.values.reduce(0) { $0 + $1.count } }
     var failureModeCount: Int { stepsByScript.values.reduce(0) { $0 + $1.values.reduce(0) { $0 + $1.failureModes.count } } }
 

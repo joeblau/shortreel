@@ -1,7 +1,6 @@
 import Foundation
 import CoreGraphics
 
-// From apple/: swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{WarmUpScript,WarmUpStateTree,PhonePlaybackTracker,DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes}.swift Tests/WarmUpStateTreeTests.swift -o /tmp/shortreel-state-tests && /tmp/shortreel-state-tests
 @main
 enum WarmUpStateTreeTests {
     static func expect(_ condition: @autoclosure () -> Bool, _ message: String) {

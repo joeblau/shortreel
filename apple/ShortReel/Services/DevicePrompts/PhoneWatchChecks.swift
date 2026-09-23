@@ -1,6 +1,5 @@
 import Foundation
 
-/// Laya classifies visible UI. Arithmetic and action bookkeeping stay in Swift.
 enum PhoneWatchChecks {
     static func question(id: String, check: PhoneTransactionPlan.State.Check, evidence: String) -> PhoneTransactionQuestion? {
         let options: [(String, String)]
@@ -59,8 +58,6 @@ enum PhoneWatchChecks {
         }
     }
 
-    /// Require independent creator/caption text anchors to prove a swipe changed
-    /// items. Numeric engagement counts and navigation labels do not identify a video.
     static func identity(in text: PhonePlaybackTracker.Observation) -> Set<String> {
         Set(text.regions.compactMap { region in
             guard region.confidence >= 0.85, region.bounds.minX < 0.55,
@@ -73,8 +70,6 @@ enum PhoneWatchChecks {
     }
 }
 
-/// Tracks an actually visible playhead across fresh screenshots. Wall-clock
-/// time alone never counts a view; creator and caption must remain identical.
 struct PhoneVideoProgressTracker {
     private var previous: (video: PhoneScreenObservation.Video, date: Date)?
     private var advanced = false

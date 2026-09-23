@@ -1,6 +1,5 @@
 import Foundation
 
-// swiftc -swift-version 6 PhoneRunnerShared/PhoneRunnerProtocol.swift ShortReel/Services/PhoneRunner/RunnerClient.swift Tests/RunnerClientTests.swift -o /tmp/sr-client-tests
 @main
 enum RunnerClientTests {
     static func main() async throws {

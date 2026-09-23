@@ -1,16 +1,9 @@
 import Foundation
 
-/// Runs the optional UI-TARS planner on this Mac with llama.cpp's `llama-server`.
-/// The first run downloads the model, later
-/// runs reuse it. The server only listens on loopback. Ollama is not used
-/// because it routes Hugging Face imports of Qwen2.5-VL through its Qwen2-VL
-/// projector path and returns garbage for images.
 @MainActor @Observable
 final class LocalUITarsServer {
     static let shared = LocalUITarsServer()
 
-    /// Community GGUF of ByteDance-Seed/UI-TARS-1.5-7B with its vision
-    /// projector; llama-server fetches both from this reference.
     static let modelReference = "adriabama06/UI-TARS-1.5-7B-GGUF:Q4_K_M"
     static let port = 11435
     static let baseURL = URL(string: "http://127.0.0.1:\(port)")!
@@ -29,8 +22,6 @@ final class LocalUITarsServer {
     @ObservationIgnored private var stderrTail: [String] = []
 
     var configuration: UITarsPhonePlanner.Configuration {
-        // llama-server serves one model and ignores the key; the planner
-        // still requires both fields to form a request.
         .init(baseURL: Self.baseURL.appendingPathComponent("v1").absoluteString,
               apiKey: "local", model: "ui-tars-1.5-7b")
     }
@@ -51,7 +42,6 @@ final class LocalUITarsServer {
         }
     }
 
-    /// Starts the server if it is not already reachable. Safe to call often.
     func ensureRunning() {
         guard task == nil else { return }
         if case .ready = state { return }
@@ -83,8 +73,6 @@ final class LocalUITarsServer {
                 return
             }
         }
-        // Downloading on first run can take a while; loading afterwards takes
-        // seconds. Poll until the server reports ready or the process dies.
         let deadline = ContinuousClock.now + .seconds(45 * 60)
         while ContinuousClock.now < deadline {
             if Task.isCancelled { return }
@@ -109,7 +97,6 @@ final class LocalUITarsServer {
             "-c", String(Self.contextLength), "--temp", "0",
             "--no-webui",
         ]
-        // Only what the download cache and Metal need; nothing from the app.
         let inherited = ["HOME", "USER", "TMPDIR", "PATH", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "SSL_CERT_FILE"]
         process.environment = ProcessInfo.processInfo.environment.filter { inherited.contains($0.key) }
         process.standardOutput = FileHandle.nullDevice

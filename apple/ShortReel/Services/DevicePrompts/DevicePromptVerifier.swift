@@ -1,22 +1,13 @@
 import Foundation
 
-/// The concrete cheapest-first verification ladder from
-/// docs/execute-leg-design.md, built from whatever readback channels are
-/// attached: runner scalars and tree via RunnerOracle, frame-settle on the
-/// USB screen stream, and Vision OCR deltas. A channel that is missing or
-/// erroring skips its rungs silently, so runs without an oracle or screen are
-/// unaffected.
 struct DevicePromptVerifier: Sendable {
-    /// Fresh-frame barrier capture, matching PhoneScreenCaptureService.capture(after:).
     typealias Capture = @MainActor (Date) async throws -> PhoneScreenFrame
     typealias RecognizeText = @Sendable (PhoneScreenFrame) async throws -> String
 
     var oracle: RunnerOracle?
     var capture: Capture?
     var recognizeText: RecognizeText?
-    /// Consecutive look-alike frames that mean the transition finished.
     var settledFrameCount = 3
-    /// Longest a settle check waits for the screen to stop changing.
     var settleTimeout: TimeInterval = 3
 
     init(oracle: RunnerOracle? = nil, capture: Capture? = nil, recognizeText: RecognizeText? = nil) {
@@ -25,14 +16,10 @@ struct DevicePromptVerifier: Sendable {
         self.recognizeText = recognizeText
     }
 
-    /// OCR over the frame's pre-decoded image, reusing the project's existing
-    /// Vision pipeline (pinned to English, no language identification).
     static func recognizedText(in frame: PhoneScreenFrame) throws -> String {
         try PhoneVisionClient.makeScreenContext(frame).targets.map(\.text).joined(separator: " ")
     }
 
-    /// Executor seam: prepares one post-action check, capturing any pre-action
-    /// baseline (OCR text) the expectation needs.
     var checkFactory: DevicePromptCheckFactory {
         { [self] expectation in
             switch expectation {
@@ -72,8 +59,6 @@ struct DevicePromptVerifier: Sendable {
         return .failed(evidence + "\n" + alerts)
     }
 
-    /// Rung (a): runner scalar. When the runner cannot answer, falls back to
-    /// rung (b) frame-settle as a weaker "transition finished" signal.
     private func checkForeground(_ bundleID: String) async -> DevicePromptCheckOutcome {
         if let oracle {
             switch await oracle.isAppForeground(bundleID: bundleID) {
@@ -88,7 +73,6 @@ struct DevicePromptVerifier: Sendable {
         return await settledFrame()
     }
 
-    /// Rung (d): accessibility tree substring match.
     private func checkTree(_ query: String) async -> DevicePromptCheckOutcome {
         guard let oracle else { return .unverified }
         switch await oracle.treeText() {
@@ -102,11 +86,9 @@ struct DevicePromptVerifier: Sendable {
         }
     }
 
-    /// Rung (c): OCR delta on the captured frame. Without a screen the tree
-    /// rung answers the same question.
     private func checkText(_ text: String, shouldAppear: Bool, beforeText: String?) async -> DevicePromptCheckOutcome {
         if capture != nil, recognizeText != nil {
-            _ = await settledFrame() // Let transitions finish; OCR is the verdict.
+            _ = await settledFrame()
             guard let after = await currentText() else { return .unverified }
             let found = after.range(of: text, options: [.caseInsensitive, .diacriticInsensitive]) != nil
             guard found != shouldAppear else {
@@ -133,8 +115,6 @@ struct DevicePromptVerifier: Sendable {
         return .failed("\(verdict)\nTree excerpt: “\(Self.snippet(tree))”")
     }
 
-    /// Rung (b): the screen has settled when several consecutive frames look
-    /// alike within the settle window.
     private func settledFrame() async -> DevicePromptCheckOutcome {
         guard let capture else { return .unverified }
         let start = Date()
@@ -155,15 +135,10 @@ struct DevicePromptVerifier: Sendable {
             }
             return .failed("The phone’s screen was still changing \(settleTimeout) seconds after the action.")
         } catch {
-            // No usable stream: the settle rung is skipped, not failed.
             return .unverified
         }
     }
 
-    /// JPEG byte size tracks content complexity; consecutive frames whose
-    /// sizes differ by less than ~1% are treated as the same settled screen.
-    /// Byte identity is too strict — the video stream carries encoder noise
-    /// even on a static screen.
     static func framesMatch(_ a: PhoneScreenFrame, _ b: PhoneScreenFrame) -> Bool {
         abs(a.jpegData.count - b.jpegData.count) <= max(512, a.jpegData.count / 100)
     }
