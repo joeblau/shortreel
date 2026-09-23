@@ -10,7 +10,103 @@ import Foundation
         var progress: Double? = nil
         var item = 1
         var reused = false
+        var liked: Bool? = nil
+        var follow: Bool? = nil
+        var asked = true
     }
+    static func engagedFlow(screens base: [Screen], store: WarmUpContractStore) async throws {
+        let script = WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 2, duration: 600, likeLimit: 1, followLimit: 1)
+        let plan = try PhoneTransactionCompiler.tikTokWatch(script: script, query: "swing trading",
+            template: Data(contentsOf: URL(fileURLWithPath: "Contracts/tiktok-watch.json")))
+        try T.expect(plan.phases.map(\.id) == script.steps.map(\.id.rawValue) && plan.phases.contains { $0.id == "like" },
+            "Engaged watch plan does not match its script steps")
+        let plain = try PhoneTransactionCompiler.tikTokWatch(script: WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 2, duration: 600),
+            query: "swing trading", template: Data(contentsOf: URL(fileURLWithPath: "Contracts/tiktok-watch.json")))
+        try T.expect(!plain.phases.contains { ["like", "follow"].contains($0.id) }, "Plain watch included engagement phases")
+        let player = "A full-screen video player with a heart button."
+        var screens = base
+        let finished = screens.lastIndex { $0.id == "consume.playback" && $0.item == 1 }! + 1
+        screens.insert(contentsOf: [
+            .init(id: "like.heart", evidence: player, selected: "unliked", progress: 0.1, liked: false, follow: true),
+            .init(id: "like.heart.verify", evidence: player, selected: "confirmed", progress: 0.2, liked: true, follow: true),
+            .init(id: "follow.badge", evidence: player, selected: "available", progress: 0.3, liked: true, follow: true),
+            .init(id: "follow.badge.verify", evidence: player, selected: "confirmed", progress: 0.4, liked: true, follow: false),
+        ], at: finished)
+        @MainActor func run(_ screens: [Screen]) async throws -> (T.Rig, String) {
+            let captured = screens.filter { !$0.reused }
+            var asked = 0
+            let rig = T.Rig(); rig.plan = plan
+            rig.locate = { _, _, _ in .action(.tap(Double(rig.locatorCalls % 8 + 1) / 10, 0.5), reason: "Located the declared control") }
+            rig.budgetOverride = { store.step(scriptIdentifier: $0.identifier, stepID: $1.rawValue)?.budget }
+            rig.observeOverride = { _, _ in
+                let screen = captured[min(rig.captures, captured.count) - 1]
+                return .init(state: screen.state, appCardsVisible: false,
+                    evidence: screen.evidence + (screen.id == "open.player0" ? " Heart count: 25.4K" : ""), checkEvidence: screen.evidence,
+                    video: screen.progress.map { .init(creator: "@creator\(screen.item)", caption: "A swing trading setup number \(screen.item)",
+                        progress: $0, durationSeconds: 10, playing: true, liked: screen.liked, followButtonVisible: screen.follow) })
+            }
+            rig.readTextOverride = { frame, platform in
+                .init(sourceID: frame.sourceID, capturedAt: frame.capturedAt, platform: platform,
+                    regions: [.init(text: "swing trading", confidence: 1, bounds: .init(x: 0.1, y: 0.1, width: 0.5, height: 0.03))])
+            }
+            rig.classifyOverride = { question in
+                defer { asked += 1 }
+                let questions = screens.filter(\.asked)
+                let screen = questions[min(asked, questions.count - 1)]
+                try T.expect(question.id == screen.id, "Expected \(screen.id), received \(question.id)")
+                if question.id == "like.heart" {
+                    try T.expect(question.options.map(\.id) == ["unliked", "unknown"], "An outlined heart still offered the liked branch")
+                }
+                return screen.selected
+            }
+            let result = try await rig.run(workflow: .warmUp, script: script)
+            return (rig, result)
+        }
+        let (rig, result) = try await run(screens)
+        try T.expect(result.contains("Verified 2 item(s)"), "Engaged watch did not finish two items")
+        try T.expect(rig.questions.contains { $0.id == "follow.badge.verify" } && rig.actions.filter { $0 == .swipe(.up) }.count == 1,
+            "Like and follow did not both verify before the single advance swipe")
+
+        var unverified = screens
+        let verify = unverified.firstIndex { $0.id == "like.heart.verify" }!
+        unverified[verify].liked = false
+        unverified.insert(contentsOf: [unverified[verify], unverified[verify]], at: verify)
+        var unread = screens
+        let heart = unread.firstIndex { $0.id == "like.heart" }!
+        unread[heart].liked = nil
+        unread[heart].asked = false
+        unread.removeAll { $0.id == "like.heart.verify" }
+        let (blind, blindResult) = try await run(unread)
+        try T.expect(blindResult.contains("Verified 2 item(s)") && blind.actions.count == rig.actions.count - 1
+            && blind.questions.contains { $0.id == "follow.badge.verify" },
+            "A heart without a structured liked reading was tapped")
+        let (skipped, skippedResult) = try await run(unverified)
+        try T.expect(skippedResult.contains("Verified 2 item(s)") && skipped.actions == rig.actions
+            && skipped.questions.filter { $0.id == "like.heart" }.count == 1 && skipped.questions.contains { $0.id == "follow.badge.verify" },
+            "An unconfirmed like was retapped or stopped the run instead of being skipped")
+
+        var cursor = WarmUpScriptCursor(script: WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 6, duration: 600, likeLimit: 2, followLimit: 1))
+        var engaged: [String] = []
+        while !cursor.isComplete {
+            switch cursor.step.id {
+            case .like, .follow:
+                engaged.append("\(cursor.step.id.rawValue)\(cursor.itemsCompleted)")
+                try cursor.validate(.tap(0.9, 0.5))
+                cursor.didPerform(.tap(0.9, 0.5))
+                let tapped = cursor
+                try await T.rejects { try tapped.validate(.tap(0.9, 0.5)) }
+            case .advance: cursor.didPerform(.swipe(.up))
+            default: break
+            }
+            try cursor.finishStep()
+        }
+        try T.expect(engaged == ["like1", "follow1", "like3"], "Engagement ignored its cadence or daily caps: \(engaged)")
+        for script in [WarmUpScript(network: .tikTok, activity: .comment, itemLimit: 1, duration: 300, likeLimit: 1),
+                       WarmUpScript(network: .instagram, activity: .watch, itemLimit: 3, duration: 300, followLimit: 1)] {
+            try await T.rejects { try script.validate() }
+        }
+    }
+
     static func main() async throws {
         let script = WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 2, duration: 600)
         let plan = try PhoneTransactionCompiler.tikTokWatch(script: script, query: "swing trading",
@@ -69,7 +165,8 @@ import Foundation
             let screen = captured[rig.captures - 1]
             return .init(state: screen.state, appCardsVisible: false,
                 evidence: screen.evidence + (screen.id == "open.player0" ? " Heart count: 25.4K" : ""), checkEvidence: screen.evidence,
-                video: screen.progress.map { .init(creator: "@creator\(screen.item)", caption: "A swing trading setup number \(screen.item)", progress: $0, durationSeconds: 10, playing: true) })
+                keyboardVisible: screen.evidence == empty ? true : nil,
+                video: screen.progress.map { .init(creator: "@creator\(screen.item)", caption: "A swing trading setup number \(screen.item)", progress: $0, durationSeconds: 10, playing: true, liked: screen.liked, followButtonVisible: screen.follow) })
         }
         rig.readTextOverride = { frame, platform in
             .init(sourceID: frame.sourceID, capturedAt: frame.capturedAt, platform: platform,
@@ -78,6 +175,9 @@ import Foundation
         rig.classifyOverride = { question in
             let screen = nextScreen()
             try T.expect(question.id == screen.id, "Expected \(screen.id), received \(question.id)")
+            if question.id == "search.field" {
+                try T.expect(!question.options.contains { $0.id == "unfocused" }, "An open keyboard still offered the unfocused tap")
+            }
             let expected = screen.selected!
             fixtures.append(["id": question.id, "state": question.evidence, "question": question.question,
                 "options": question.options.map { ["id": $0.id, "description": $0.description] }, "expected": expected])
@@ -168,6 +268,7 @@ import Foundation
         try T.expect(rig.actions.filter { $0 == .swipe(.up) }.count == 1 && rig.captures > advanceVerify + 2
             && afterSwipe.first == .home && afterSwipe.allSatisfy { $0 == .home },
             "An unchanged item was counted or caused a second swipe")
-        print("TikTok watch flow passed: account → search → suggestion → results → two watched videos, one swipe")
+        try await engagedFlow(screens: screens, store: store)
+        print("TikTok watch flow passed: account → search → suggestion → results → two watched videos, one swipe, like + follow")
     }
 }

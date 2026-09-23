@@ -149,13 +149,16 @@ struct WarmUpConfiguration: Sendable {
     var sessionMinutes = 20
     var itemsToView = 10
     var niche = ""
+    var likeLimit = 0
+    var followLimit = 0
 
     var hasProfile: Bool { !trim(profileName).isEmpty }
 
     var script: WarmUpScript? {
         guard let network = WarmUpScript.Network(rawValue: platform.displayName) else { return nil }
         return try? WarmUpScriptRegistry.script(network: network, activity: activity,
-            itemLimit: activity == .watch ? itemsToView : 1, duration: Double(sessionMinutes) * 60)
+            itemLimit: activity == .watch ? itemsToView : 1, duration: Double(sessionMinutes) * 60,
+            likeLimit: activity == .watch ? likeLimit : 0, followLimit: activity == .watch ? followLimit : 0)
     }
 
     var scriptBrief: String {
@@ -163,10 +166,15 @@ struct WarmUpConfiguration: Sendable {
         Persona: \(trim(profileName)) (@\(normalizedHandle)). \(trim(profileNarrative))
         Platform: \(platform.displayName)
         Account check: \(WarmUpPlaybook.accountLocation(for: platform)) Verify exactly @\(normalizedHandle), ignoring case. Stop on missing/mismatched handle or sign-in. Never sign in, sign out, switch accounts, or enter credentials.
-        Niche: \(trim(niche)). Phase: \(phase.title). Activity: \(activity.title) only. Limit: \(sessionMinutes) minutes, \(activity == .watch ? itemsToView : 1) items. No messages, links, likes, or follows.
+        Niche: \(trim(niche)). Phase: \(phase.title). Activity: \(activity.title) only. Limit: \(sessionMinutes) minutes, \(activity == .watch ? itemsToView : 1) items. \(engagementRule)
         \(activity == .watch ? "Do not comment or publish." : "Publish at most ONE \(activity == .comment ? "comment; do not publish a post" : "post; do not comment").")
         \(contentInstructions.isEmpty ? "" : "\(activity.title) instructions: \(trim(contentInstructions))")
         """
+    }
+
+    private var engagementRule: String {
+        guard activity == .watch, likeLimit + followLimit > 0 else { return "No messages, links, likes, or follows." }
+        return "No messages or links. Only the runner's like and follow steps may engage: at most \(likeLimit) likes and \(followLimit) follows."
     }
 
     var normalizedHandle: String {
@@ -276,6 +284,9 @@ struct WarmUpDailySession: Sendable {
         var configuration = base
         configuration.phaseIndex = WarmUpPlaybook.phaseIndex(for: base.platform, day: max(day, 1))
         let phase = configuration.phase
+        let engages = base.platform == .tikTok
+        configuration.likeLimit = engages ? phase.maxLikes : 0
+        configuration.followLimit = engages ? phase.maxFollows : 0
         var runs: [Run] = []
         var notes: [String] = []
         func add(_ activity: WarmUpActivity, instructions: String = "") {
@@ -298,8 +309,11 @@ struct WarmUpDailySession: Sendable {
                 for _ in 0..<min(phase.maxPosts, maximumPostsPerDay) { add(.post, instructions: post) }
             }
         }
-        if phase.maxLikes > 0 { notes.append("Likes (up to \(phase.maxLikes)): not automated yet.") }
-        if phase.maxFollows > 0 { notes.append("Follows (up to \(phase.maxFollows)): not automated yet.") }
+        if phase.maxLikes > 0, !engages { notes.append("Likes (up to \(phase.maxLikes)): not automated on \(base.platform.displayName) yet.") }
+        if phase.maxFollows > 0, !engages { notes.append("Follows (up to \(phase.maxFollows)): not automated on \(base.platform.displayName) yet.") }
+        if engages, phase.maxLikes + phase.maxFollows > 0 {
+            notes.append("Watch likes every other finished video (up to \(phase.maxLikes)) and follows every third creator (up to \(phase.maxFollows)).")
+        }
         return .init(day: max(day, 1), phase: phase, runs: runs, notes: notes)
     }
 }

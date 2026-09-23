@@ -4,7 +4,7 @@ enum PhoneWatchChecks {
     static func question(id: String, check: PhoneTransactionPlan.State.Check, evidence: String) -> PhoneTransactionQuestion? {
         let options: [(String, String)]
         switch check {
-        case .query: return nil
+        case .query, .like, .follow: return nil
         case .popularVideo:
             options = [("player", "A full-screen video player."), ("ad", "An advertisement."),
                        ("profile", "A social media profile page."), ("unknown", "A different or unreadable screen.")]
@@ -22,7 +22,7 @@ enum PhoneWatchChecks {
     static func branch(for selected: String?, check: PhoneTransactionPlan.State.Check,
                        evidence: String, duration: Int?, replay: Bool, advanceSent: Bool) -> String? {
         switch check {
-        case .query: return selected
+        case .query, .like, .follow: return selected
         case .popularVideo:
             if selected == "ad" || selected == "profile" { return "opened-account-or-ad" }
             guard selected == "player" else { return nil }
@@ -49,6 +49,14 @@ enum PhoneWatchChecks {
         let number = token.filter { $0.isNumber || $0 == "." }
         guard let value = Double(number), value.isFinite else { return nil }
         return value * multiplier
+    }
+
+    /// The on-screen keyboard's letter keys, read by local OCR in the lower half of the screen.
+    static func keyboardVisible(in text: PhonePlaybackTracker.Observation) -> Bool {
+        let keys = Set(text.regions.filter { $0.confidence >= 0.5 && $0.bounds.minY >= 0.5 }
+            .flatMap { $0.text.uppercased().split(whereSeparator: \.isWhitespace) }
+            .filter { $0.count == 1 && "QWERTYUIOPASDFGHJKLZXCVBNM".contains($0) })
+        return keys.count >= 8
     }
 
     static func queryVisible(_ query: String, in text: PhonePlaybackTracker.Observation) -> Bool {

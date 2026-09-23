@@ -301,6 +301,78 @@
               "allowsEstimatedDurationSkip": true
             },
             {
+              "id": "like",
+              "title": "Like video",
+              "preconditions": [
+                "consume step finished and counted",
+                "runner scheduled a like for this item within the daily cap"
+              ],
+              "successCriteria": [
+                "the heart on the watched video is filled red after one tap"
+              ],
+              "allowedActions": [
+                "tap:heart (exactly once)"
+              ],
+              "forbiddenActions": [
+                "double tap",
+                "second heart tap",
+                "swipe",
+                "typeText"
+              ],
+              "failureModes": [
+                {
+                  "id": "already-liked",
+                  "detection": "heart already filled red before any tap",
+                  "recovery": "skip the like; never tap a filled heart"
+                },
+                {
+                  "id": "like-unverified",
+                  "detection": "heart not filled red after the tap",
+                  "recovery": "skip without tapping again (a second tap unlikes)"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 6,
+                "maxSeconds": 60
+              }
+            },
+            {
+              "id": "follow",
+              "title": "Follow creator",
+              "preconditions": [
+                "consume step finished and counted",
+                "runner scheduled a follow for this item within the daily cap"
+              ],
+              "successCriteria": [
+                "the follow plus badge on the creator avatar is gone or shows a checkmark after one tap"
+              ],
+              "allowedActions": [
+                "tap:follow badge (exactly once)"
+              ],
+              "forbiddenActions": [
+                "opening the profile",
+                "second follow tap",
+                "swipe",
+                "typeText"
+              ],
+              "failureModes": [
+                {
+                  "id": "already-following",
+                  "detection": "no follow plus badge on the creator avatar",
+                  "recovery": "skip the follow"
+                },
+                {
+                  "id": "follow-unverified",
+                  "detection": "plus badge still visible after the tap",
+                  "recovery": "skip without tapping again"
+                }
+              ],
+              "budget": {
+                "maxPlannerDecisions": 6,
+                "maxSeconds": 60
+              }
+            },
+            {
               "id": "advance",
               "title": "Next video",
               "preconditions": [

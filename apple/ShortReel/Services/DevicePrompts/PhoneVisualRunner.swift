@@ -201,7 +201,40 @@ final class PhoneVisualRunner {
                 branch: branch, status: status, input: input ?? (status == .verifying ? pendingInput : nil), visits: visits))
         }
         var restarts = 0
+        func resetPhase() {
+            stateID = plan.phases[phaseIndex].entry
+            pending = nil
+            pendingInput = nil
+            pendingEvidence = ""
+            pendingIdentity = []
+            verificationAttempts = 0
+            uncertainAttempts = 0
+            visits = [:]
+            recoveryAttempts = [:]
+            phaseVisits = 0
+            phaseStarted = ContinuousClock.now
+            reused = nil
+            playback.reset()
+            visualPlayback.reset()
+            sawReplay = false
+            after = Date()
+        }
         func restart(after error: Error, number: Int, frame: PhoneScreenFrame) async throws {
+            if var active = cursor, active.step.id == .like || active.step.id == .follow {
+                let skipped = active.step.title
+                try active.finishStep()
+                cursor = active
+                try onScriptCheckpoint(active.checkpoint)
+                guard !active.isComplete,
+                      let next = plan.phases.firstIndex(where: { $0.id == active.step.id.rawValue }) else { throw error }
+                onStep(.init(id: UUID(), number: number, action: "Skipped \(skipped.lowercased())",
+                    detail: "Engagement is optional and never retapped: \(error.localizedDescription)",
+                    capturedAt: frame.capturedAt, decisionSource: "Semantic If recovery"))
+                phaseIndex = next
+                resetPhase()
+                try checkpoint(.observing)
+                return
+            }
             guard var active = cursor, restarts < Self.maximumRestarts, submission == nil, !active.submissionSent,
                   ![.prepareSubmission, .submit, .verifySubmission].contains(active.step.id),
                   plan.phases.first?.id == WarmUpScript.StepID.account.rawValue else { throw error }
@@ -360,11 +393,16 @@ final class PhoneVisualRunner {
                 // Laya matches words, not negation ("not the Home Screen" scores as home, "signed-in" as login),
                 // so only offer branches the structured screen state and on-screen sign-in controls allow.
                 let signInVisible = LayaAccountPrompt.hasSignInControls(text.regions.filter { $0.confidence >= 0.6 }.map(\.text))
-                let branches = state.branches.filter {
-                    ($0.requiredScreens?.contains(observation.state) ?? true)
-                        && (plan.watchQuery == nil || $0.id != "login" || signInVisible)
+                let engagementState = Self.engagementBranch(check: state.check, video: observation.video)
+                let keyboard = observation.keyboardVisible ?? (PhoneWatchChecks.keyboardVisible(in: text) ? true : nil)
+                let branches = state.branches.filter { branch in
+                    (branch.requiredScreens?.contains(observation.state) ?? true)
+                        && (branch.keyboard == nil || keyboard == nil || branch.keyboard == keyboard)
+                        && (plan.watchQuery == nil || branch.id != "login" || signInVisible)
+                        && (engagementState.map { $0 == branch.id } ?? true)
                 }
-                guard !branches.isEmpty else {
+                // Taps toggle likes and follows, so engage only on Codex's explicit structured reading.
+                guard !branches.isEmpty, engagementState != nil || (state.check != .like && state.check != .follow) else {
                     try await restart(after: PhoneTransactionError.uncertain, number: number, frame: frame)
                     continue
                 }
@@ -444,6 +482,7 @@ final class PhoneVisualRunner {
                         selected = nil
                     } else if selected == "confirmed" { advanceVerified = true }
                 }
+                if Self.engagementBranch(check: state.check, video: observation.video) == awaiting.id { selected = nil }
                 guard selected == "confirmed",
                       awaiting.expectedScreen == nil || awaiting.expectedScreen == observation.state else {
                     recordUnverifiedObservation()
@@ -493,7 +532,13 @@ final class PhoneVisualRunner {
                             try await decide(command.locatorRequest, frame, [])
                         }
                     }
-                    let action = try command.resolved(using: decision)
+                    let action: PhonePromptAction?
+                    do { action = try command.resolved(using: decision) }
+                    catch {
+                        guard state.check == .like || state.check == .follow else { throw error }
+                        try await restart(after: error, number: number, frame: frame)
+                        continue
+                    }
                     try checkAvailability(deadline: operationDeadline)
                     try checkFrameAge(frame)
                     if var action {
@@ -603,6 +648,15 @@ final class PhoneVisualRunner {
     }
 
     static let maximumRestarts = 2
+
+    /// The branch a like/follow state must take according to Codex's structured video fields, if reported.
+    static func engagementBranch(check: PhoneTransactionPlan.State.Check?, video: PhoneScreenObservation.Video?) -> String? {
+        switch check {
+        case .like: video?.liked.map { $0 ? "liked" : "unliked" }
+        case .follow: video?.followButtonVisible.map { $0 ? "available" : "following" }
+        default: nil
+        }
+    }
 
     private func checkAvailability(deadline: ContinuousClock.Instant) throws {
         try Task.checkCancellation()

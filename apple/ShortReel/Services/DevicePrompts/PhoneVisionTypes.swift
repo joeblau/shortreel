@@ -142,12 +142,15 @@ struct PhoneScreenObservation: Decodable, Sendable, Equatable {
     let evidence: String
 
     var checkEvidence: String? = nil
+    var keyboardVisible: Bool? = nil
     struct Video: Decodable, Sendable, Equatable {
         let creator: String
         let caption: String
         let progress: Double?
         let durationSeconds: Double?
         let playing: Bool?
+        var liked: Bool? = nil
+        var followButtonVisible: Bool? = nil
 
         var isValid: Bool {
             creator.count <= 100 && caption.count <= 300 &&

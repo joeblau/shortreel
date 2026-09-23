@@ -176,16 +176,12 @@
     "id" : "search.field",
     "options" : [
       {
-        "description" : "Empty search field with the keyboard visible.",
+        "description" : "Focused search field with only gray placeholder text, keyboard open.",
         "id" : "empty"
       },
       {
-        "description" : "Search field containing text with the keyboard visible.",
+        "description" : "Focused search field containing a typed query, keyboard open.",
         "id" : "text"
-      },
-      {
-        "description" : "Search field with the keyboard hidden.",
-        "id" : "unfocused"
       },
       {
         "description" : "None of the listed conditions is clearly supported by the current evidence.",

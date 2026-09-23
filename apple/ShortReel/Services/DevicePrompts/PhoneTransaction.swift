@@ -68,9 +68,10 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
         let next: String
         var expectedScreen: PhoneScreenObservation.State? = nil
         var requiredScreens: [PhoneScreenObservation.State]? = nil
+        var keyboard: Bool? = nil
     }
     struct State: Codable, Equatable, Sendable {
-        enum Check: String, Codable, Sendable { case query, popularVideo, playback, advance }
+        enum Check: String, Codable, Sendable { case query, popularVideo, playback, advance, like, follow }
         let id: String
         let maximumVisits: Int
         let branches: [Branch]
@@ -265,7 +266,9 @@ extension PhoneTransactionCompiler {
         let text = String(decoding: template, as: UTF8.self).replacingOccurrences(of: "{{query}}", with: query)
         let prepared = try JSONDecoder().decode(PhoneTransactionPlan.self, from: Data(text.utf8))
         let plan = PhoneTransactionPlan(version: 1,
-            phases: [try accountPhase(script: script)] + prepared.phases, watchQuery: query)
+            phases: [try accountPhase(script: script)] + prepared.phases.filter { phase in
+                script.steps.contains { $0.id.rawValue == phase.id }
+            }, watchQuery: query)
         try plan.validate(script: script)
         return plan
     }

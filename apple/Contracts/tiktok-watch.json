@@ -88,7 +88,7 @@
           "branches": [
             {
               "id": "empty",
-              "condition": "Empty search field with the keyboard visible.",
+              "condition": "Focused search field with only gray placeholder text, keyboard open.",
               "next": "$done",
               "expected": "The search field contains {{query}} and suggested searches are visible.",
               "command": {
@@ -97,11 +97,12 @@
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expectedScreen": "foregroundApp",
+              "keyboard": true
             },
             {
               "id": "text",
-              "condition": "Search field containing text with the keyboard visible.",
+              "condition": "Focused search field containing a typed query, keyboard open.",
               "next": "replace",
               "expected": "All text in the search field is selected.",
               "command": {
@@ -110,7 +111,8 @@
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expectedScreen": "foregroundApp",
+              "keyboard": true
             },
             {
               "id": "unfocused",
@@ -123,7 +125,8 @@
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expectedScreen": "foregroundApp",
+              "keyboard": false
             }
           ],
           "maximumVisits": 6,
@@ -658,6 +661,78 @@
             "foregroundApp"
           ],
           "check": "playback"
+        }
+      ]
+    },
+    {
+      "id": "like",
+      "entry": "heart",
+      "states": [
+        {
+          "id": "heart",
+          "question": "What does the heart (like) button on the right side of the current TikTok video look like?",
+          "branches": [
+            {
+              "id": "unliked",
+              "condition": "An outlined white heart button on the video player.",
+              "next": "$done",
+              "expected": "The heart button on the current video is filled red.",
+              "command": {
+                "kind": "tap",
+                "value": "The heart (like) button on the right edge of the TikTok video player, below the creator avatar",
+                "destination": "",
+                "seconds": 0
+              },
+              "expectedScreen": "foregroundApp"
+            },
+            {
+              "id": "liked",
+              "condition": "A filled red heart button on the video player.",
+              "next": "$done",
+              "expected": ""
+            }
+          ],
+          "maximumVisits": 3,
+          "requiredScreens": [
+            "foregroundApp"
+          ],
+          "check": "like"
+        }
+      ]
+    },
+    {
+      "id": "follow",
+      "entry": "badge",
+      "states": [
+        {
+          "id": "badge",
+          "question": "Is there a plus (+) follow badge under the creator's avatar on the right side of the video?",
+          "branches": [
+            {
+              "id": "available",
+              "condition": "A plus (+) follow badge under the creator avatar.",
+              "next": "$done",
+              "expected": "The follow badge under the creator avatar is gone or shows a checkmark.",
+              "command": {
+                "kind": "tap",
+                "value": "The small plus (+) follow badge directly under the creator's round avatar on the right edge of the TikTok video player",
+                "destination": "",
+                "seconds": 0
+              },
+              "expectedScreen": "foregroundApp"
+            },
+            {
+              "id": "following",
+              "condition": "A creator avatar with a checkmark or without a badge.",
+              "next": "$done",
+              "expected": ""
+            }
+          ],
+          "maximumVisits": 3,
+          "requiredScreens": [
+            "foregroundApp"
+          ],
+          "check": "follow"
         }
       ]
     },

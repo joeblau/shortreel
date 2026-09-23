@@ -57,13 +57,16 @@ enum WarmUpConfigurationTests {
             let session = WarmUpDailySession.build(base, day: day, postInstructions: "Use the Shoot 1 video.")
             try expect(session.runs.map(\.activity) == [.watch, .comment, .comment, .comment, .post],
                 "TikTok day \(day) should watch, comment, then post")
-            try expect(session.phase.maxFollows == 0 && session.notes.contains { $0.hasPrefix("Likes") }
-                && !session.notes.contains { $0.hasPrefix("Follows") }, "Days 4–7 allow likes but not follows")
+            try expect(session.runs[0].script.likeLimit == 15 && session.runs[0].script.followLimit == 0
+                && session.runs.dropFirst().allSatisfy { $0.script.likeLimit == 0 }, "Days 4–7 like during Watch only, without follows")
         }
         let later = WarmUpDailySession.build(base, day: 12)
         try expect(later.runs.first?.activity == .watch && later.runs.filter { $0.activity == .post }.isEmpty
-            && later.notes.contains { $0.hasPrefix("Post:") } && later.notes.contains { $0.hasPrefix("Follows") },
+            && later.notes.contains { $0.hasPrefix("Post:") } && later.runs[0].script.followLimit == 12,
             "Week 2+ adds follows, and skips posting without instructions")
+        for day in 1...3 {
+            try expect(WarmUpDailySession.build(base, day: day).runs[0].script.engages == false, "Days 1–3 engaged")
+        }
         try expect(WarmUpDailySession.build(base, day: 12, postInstructions: "Use the Shoot 2 video.").runs
             .filter { $0.activity == .post }.count == WarmUpDailySession.maximumPostsPerDay, "More than one post per day")
         try expect(later.runs.allSatisfy { $0.brief.contains("@maya.shoots") && $0.brief.contains("Phase: Week 2+") },
