@@ -1,8 +1,6 @@
 import Foundation
 
-/// Parses UI-TARS' action notation as data. Never evaluates model output as code.
 enum UITarsActionDecoder {
-    /// Shared with the planner prompt so advertised names and keys stay in sync.
     static let actionSpace = """
         click(start_box='(x,y)')
         double_tap(start_box='(x,y)')
@@ -34,11 +32,7 @@ enum UITarsActionDecoder {
               let thoughtRange = Range(head.range(at: 1), in: value),
               let headEnd = Range(head.range(at: 0), in: value) else { throw invalid(value) }
         let reason = String(value[thoughtRange].trimmingCharacters(in: .whitespacesAndNewlines).prefix(900))
-        // Scan the action call with quote awareness: coordinates are quoted
-        // '(x,y)' pairs, so a regex for the closing parenthesis would cut early.
         let (name, argsText, tail) = try scanAction(value[headEnd.upperBound...], value)
-        // Trailing prose is tolerated; a second action call is not — neither
-        // an explicit "Action:" nor another bare `name(` call.
         if tail.range(of: #"\bAction:|\b[a-z_]+\("#, options: .regularExpression) != nil { throw invalid(value) }
         let args = try arguments(argsText, value)
         func point(_ text: String, _ prediction: String) throws -> (Double, Double) {
@@ -86,7 +80,6 @@ enum UITarsActionDecoder {
             let distance = units / (horizontal ? coordinateWidth : coordinateHeight)
             guard units >= 1, distance <= 1 else { throw invalid(value) }
             var end = start
-            // Scroll direction describes content navigation; the finger moves oppositely.
             switch args["direction"]! {
             case "down": end.1 -= distance
             case "up": end.1 += distance
@@ -97,7 +90,6 @@ enum UITarsActionDecoder {
             decision = .action(.drag(start.0, start.1, end.0, end.1), reason: reason)
         case "type":
             try require(["content"])
-            // Submission is a separate action, after observing the typed value.
             guard !args["content"]!.contains(where: \.isNewline) else {
                 throw PhoneVisionError.invalidDecision("UI-TARS must type text and press Enter in separate steps.")
             }
@@ -134,8 +126,6 @@ enum UITarsActionDecoder {
             try require([], optional: ["seconds"])
             decision = .wait(seconds: try number("seconds", default: 2), reason: reason)
         case "finished":
-            // UI-TARS's native form is finished(content='…'); the summary is
-            // the content when present, otherwise the Thought.
             try require([], optional: ["content"])
             let content = args["content"]?.trimmingCharacters(in: .whitespacesAndNewlines)
             decision = .finished(content?.isEmpty == false ? content! : reason)
@@ -149,7 +139,6 @@ enum UITarsActionDecoder {
         return try decision.validated()
     }
 
-    /// UI-TARS 1.5 uses resized image pixels; older models use 0...1000.
     private static func point(_ text: String, _ prediction: String, width: Double, height: Double) throws -> (Double, Double) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (trimmed.hasPrefix("[") && trimmed.hasSuffix("]"))
@@ -219,9 +208,6 @@ enum UITarsActionDecoder {
         return result
     }
 
-    /// Reads `name(args)` from the start of `text`, tracking quotes and
-    /// escapes so coordinate pairs like '(x,y)' don't end the scan early.
-    /// Returns the name, the raw argument text, and whatever followed.
     private static func scanAction(_ text: Substring, _ prediction: String) throws -> (name: String, args: String, tail: Substring) {
         var index = text.startIndex
         let nameStart = index

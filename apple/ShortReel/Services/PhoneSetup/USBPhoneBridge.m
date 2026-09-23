@@ -119,7 +119,6 @@ typedef struct {
     return [value isKindOfClass:NSNumber.class] ? @([value boolValue]) : nil;
 }
 
-/// The device belongs to a retained AMDCreateDeviceList array for the entire call.
 - (USBPhoneSnapshot *)snapshotForDevice:(USBMobileDeviceRef)device
                            requestTrust:(BOOL)requestTrust
                                 prepare:(BOOL)prepare
@@ -155,8 +154,6 @@ typedef struct {
         }
         result = _api.validatePairing(device);
         if (result != 0) {
-            // An old host record may still be present. An explicit trust request
-            // can renew it through iOS; it never deletes pairing records.
             if (requestTrust) {
                 result = _api.pair(device);
                 if (result == 0) result = _api.validatePairing(device);
@@ -212,7 +209,6 @@ typedef struct {
         NSMutableArray<USBPhoneSnapshot *> *snapshots = [NSMutableArray array];
         for (CFIndex i = 0; devices && i < CFArrayGetCount(devices); i++) {
             USBMobileDeviceRef device = (USBMobileDeviceRef)CFArrayGetValueAtIndex(devices, i);
-            // AMDeviceGetInterfaceType: 1 is the wired USB transport.
             if (self->_api.interfaceType && self->_api.interfaceType(device) != 1) continue;
             NSError *phoneError = nil;
             USBPhoneSnapshot *snapshot = [self snapshotForDevice:device requestTrust:NO prepare:NO error:&phoneError];
@@ -265,6 +261,4 @@ typedef struct {
     [self performForIdentifier:identifier requestTrust:NO prepare:YES completion:completion];
 }
 
-// MobileDevice owns process-lifetime notification/runtime state. Keep its image
-// loaded instead of dlclose-ing it while framework callbacks may still execute.
 @end

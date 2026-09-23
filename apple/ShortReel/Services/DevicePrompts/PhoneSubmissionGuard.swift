@@ -2,20 +2,13 @@ import CoreGraphics
 import Foundation
 import Vision
 
-/// A local boundary around irreversible submissions. This supplements visual
-/// planning: OCR cannot identify every unlabeled or localized publish control.
-/// Final submission fails closed unless its explicit label is recognized.
 enum PhoneSubmissionGuard {
     struct TextRegion: Sendable {
         let text: String
         let confidence: Float
-        /// Normalized screenshot coordinates, origin at top left.
         let bounds: CGRect
     }
 
-    /// The guard's Vision recognizer, shared with the warm-up account
-    /// classifier (contract TASK-8): accurate, en-US, no language correction,
-    /// boxes normalized to top-left-origin fractions of the frame.
     static func recognizeText(in frame: PhoneScreenFrame) async throws -> [TextRegion] {
         try await Task.detached(priority: .utility) {
             let request = VNRecognizeTextRequest()
@@ -92,8 +85,6 @@ enum PhoneSubmissionGuard {
 
     private static func failure(_ message: String) -> PhonePromptPlanningError { .needsClarification(message) }
 
-    /// Segment clipping catches a drag crossing the control even when neither
-    /// endpoint lies inside it; a bounding-box test alone overblocks diagonals.
     private static func intersects(_ rect: CGRect, from start: CGPoint, to end: CGPoint) -> Bool {
         let dx = end.x - start.x, dy = end.y - start.y
         var lower: CGFloat = 0, upper: CGFloat = 1

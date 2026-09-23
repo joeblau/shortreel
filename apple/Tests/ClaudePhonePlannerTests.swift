@@ -2,8 +2,6 @@ import AppKit
 import Darwin
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,PhonePlannerProcess,PhonePlannerContext,PhonePlannerResponse,ClaudePhonePlanner,PhoneVisionProvider}.swift Tests/ClaudePhonePlannerTests.swift -o /tmp/shortreel-claude-tests
-// SHORTREEL_CLAUDE_SMOKE=1 /tmp/shortreel-claude-tests runs synthetic-image inference only; no phone input.
 @main
 struct ClaudePhonePlannerTests {
     enum Failure: Error { case assertion(String) }

@@ -1,6 +1,5 @@
 #import <Foundation/Foundation.h>
 NS_ASSUME_NONNULL_BEGIN
-/// HIDP report-mode control transactions for the published mouse/keyboard map.
 @interface HIDControlSession : NSObject
 @property (nonatomic, readonly) BOOL suspended;
 @property (nonatomic, readonly) BOOL unplugged;

@@ -1,9 +1,3 @@
-"""Regenerate native-adapter parity fixtures with the upstream Python runtime.
-
-Development only; ShortReel does not run Python. Install laya-coreml from pinned
-Git revision 4619e0483f07adf39068532e85b42ec2347edb83, then pass the pinned local
-model directory as argv[1]. Produces tokens, markers, logits and probabilities.
-"""
 import json
 import sys
 from pathlib import Path
@@ -32,7 +26,7 @@ cases = [
              dict(id=f"option-{i}", description=f"Option {i}: " + "long description " * 40)
              for i in range(16)]),
 ]
-# Account surface recognition; username equality is checked in Swift.
+
 for path in sorted((package.parent / "Tests/Fixtures/AccountOCR").glob("*.json")):
     f = json.loads(path.read_text())
     cases.append(dict(id=path.stem, expected=f["outcome"],

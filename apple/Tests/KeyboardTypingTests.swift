@@ -1,4 +1,3 @@
-// From apple/: swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/DevicePrompts/{WarmUpPlaybook,DeviceWorkflow,DevicePromptPlanner,DevicePromptPlan}.swift Tests/KeyboardTypingTests.swift -o /tmp/shortreel-keyboard-tests && /tmp/shortreel-keyboard-tests
 import Foundation
 
 @main @MainActor

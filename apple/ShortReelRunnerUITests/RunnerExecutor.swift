@@ -1,8 +1,6 @@
 import UIKit
 import XCTest
 
-/// Error carried back to the HTTP layer; becomes `ActionResponse.error` on
-/// action endpoints or a bare `RunnerErrorBody` on non-2xx state responses.
 struct RunnerFailure: Error {
     var body: RunnerErrorBody
 
@@ -11,9 +9,6 @@ struct RunnerFailure: Error {
     }
 }
 
-/// All XCTest interaction. XCUI* types are @MainActor (XCUI_SWIFT_MAIN_ACTOR),
-/// so every query and event synthesis lives on this class; the HTTP layer
-/// awaits in from FlyingFox server tasks.
 @MainActor
 final class RunnerExecutor {
     private(set) var lastActivatedBundleID: String?
@@ -28,8 +23,6 @@ final class RunnerExecutor {
             osVersion: UIDevice.current.systemVersion
         )
     }
-
-    // MARK: - Actions
 
     func tap(_ request: TapRequest) throws {
         guard [request.point.x, request.point.y].allSatisfy({ $0.isFinite && (0...1).contains($0) }),
@@ -71,11 +64,6 @@ final class RunnerExecutor {
                 thenHoldForDuration: request.holdDuration ?? 0
             )
         case .smoothstep:
-            // Public XCTest cannot interpolate a curve inside one drag, so
-            // smoothstep is approximated with three chained press/drag
-            // segments whose velocities follow the smoothstep derivative
-            // (slow–fast–slow). The touch lifts between segments; for
-            // continuous-contact gestures (e.g. scroll flicks) use .linear.
             var anchor = from
             var anchorPoint = fromPoint
             for t in [1.0 / 3, 2.0 / 3, 1.0] {
@@ -116,7 +104,6 @@ final class RunnerExecutor {
 
     func type(_ request: TypeRequest) throws {
         let app = try app(for: request.target)
-        // typeText on the app handle types into the element with keyboard focus.
         app.typeText(request.text)
         settle(request.settle)
     }
@@ -127,8 +114,6 @@ final class RunnerExecutor {
         case .search: app.typeKey(" ", modifierFlags: .command)
         case .selectAll: app.typeKey("a", modifierFlags: .command)
         case .addressBar: app.typeKey("l", modifierFlags: .command)
-        // iOS text fields can ignore the synthesized hardware Return key.
-        // XCTest's text-input path reliably invokes their submit action.
         case .enter: app.typeText("\n")
         case .escape: app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
         case .backspace: app.typeKey(XCUIKeyboardKey.delete.rawValue, modifierFlags: [])
@@ -160,17 +145,12 @@ final class RunnerExecutor {
         case .volumeDown: button = .volumeDown
         #endif
         case .lock:
-            // XCUIDeviceButton has no lock case in the public iOS SDK (home,
-            // volumeUp/Down, action, camera only). Locking needs the private
-            // XCTRunnerDaemonSession path — a v2 item.
             throw RunnerFailure(.unsupported, "pressButton(lock) is unavailable: public XCTest has no lock XCUIDeviceButton case")
         }
         XCUIDevice.shared.press(button)
     }
 
     func openApp(_ request: OpenAppRequest) throws {
-        // Activation failures are recorded as test issues, not thrown errors,
-        // under public XCTest — the Mac side should verify via /state/app.
         XCUIApplication(bundleIdentifier: request.bundleID).activate()
         lastActivatedBundleID = request.bundleID
     }
@@ -184,9 +164,6 @@ final class RunnerExecutor {
         guard !buttons.isEmpty else {
             throw RunnerFailure(.elementNotFound, "Alert on target \(request.target.rawValue) has no buttons")
         }
-        // Heuristic: match well-known button titles first, else fall back to
-        // layout convention — accept is the default (trailing) button,
-        // dismiss is the cancel (leading) button.
         let preferred: [String]
         let fallback: XCUIElement
         switch request.action {
@@ -203,8 +180,6 @@ final class RunnerExecutor {
         }
         (match ?? fallback).tap()
     }
-
-    // MARK: - State
 
     func appState(target: RunnerTarget) throws -> AppStateResponse {
         let state: AppStateResponse.State
@@ -223,9 +198,6 @@ final class RunnerExecutor {
         )
     }
 
-    /// maxDepth cannot be honored: public XCTest exposes only
-    /// debugDescription, which always dumps the full hierarchy. Structured,
-    /// depth-limited trees are a v2 addition (snapshot walking).
     func tree(target: RunnerTarget, maxDepth _: Int?) throws -> TreeResponse {
         TreeResponse(target: target, tree: try app(for: target).debugDescription)
     }
@@ -240,12 +212,6 @@ final class RunnerExecutor {
         return AlertsResponse(target: target, alerts: infos)
     }
 
-    /// Best-effort under public XCTest — there is no public is-locked API.
-    /// Heuristic: if an app the runner activated is still foreground, the
-    /// device is unlocked. Otherwise the device reads as locked when
-    /// SpringBoard is foreground AND a lock-screen affordance (swipe-up
-    /// prompt, Emergency button) exists. Home screen with no markers reads as
-    /// unlocked.
     func locked() -> LockedResponse {
         if let bundleID = lastActivatedBundleID,
            XCUIApplication(bundleIdentifier: bundleID).state == .runningForeground {
@@ -269,11 +235,8 @@ final class RunnerExecutor {
         XCUIScreen.main.screenshot().pngRepresentation
     }
 
-    // MARK: - Helpers
-
     private func app(for target: RunnerTarget) throws -> XCUIApplication {
         if target == .springboard { return springboard() }
-        // Resolve on every request: a Spotlight tap can change applications.
         guard let app = SRForegroundApplication() else {
             throw RunnerFailure(.snapshotFailed, "XCTest could not identify the foreground app. Unlock the phone and retry.")
         }
@@ -285,11 +248,6 @@ final class RunnerExecutor {
         XCUIApplication(bundleIdentifier: Self.springboardBundleID)
     }
 
-    /// Post-action settle. `.idle` relies on XCTest's built-in quiescence
-    /// wait, which runs inside every action call and cannot be disabled with
-    /// public API (v2 private-API item); `.animation` adds a 1s cool-off for
-    /// apps whose animations outlive quiescence; `.none` returns immediately
-    /// and leaves verification to the Mac-side ladder.
     private func settle(_ mode: RunnerSettle) {
         if mode == .animation {
             Thread.sleep(forTimeInterval: 1)

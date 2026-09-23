@@ -1,9 +1,6 @@
 import SwiftData
 import SwiftUI
 
-/// The pipeline stages for the selected phone, shown by the inspector's
-/// Stage segment. Ordering matters: a clean home screen, then warm-up, then
-/// content creation. Cleanup is the primary action and starts with one click.
 struct DeviceStageView: View {
     let device: Device
 
@@ -58,8 +55,6 @@ struct DeviceStageView: View {
                         .padding(16)
                 }
 
-                // A failed scorer load never blocks a stage; say here why
-                // local checks are off instead.
                 if let notice = deviceManager.semanticIfState.localChecksOffNotice {
                     Text(notice)
                         .font(.caption)
@@ -147,7 +142,6 @@ struct DeviceStageView: View {
         warmUpPlans.first { $0.persona?.persistentModelID == persona.persistentModelID && $0.platform == platform }
     }
 
-    /// Prefill the form from the device's bound persona and its saved plan.
     private func prepareWarmUp() {
         let available = personas.filter { $0.isLive && $0.isActive }
         let persona = available.first { $0.device?.persistentModelID == device.persistentModelID }
@@ -159,8 +153,6 @@ struct DeviceStageView: View {
         applyWarmUpDefaults()
     }
 
-    /// Pull saved session values and the date-derived phase for the
-    /// currently selected persona and platform.
     private func applyWarmUpDefaults() {
         guard let persona = warmUpPersona, persona.isLive else {
             warmUp.profileName = ""
@@ -185,7 +177,6 @@ struct DeviceStageView: View {
         }
     }
 
-    /// A starting niche guess from the persona's narrative.
     private func defaultNiche(for persona: Persona) -> String {
         persona.narrative
             .split(separator: ".").first

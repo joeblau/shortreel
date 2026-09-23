@@ -1,6 +1,5 @@
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Models/*.swift PhoneRunnerShared/PhoneRunnerProtocol.swift ShortReel/Services/PhoneRunner/RunnerClient.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/PhoneRunner/RunnerDeviceHost.swift ShortReel/Services/DevicePrompts/{WarmUpPlaybook,DeviceWorkflow,DevicePromptPlanner,DevicePromptPlan}.swift Tests/RunnerDeviceHostTests.swift -o /tmp/sr-devicehost-tests
 @main
 enum RunnerDeviceHostTests {
     @MainActor

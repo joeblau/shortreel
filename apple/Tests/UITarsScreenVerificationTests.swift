@@ -175,7 +175,6 @@ struct UITarsScreenVerificationTests {
         let appTap = try await UITarsPhonePlanner.reviewDecision(.action(.tap(0.2, 0.16), reason: "Open app"), goal: "Open TikTok", frame: results,
             history: [], observation: .init(state: .spotlight, appCardsVisible: false, evidence: "Top Hit"), configuration: config, session: session)
         try check(appTap.verdict == .allow && ReviewProtocol.count == 0, "Text-verified installed-app target was rejected")
-        // A browser search labeled UNKNOWN must still allow an app switch.
         let browser = "UNKNOWN: Google search results for tiktok, with Safari's address field and no Home icons or preview cards."
         let otherApp = #"{"state":"otherScreen","evidence":"Safari shows Google results for TikTok, not the installed TikTok app."}"#
         ReviewProtocol.set([browser, otherApp])

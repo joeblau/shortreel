@@ -1,7 +1,6 @@
 import Darwin
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/PhonePlannerProcess.swift Tests/PhonePlannerProcessTests.swift -o /tmp/shortreel-planner-process-tests
 @main
 enum PhonePlannerProcessTests {
     static func main() async throws {

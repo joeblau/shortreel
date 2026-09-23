@@ -1,7 +1,5 @@
 import Foundation
 
-/// Sends literal characters in order with short, varied pauses. Cancellation
-/// and transport failures stop before any further characters are submitted.
 @MainActor
 enum KeyboardTyping {
     static func run(
@@ -25,17 +23,12 @@ enum KeyboardTyping {
     }
 }
 
-/// Identity of a physical phone, detached from SwiftData so it can cross
-/// concurrency boundaries.
 struct DeviceDescriptor: Sendable, Hashable {
     var identifier: String
     var name: String
     var transport: DeviceTransport
 }
 
-/// Screen-space point normalised to 0...1 on each axis. The Bluetooth HID
-/// mouse reports absolute X/Y in 0...32767, which iOS AssistiveTouch maps to
-/// the full screen, so a normalised point is all a driver needs.
 struct NormalizedPoint: Sendable, Hashable {
     var x: Double
     var y: Double
@@ -49,19 +42,9 @@ enum DeviceKeyboardKey: String, CaseIterable, Sendable {
 enum DeviceHostEvent: Sendable {
     case discovered(DeviceDescriptor)
     case connectionChanged(identifier: String, state: DeviceConnectionState)
-    /// The host learned a device's real Bluetooth address from an incoming
-    /// pairing, replacing the placeholder stored on the device.
     case addressLearned(identifier: String, address: String)
 }
 
-/// Driver seam for whatever physically reaches the phone.
-///
-/// The Bluetooth production implementation follows the approach TapKit uses
-/// (see docs/tapkit-reverse-engineering.md): the Mac publishes a Bluetooth
-/// Classic HID service (a mouse with absolute X/Y plus a keyboard) that the
-/// iPhone pairs with from Settings › Accessibility › Touch › AssistiveTouch ›
-/// Devices, then streams HID input reports over the L2CAP interrupt channel.
-/// `SimulatedDeviceHost` still stands in for the USB transport.
 @MainActor
 protocol DeviceHost: AnyObject {
     var events: AsyncStream<DeviceHostEvent> { get }
@@ -70,10 +53,6 @@ protocol DeviceHost: AnyObject {
     func connect(_ device: DeviceDescriptor) async throws
     func disconnect(_ device: DeviceDescriptor)
 
-    /// Whether the stored descriptor refers to a device this Mac has a real
-    /// bond with, making it eligible for automatic reconnection. Stored
-    /// entries can outlive their bond or carry invented addresses, so hosts
-    /// must verify against the system pairing list.
     func canAutoConnect(_ device: DeviceDescriptor) -> Bool
 
     func tap(_ point: NormalizedPoint, on device: DeviceDescriptor) async throws
@@ -84,7 +63,6 @@ protocol DeviceHost: AnyObject {
     func type(_ text: String, on device: DeviceDescriptor) async throws
     func pressKey(_ key: DeviceKeyboardKey, on device: DeviceDescriptor) async throws
     func openAssistiveTouchMenu(on device: DeviceDescriptor) async throws
-    /// Swipe up from the bottom edge and hold, opening the App Switcher.
     func openAppSwitcher(on device: DeviceDescriptor) async throws
 }
 
@@ -125,7 +103,6 @@ enum DeviceHostError: Error, LocalizedError {
     }
 }
 
-/// Pretends to pair and drive phones with realistic delays.
 @MainActor
 final class SimulatedDeviceHost: DeviceHost {
     let events: AsyncStream<DeviceHostEvent>

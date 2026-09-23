@@ -1,10 +1,3 @@
-// cd apple/SemanticIf && swift test  (skips unless SHORTREEL_LAYA_MODEL_DIR is set)
-//
-// Opt-in real-checkpoint test for the account-step classifier rows (issue
-// #15): scores the golden OCR fixtures in apple/Tests/Fixtures/AccountOCR with
-// the pinned Laya Core ML checkpoint. Skipped by default; set SHORTREEL_LAYA_MODEL_DIR to
-// the directory returned by hf download --local-dir. Uses the same account
-// prompt and exact identifier comparison as the app.
 
 import Foundation
 import XCTest
@@ -26,12 +19,11 @@ final class SemanticIfAccountCheckTests: XCTestCase {
         let visualEvidence: String?
     }
 
-    /// apple/, from this file at apple/SemanticIf/Tests/SemanticIfTests/.
     static let appleRoot = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()  // SemanticIfTests/
-        .deletingLastPathComponent()  // Tests/
-        .deletingLastPathComponent()  // SemanticIf/
-        .deletingLastPathComponent()  // apple/
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
 
     func testAccountFixturesWithRealCheckpoint() async throws {
         guard let dir = ProcessInfo.processInfo.environment["SHORTREEL_LAYA_MODEL_DIR"], !dir.isEmpty else {

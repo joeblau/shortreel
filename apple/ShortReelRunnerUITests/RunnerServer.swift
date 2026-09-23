@@ -2,9 +2,6 @@ import FlyingFox
 import FlyingSocks
 import Foundation
 
-/// FlyingFox server exposing the PhoneRunnerProtocol endpoints. The actor
-/// serializes requests (UI actions must not interleave); all XCTest work hops
-/// to `RunnerExecutor` on the main actor.
 actor RunnerServer {
     private let server: HTTPServer
     private let executor = RunnerExecutor()
@@ -13,9 +10,6 @@ actor RunnerServer {
     private var serverTask: Task<Void, Error>?
 
     init() {
-        // IPv4 loopback only: the Mac reaches the runner through the go-ios
-        // userspace tunnel's forwarded localhost port; nothing on the LAN
-        // should be able to drive the phone.
         let address = (try? sockaddr_in.inet(ip4: "127.0.0.1", port: PhoneRunnerProtocol.port))
             ?? sockaddr_in.inet(port: PhoneRunnerProtocol.port)
         server = HTTPServer(address: address)
@@ -33,8 +27,6 @@ actor RunnerServer {
         }
         throw RunnerFailure(.internalError, "Server failed to bind 127.0.0.1:\(PhoneRunnerProtocol.port)")
     }
-
-    // MARK: - Routes
 
     private func registerRoutes() async {
         await server.appendRoute(HTTPRoute(method: .GET, path: PhoneRunnerProtocol.healthPath)) { [self] _ in
@@ -93,8 +85,6 @@ actor RunnerServer {
             )
         }
     }
-
-    // MARK: - Plumbing
 
     private func handleAction<Body: Decodable & Sendable>(
         _ httpRequest: HTTPRequest,

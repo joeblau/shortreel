@@ -2,9 +2,6 @@ import AppKit
 import Darwin
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,PhonePlannerProcess,PhonePlannerContext,PhonePlannerResponse,CodexPhonePlanner,PhoneVisionProvider}.swift Tests/CodexPhonePlannerTests.swift -o /tmp/shortreel-codex-tests
-// Optional real CLI smoke test, using only a generated browser screenshot:
-// SHORTREEL_CODEX_SMOKE=1 /tmp/shortreel-codex-tests
 @main
 struct CodexPhonePlannerTests {
     enum Failure: Error { case assertion(String) }
@@ -176,7 +173,6 @@ struct CodexPhonePlannerTests {
             let data = try response(fields.merging(["reason": reason]) { _, new in new })
             try check(try PhonePlannerResponse.decision(from: data, goal: "Use the visible interface") == expected, "Action changed during decoding")
         }
-        // Percent and screenshot-pixel answers normalize to fractions instead of failing the step.
         let size = CGSize(width: 480, height: 1040)
         let units: [([String: Any], PhoneVisionDecision)] = [
             (["kind": "tap", "x": 9, "y": 96], .action(.tap(0.09, 0.96), reason: reason)),
@@ -252,8 +248,6 @@ struct CodexPhonePlannerTests {
         Set(try FileManager.default.contentsOfDirectory(atPath: FileManager.default.temporaryDirectory.path).filter { $0.hasPrefix("shortreel-codex-") })
     }
 
-    /// This test executable stands in for codex, validating the real argv and
-    /// on-disk request before writing a final result through the CLI contract.
     static func fakeCLI() throws {
         let args = CommandLine.arguments
         func argument(_ flag: String) throws -> String {

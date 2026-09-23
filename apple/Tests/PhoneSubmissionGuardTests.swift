@@ -1,7 +1,6 @@
 import CoreGraphics
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,PhoneSubmissionGuard}.swift Tests/PhoneSubmissionGuardTests.swift -o /tmp/shortreel-submission-guard-tests && /tmp/shortreel-submission-guard-tests
 @main
 enum PhoneSubmissionGuardTests {
     enum Failure: Error { case assertion(String) }

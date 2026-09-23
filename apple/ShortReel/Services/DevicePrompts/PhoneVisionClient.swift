@@ -6,8 +6,6 @@ import Vision
 import FoundationModels
 #endif
 
-/// Uses local image understanding plus OCR anchors to choose one interaction.
-/// Screenshots and recognized text never leave the Mac.
 @MainActor
 enum PhoneVisionClient {
     static var unavailabilityReason: String? {
@@ -32,8 +30,6 @@ enum PhoneVisionClient {
         return "Screen-driven actions require macOS 27 or later and an Apple Intelligence model with vision."
     }
 
-    /// Warms the model assets while the first screen capture and OCR run, so
-    /// the first decision does not pay the full cold-start cost.
     static func prewarm() {
         #if canImport(FoundationModels)
         if #available(macOS 27.0, *), unavailabilityReason == nil {
@@ -140,8 +136,6 @@ enum PhoneVisionClient {
         case .wait:
             return .wait(seconds: result.seconds, reason: reason)
         case .finished:
-            // Include the specific visual evidence in the result. A sent action
-            // or action history alone is never sufficient completion evidence.
             return .finished("\(reason) \(result.evidence)")
         case .needsInput:
             return .needsInput(reason)
@@ -177,8 +171,6 @@ enum PhoneVisionClient {
         let y: Double
     }
 
-    /// Deterministic boundary between model output and physical pointer input.
-    /// Kept independent of model availability so it can be regression tested.
     static func groundedPointerDecision(
         proposed: PhonePromptAction, targetID: Int, endTargetID: Int = -1,
         targets: [GroundingTarget], goal: String, reason: String
@@ -213,8 +205,6 @@ enum PhoneVisionClient {
             throw PhoneVisionError.invalidDecision("Only taps and drags use pointer grounding.")
         }
 
-        // Literal user coordinates are authorized geometry, not a model guess.
-        // A negated or multi-step request cannot pass this exact one-action check.
         if let requested = try? DevicePromptPlanner.plan(goal), requested.actions == [proposed] {
             return try PhoneVisionDecision.action(proposed, reason: reason).validated()
         }
@@ -249,9 +239,6 @@ enum PhoneVisionClient {
         let targets: [GroundingTarget]
     }
 
-    /// Uses the frame's pre-decoded image (capped at 1280 px by the encoder)
-    /// instead of re-decoding the JPEG into a thumbnail. Language detection is
-    /// pinned to English so OCR does not run language identification per frame.
     nonisolated static func makeScreenContext(_ frame: PhoneScreenFrame) throws -> ScreenContext {
         let image = frame.cgImage
         guard image.width > 0, image.height > 0 else {

@@ -2,8 +2,6 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// The classic CoreBluetooth socket is a stream; each outgoing HID transaction
-/// needs the ancillary packet boundary used by the Bluetooth socket transport.
 @interface CBHIDSocket : NSObject
 - (nullable instancetype)initWithFileDescriptor:(int)descriptor
                                  callbackQueue:(dispatch_queue_t)callbackQueue

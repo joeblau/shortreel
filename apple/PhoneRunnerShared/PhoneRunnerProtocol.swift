@@ -1,9 +1,5 @@
 import Foundation
 
-/// Wire protocol between ShortReel (Mac) and ShortReelRunner (on-device XCTest
-/// bundle). This file is compiled into three targets: the macOS app, the iOS
-/// stub app, and the UI-testing bundle, so it must stay dependency-free
-/// Foundation-only. Design: docs/phone-runner-design.md
 enum PhoneRunnerProtocol {
     static let port: UInt16 = 8700
     static let version = 3
@@ -25,17 +21,11 @@ enum PhoneRunnerProtocol {
     static let screenshotPath = "/state/screenshot"
 }
 
-/// Which app an action or state query binds to. `springboard` covers the home
-/// screen, App Library, Control Center, notification banners, and system
-/// alerts (docs/phone-runner-design.md).
 enum RunnerTarget: String, Codable, Sendable {
     case foreground
     case springboard
 }
 
-/// How long the on-device side waits for the UI to settle around an action.
-/// `idle` uses XCTest's default quiescence; `animation` adds a pause.
-/// `none` adds no extra wait, but cannot disable XCTest's built-in quiescence.
 enum RunnerSettle: String, Codable, Sendable {
     case idle
     case animation
@@ -43,12 +33,9 @@ enum RunnerSettle: String, Codable, Sendable {
 }
 
 struct RunnerPoint: Codable, Sendable, Hashable {
-    /// Normalized 0...1 on each axis, matching NormalizedPoint in the app.
     var x: Double
     var y: Double
 }
-
-// MARK: - Action requests
 
 struct TapRequest: Codable, Sendable {
     var target: RunnerTarget = .foreground
@@ -126,8 +113,6 @@ struct AlertActionRequest: Codable, Sendable {
     var action: Action
 }
 
-// MARK: - State responses
-
 struct HealthResponse: Codable, Sendable {
     var status: String
     var version: Int
@@ -140,18 +125,12 @@ struct AppStateResponse: Codable, Sendable {
         case foreground, background, notRunning, unknown
     }
 
-    /// Bundle ID of the app the runner last activated or observed in the
-    /// foreground. Active-process lookup is isolated in RunnerAccessibility;
-    /// callers must still tolerate missing identifiers on unsupported SDKs.
     var bundleID: String?
     var state: State
     var springboardForeground: Bool
 }
 
 struct TreeResponse: Codable, Sendable {
-    /// XCTest debugDescription dump of the target app's accessibility
-    /// hierarchy (WDA's `format=description` equivalent). Structured JSON
-    /// trees are a v2 addition.
     var target: RunnerTarget
     var tree: String
 }
@@ -167,8 +146,6 @@ struct AlertsResponse: Codable, Sendable {
 }
 
 struct LockedResponse: Codable, Sendable {
-    /// Heuristic from SpringBoard state and lock-screen elements; documented
-    /// as best-effort under public XCTest.
     var locked: Bool
 }
 
@@ -191,12 +168,6 @@ struct RunnerErrorBody: Codable, Sendable {
     var message: String
 }
 
-// MARK: - Mac-side seam
-
-/// The Mac-side client seam. `RunnerClient` conforms to this; integration
-/// code (RunnerDeviceHost, RunnerOracle) depends only on the protocol so the
-/// client, tests, and consumers can be built independently. `screenshot`
-/// returns PNG bytes; every throwing method surfaces RunnerErrorBody codes.
 protocol PhoneRunnerServing: Sendable {
     func health() async throws -> HealthResponse
     func tap(_ request: TapRequest) async throws

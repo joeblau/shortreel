@@ -13,8 +13,6 @@ enum WarmUpActivity: String, CaseIterable, Identifiable, Codable, Sendable {
     }
 }
 
-/// Built-in scripts describe milestones, never screen coordinates. The visual
-/// runner verifies each milestone on a fresh image before advancing the cursor.
 struct WarmUpScript: Codable, Equatable, Sendable {
     enum Network: String, CaseIterable, Codable, Sendable {
         case tikTok = "TikTok", instagram = "Instagram", youtube = "YouTube", x = "X"
@@ -61,8 +59,6 @@ struct WarmUpScript: Codable, Equatable, Sendable {
         maximumVideoDurationSeconds != nil && version >= (network == .tikTok ? 4 : 3)
     }
 
-    /// Saved contracts fail before device input when their version or limits
-    /// cannot be supported by this build.
     func validate() throws {
         guard (1...Self.currentVersion(network: network, activity: activity)).contains(version) else {
             throw PhonePromptPlanningError.needsClarification("Unsupported warm-up script version: \(version).")
@@ -163,7 +159,6 @@ struct WarmUpScript: Codable, Equatable, Sendable {
     }
 }
 
-
 struct WarmUpScriptCursor: Sendable {
     let script: WarmUpScript
     private(set) var index = 0
@@ -190,8 +185,6 @@ struct WarmUpScriptCursor: Sendable {
         """
     }
 
-    /// Planners can encode the same feed gesture as a swipe or a coordinate
-    /// drag. Dispatch one canonical swipe so validation and checkpoints agree.
     func normalizedAction(_ action: PhonePromptAction) -> PhonePromptAction {
         guard step.id == .advance || (step.id == .consume && script.maximumVideoDurationSeconds != nil) else {
             return action
@@ -206,8 +199,6 @@ struct WarmUpScriptCursor: Sendable {
             (startX, startY, endX, endY) = (x, y, toX, toY)
         default: return action
         }
-        // Only a substantial vertical movement inside the player, not a
-        // progress-bar scrub, edge gesture, horizontal drag, or long hold.
         guard [startX, endX].allSatisfy({ (0.15...0.85).contains($0) }),
               [startY, endY].allSatisfy({ (0.1...0.85).contains($0) }),
               startY - endY >= 0.2, abs(endX - startX) <= 0.15 else { return action }
@@ -251,8 +242,6 @@ struct WarmUpScriptCursor: Sendable {
     mutating func didPerform(_ proposedAction: PhonePromptAction) {
         let action = normalizedAction(proposedAction)
         if step.id == .consume, script.maximumVideoDurationSeconds != nil, action == .swipe(.up) {
-            // Skipping a long video is not a completed viewing. Reuse the
-            // advance verification step so another swipe cannot race loading.
             index = script.steps.firstIndex { $0.id == .advance }!
             advanceSent = true
             return
@@ -300,16 +289,11 @@ extension WarmUpScript {
         let retriesUncertainSubmission: Bool
         let resumesInterruptedRun: Bool
 
-        /// A fresh run requires explicit user action. In-step observation and
-        /// loading waits are not retries of preparation or publication.
         static let versionOne = RetryPolicy(maximumPreparationAttempts: 1,
             maximumSubmissionAttempts: 1, retriesUncertainSubmission: false, resumesInterruptedRun: false)
     }
 }
 
-/// Registry keys remain stable across display-name changes; a version changes
-/// whenever the steps or retry contract change. Older versions must either keep
-/// their own definition or be rejected explicitly, never silently upgraded.
 enum WarmUpScriptRegistry {
     struct Definition: Equatable, Sendable {
         let identifier: String
@@ -335,8 +319,6 @@ enum WarmUpScriptRegistry {
     }
 }
 
-/// A durable run records the executable definition alongside its settings, so
-/// inspecting history does not reinterpret old runs using a newer playbook.
 struct WarmUpScriptEnvelope: Codable, Equatable, Sendable {
     let schemaVersion: Int
     let script: WarmUpScript
@@ -369,8 +351,6 @@ struct WarmUpScriptEnvelope: Codable, Equatable, Sendable {
     }
 }
 
-/// Diagnostic progress only. Interrupted runs are never automatically resumed:
-/// the screen/account can change, and a submitted action may be unconfirmed.
 struct WarmUpScriptCheckpoint: Codable, Equatable, Sendable {
     let scriptIdentifier: String
     let scriptVersion: Int

@@ -1,9 +1,5 @@
 import Foundation
 
-// From apple/: swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/DevicePrompts/{WarmUpScript,WarmUpPlaybook,DeviceWorkflow,DevicePromptPlan,DevicePromptPlanner,PhoneVisionTypes,PhoneSubmissionGuard,WarmUpAccountClassifier,WarmUpFailureClassifier}.swift SemanticIf/Sources/SemanticIf/{SemanticIfPrompt,SemanticIfScoring}.swift Tests/WarmUpTasksContractTests.swift -o /tmp/shortreel-contract-tests && /tmp/shortreel-contract-tests
-/// Contracts/warmup-tasks.json is state, not documentation: it must match the
-/// Swift registry exactly and describe a success case and recoveries for every
-/// step of every platform × activity.
 @main
 enum WarmUpTasksContractTests {
     enum Failure: Error { case assertion(String) }
@@ -45,8 +41,6 @@ enum WarmUpTasksContractTests {
         print("Warm-up contract tests passed: \(contract.platforms.count) platforms, \(WarmUpScriptRegistry.definitions.count) scripts, \(contract.tasks.count) tasks")
     }
 
-    /// Identifiers, versions, step order, titles, limits and retry policy come
-    /// from the Swift model; the JSON may add detail but never disagree.
     static func registryParity(_ contract: Contract) throws {
         try expect(Set(contract.platforms.keys) == Set(WarmUpScript.Network.allCases.map(\.rawValue)), "Platforms differ from WarmUpScript.Network")
         for definition in WarmUpScriptRegistry.definitions {
@@ -68,8 +62,6 @@ enum WarmUpTasksContractTests {
         }
     }
 
-    /// Every step of every script carries a success case and at least one
-    /// failure mode with a recovery; submissions name their control labels.
     static func completeness(_ contract: Contract) throws {
         try expect(!contract.invariants.isEmpty && Set(contract.invariants.map(\.id)).count == contract.invariants.count, "Invariant ids repeat")
         for (name, platform) in contract.platforms {
@@ -95,10 +87,6 @@ enum WarmUpTasksContractTests {
         }
     }
 
-    /// TASK-8 (#15): every account step's failureModes build the classifier's
-    /// decision row — a valid Semif row with ≤16 unique options, the contract's
-    /// detection text as descriptions — and the Swift copies of the success
-    /// criteria and accountLocation match this file verbatim.
     static func accountClassifierRows(_ contract: Contract) throws {
         for (name, platform) in contract.platforms {
             guard let appPlatform = Platform.allCases.first(where: { $0.displayName == name }) else {
@@ -131,11 +119,6 @@ enum WarmUpTasksContractTests {
         }
     }
 
-    /// TASK-5/6 (#16): every non-account step's failureModes build the
-    /// per-step classifier's decision row from this file at runtime — `none`
-    /// plus each mode id with its detection text as the description, the
-    /// success criteria as the question — and each mode maps to a runner
-    /// recovery branch. Budgets decode into the store the runner enforces.
     static func failureClassifierRows(_ contract: Contract) throws {
         var stepCount = 0
         var modeCount = 0
@@ -166,8 +149,6 @@ enum WarmUpTasksContractTests {
                     try expect(state.first(where: { $0.0 == "successCriteria" })?.1 == .array(step.successCriteria.map { .string($0) }),
                         "\(label): success criteria missing from evidence")
                     try SemanticIfPrompt.validate(row.decision)
-                    // Every recovery has a fixed attempt budget. Its executable
-                    // branch is now saved in the transaction before any input.
                     for mode in step.failureModes {
                         try expect((1...2).contains(WarmUpFailureClassifier.attemptLimit(for: mode.id)),
                             "\(label): unbounded recovery for \(mode.id)")
@@ -177,7 +158,6 @@ enum WarmUpTasksContractTests {
                 }
             }
         }
-        // The store the runner loads decodes the same steps and budgets.
         var accountStepCount = 0
         var accountModeCount = 0
         for platform in contract.platforms.values {

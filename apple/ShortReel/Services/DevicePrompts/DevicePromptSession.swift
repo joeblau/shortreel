@@ -26,7 +26,6 @@ struct DevicePromptEntry: Identifiable, Sendable {
     var status: DevicePromptStatus
     var message: String
     var steps: [PhoneVisionStep] = []
-    /// Kept for request-history rendering; transactions record frame-bound steps.
     var sentActions: [String] = []
     var workflow: DeviceWorkflow? = nil
     var scriptTitle: String? = nil
@@ -42,9 +41,6 @@ struct DevicePromptEntry: Identifiable, Sendable {
     var testAppSwitcher = false
 }
 
-/// One independent conversation and serial action task for each physical phone.
-/// Agent and Stage share the same saved transaction engine. Commands and
-/// transitions are fixed before execution; every input requires fresh evidence.
 @Observable @MainActor
 final class DevicePromptSession {
     var draft = ""
@@ -54,8 +50,6 @@ final class DevicePromptSession {
     private(set) var persistenceError: String?
     private(set) var restartRequiresReview = false
     var hasUnreviewedRuns: Bool { restartRequiresReview || entries.contains { $0.status == .needsReview && $0.reviewedAt == nil } }
-    /// Watch starts with fresh observations and has no submission phase. A
-    /// previous launch's uncertainty must not block this new, independent run.
     var queueRequiresReview: Bool {
         entries.contains { $0.status == .needsReview && $0.reviewedAt == nil }
             || (restartRequiresReview && entries.first(where: { $0.status == .queued })?.warmUpScript?.activity != .watch)
@@ -153,7 +147,6 @@ final class DevicePromptSession {
         startNext()
     }
 
-    /// Explicitly resume only never-started jobs; interrupted jobs are never retried.
     func resumeQueue() {
         guard journalLoaded, !queueRequiresReview, persistOrPause() else { return }
         queuePaused = false
@@ -207,7 +200,6 @@ final class DevicePromptSession {
             var completed = 0
             defer { self.isRunning = false; self.task = nil; self.startNext() }
             do {
-                // Overlap model warm-up with the first capture.
                 self.onVisualStart?()
                 let progress: @MainActor (String) -> Void = { message in
                     self.update(id, status: .running, message: message)
@@ -280,8 +272,6 @@ final class DevicePromptSession {
         task?.cancel()
     }
 
-    /// Freeze a discarded session before a replacement can load its journal.
-    /// Its cancelled task may still unwind, but must never overwrite newer work.
     func retire(because reason: String) {
         guard !retired else { return }
         cancel(because: reason)
@@ -293,7 +283,6 @@ final class DevicePromptSession {
     }
 
     private func trimHistory() {
-        // Keep all active, queued, and unresolved runs even if the history cap is exceeded.
         let terminal = entries.filter { !$0.status.isActive && $0.status != .queued && !($0.status == .needsReview && $0.reviewedAt == nil) }
         let remove = Set(terminal.prefix(max(0, entries.count - 50)).map(\.id))
         entries.removeAll { remove.contains($0.id) }

@@ -2,9 +2,6 @@ import Foundation
 import SwiftData
 import SwiftUI
 
-/// How the Mac reaches the phone. Mirrors the two paths TapKit uses: a
-/// Bluetooth Classic HID mouse+keyboard that iOS AssistiveTouch pairs with,
-/// and a USB lockdown session used for screen capture and accessibility toggles.
 enum DeviceTransport: String, Codable, CaseIterable, Sendable {
     case bluetoothHID
     case usb
@@ -53,14 +50,12 @@ enum DeviceConnectionState: String, Codable, Sendable {
     }
 }
 
-/// A physical iPhone the agents can drive.
 @Model
 final class Device {
     var name: String
     var modelName: String
     var transport: DeviceTransport
     var connectionState: DeviceConnectionState
-    /// Bluetooth address for HID devices, UDID for USB devices.
     var identifier: String
     var lastSeen: Date?
     var createdAt: Date

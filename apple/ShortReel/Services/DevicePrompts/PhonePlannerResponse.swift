@@ -1,7 +1,5 @@
 import Foundation
 
-/// The CLI's structured output is still untrusted input. Validate its exact
-/// shape and input bounds before returning anything to the phone runner.
 enum PhonePlannerResponse {
     private enum Kind: String, Decodable, CaseIterable {
         case home, tap, doubleTap, longPress, drag, swipe, typeText, press, wait, finished, needsInput
@@ -44,9 +42,6 @@ enum PhonePlannerResponse {
         }
     }
 
-    /// Vision models habitually answer in the screenshot's pixels or in
-    /// percent even when asked for fractions. When every coordinate fits one
-    /// of those units, convert instead of rejecting the whole step.
     private static func normalized(_ coordinates: [(value: Double, extent: Double)]) -> [Double]? {
         let values = coordinates.map(\.value)
         guard values.allSatisfy({ $0.isFinite && $0 >= 0 }) else { return nil }
@@ -76,8 +71,6 @@ enum PhonePlannerResponse {
             ]), ["type": "null"]]]
         ])]
         if !inspectOnly {
-            // The Bluetooth Home gesture is unsupported by this visual
-            // contract. Do not advertise an action navigation validation rejects.
             properties["decision"] = ["anyOf": Kind.allCases.filter { $0 != .home }.map { kind in
                 var fields: [String: Any] = ["kind": ["type": "string", "enum": [kind.rawValue]], "reason": text]
                 for field in kind.fields {
@@ -109,8 +102,6 @@ enum PhonePlannerResponse {
               var payload = try? JSONDecoder().decode(Payload.self, from: JSONSerialization.data(withJSONObject: value)) else {
             throw invalid("one complete phone action")
         }
-        // Required properties may not be null, even though Codable's optional
-        // fields cover the different action variants.
         guard value.values.allSatisfy({ !($0 is NSNull) }) else { throw invalid("non-null action fields") }
         payload.normalizeCoordinates(imageSize: imageSize)
         func number(_ value: Double?) throws -> Double {

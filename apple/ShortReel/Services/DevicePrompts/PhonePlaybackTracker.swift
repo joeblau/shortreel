@@ -2,9 +2,6 @@ import CoreGraphics
 import Foundation
 import Vision
 
-/// Targeted, local evidence for the visual planner. A timer disappearing, pixels
-/// changing, or time passing never establishes completion. Even a measured reset
-/// requires the planner to confirm that this is the same full-screen video.
 struct PhonePlaybackEvidence: Sendable, Equatable {
     let summary: String
     let replayCandidate: Bool
@@ -16,7 +13,6 @@ struct PhonePlaybackTracker: Sendable {
     struct TextRegion: Sendable {
         let text: String
         let confidence: Float
-        /// Normalized image coordinates, origin at the top left.
         let bounds: CGRect
     }
 
@@ -84,9 +80,6 @@ struct PhonePlaybackTracker: Sendable {
             return .init(summary: "Local playback detector: no unique readable elapsed/total timer. Completion is unconfirmed; inspect the actual player and progress/replay visually. Do not infer completion from elapsed wall time or changing pixels.", replayCandidate: false)
         }
 
-        // Require two independent stable text anchors, including an explicit
-        // creator handle. Generic controls and engagement counts are excluded.
-        // These are evidence of continuity, not a guaranteed video identifier.
         let identity = Set(observation.regions.compactMap { region -> String? in
             guard region.confidence >= 0.85, region.bounds.minY >= 0.50,
                   region.bounds.minY < 0.90, region.bounds.minX < 0.55,
@@ -127,8 +120,6 @@ struct PhonePlaybackTracker: Sendable {
             return .init(summary: measured + " Previously advanced to \(Self.clock(previous.elapsed))/\(Self.clock(previous.total)), then reset near zero while creator/caption anchors and timer position stayed the same. This is a replay candidate: visually confirm the same full-screen video completed before marking it watched and swiping up once. Seeking, overlays, or a different video can also reset a timer.", replayCandidate: true, durationSeconds: current.total)
         }
         if current.elapsed > previous.elapsed {
-            // Reject jumps faster than plausible playback; an OCR error or seek
-            // must not establish the prerequisite for replay evidence.
             let maximumAdvance = current.capturedAt.timeIntervalSince(previous.capturedAt) * 2 + 2
             observedForwardProgress = Double(current.elapsed - previous.elapsed) <= maximumAdvance
         } else if current.elapsed < previous.elapsed {

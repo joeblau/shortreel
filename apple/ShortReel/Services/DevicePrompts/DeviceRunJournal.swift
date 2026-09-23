@@ -1,7 +1,6 @@
 import CryptoKit
 import Foundation
 
-/// A device-scoped atomic journal. Screenshots and image buffers never enter it.
 struct DeviceRunJournal {
     struct Step: Codable {
         let id: UUID
@@ -112,10 +111,6 @@ struct DeviceRunJournal {
         try document()?.entries.map { try $0.restored() } ?? []
     }
 
-    /// History and queued work last only for this app launch. Keep one safety
-    /// bit, without old prompts or steps, if interrupted input needs review.
-    /// Watch never submits content, and new runs observe the current screen;
-    /// interrupted Watch navigation therefore needs no restart review gate.
     func loadForSession() throws -> (entries: [DevicePromptEntry], requiresReview: Bool) {
         guard let saved = try document() else { return ([], false) }
         if saved.appSessionID == appSessionID {

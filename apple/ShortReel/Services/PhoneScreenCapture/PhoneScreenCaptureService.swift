@@ -6,8 +6,6 @@ import Foundation
 import Observation
 import os
 
-/// A separate instance belongs to each physical phone. Explicit source IDs are
-/// required; capture never falls back to another phone or an ordinary camera.
 @Observable @MainActor
 final class PhoneScreenCaptureService {
     private(set) var sources: [PhoneScreenSource] = []
@@ -83,10 +81,6 @@ final class PhoneScreenCaptureService {
             try await engine.start(sourceID: sourceID, generation: requestedGeneration)
             try Task.checkCancellation()
             guard generation == requestedGeneration else { throw CancellationError() }
-            // Starting the CMIO graph does not prove the phone is delivering
-            // usable images. Keep the source unavailable to the visual runner
-            // until a fresh first frame arrives, with the same bounded wait used
-            // between actions. A silent stream must not leave the UI waiting forever.
             _ = try await waitForFrame(sourceID: sourceID, after: firstFrameAfter)
             try Task.checkCancellation()
             guard generation == requestedGeneration else { throw CancellationError() }
@@ -108,8 +102,6 @@ final class PhoneScreenCaptureService {
         await engine.stop()
     }
 
-    /// Waits for a source-matched frame whose capture timestamp is strictly later
-    /// than the requested barrier. Calling without a barrier requests a new frame.
     func capture(after: Date? = nil) async throws -> PhoneScreenFrame {
         try Task.checkCancellation()
         guard isRunning, let selectedSourceID else { throw PhoneScreenCaptureError.notRunning }
@@ -177,9 +169,6 @@ final class PhoneScreenCaptureService {
     }
 }
 
-/// AVCaptureSession, its delegate, pixel buffers and CIContext stay on one serial
-/// queue. Only immutable Sendable metadata/JPEGs leave that queue. This explicit
-/// confinement is the reason for the unchecked Sendable conformance.
 private final class PhoneScreenCaptureEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     enum Event: Sendable {
         case frame(PhoneScreenFrame, UUID)
@@ -374,7 +363,6 @@ private final class PhoneScreenCaptureEngine: NSObject, AVCaptureVideoDataOutput
         guard nowHost - lastEncodedHostTime >= 1.0 / 10.0 else { return }
         let sampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         let captureHost = CMSyncConvertTime(sampleTime, from: clock, to: hostClock).seconds
-        // Invalid timestamps must never be relabelled as a fresh observation.
         guard captureHost.isFinite, nowHost.isFinite, captureHost <= nowHost + 0.1 else {
             logRejection("invalid capture timestamp: sample=\(sampleTime.seconds), converted=\(captureHost), host=\(nowHost)")
             return
@@ -396,7 +384,6 @@ private final class PhoneScreenCaptureEngine: NSObject, AVCaptureVideoDataOutput
     }
 
     private func logRejection(_ reason: String) {
-        // At most a few diagnostics per start, never a per-frame log stream.
         guard loggedRejections.count < 5, loggedRejections.insert(reason).inserted else { return }
         logger.error("Phone screen discarded a sample: \(reason, privacy: .public)")
     }

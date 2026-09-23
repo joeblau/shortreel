@@ -1,6 +1,5 @@
 import Foundation
 
-/// Converts validated intent into input on one specific Bluetooth phone.
 @MainActor
 enum DevicePromptExecutor {
     static func perform(_ action: PhonePromptAction, using host: any DeviceHost, on device: DeviceDescriptor,
@@ -8,8 +7,6 @@ enum DevicePromptExecutor {
                         checking checkFactory: DevicePromptCheckFactory? = nil) async throws {
         try Task.checkCancellation()
         try DevicePromptPlanner.validate(.init(actions: [action]))
-        // The factory captures any pre-action baseline. Without a factory the
-        // action runs exactly as it always has, with no verification.
         let check = await checkFactory?(overrideExpectation ?? action.expectation)
         try await execute(action, using: host, on: device)
         guard let check else { return }
@@ -18,10 +15,6 @@ enum DevicePromptExecutor {
         }
     }
 
-    /// Verify-then-continue with the failure ladder from
-    /// docs/execute-leg-design.md: re-check before repeating any input (the
-    /// effect may already be present, and repeating a landed action can
-    /// double-apply it), retry the action once, then abort with the evidence.
     private static func verify(check: DevicePromptCheck, retry: () async throws -> Void) async throws {
         if await check().isResolved { return }
         if await check().isResolved { return }
@@ -37,9 +30,6 @@ enum DevicePromptExecutor {
         case .home:
             try await host.pressKey(.home, on: device)
         case .openApp, .search:
-            // Compound scripted sequences are gone: the visual loop observes
-            // one frame between every primitive, and validated() already
-            // rejects these model-side. Reaching here is a wiring bug.
             throw PhoneVisionError.invalidDecision("Choose one visible interaction at a time.")
         case .typeText(let text):
             try await host.type(text, on: device)
@@ -103,8 +93,6 @@ enum DevicePromptExecutor {
     }
 }
 
-/// An action's expectation never verified, after the failure ladder ran. The
-/// evidence string lands in the Requests UI status.
 enum DevicePromptVerificationError: LocalizedError {
     case failed(String)
 

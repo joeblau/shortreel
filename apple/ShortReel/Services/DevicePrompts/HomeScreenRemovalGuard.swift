@@ -2,12 +2,9 @@ import CoreGraphics
 import Foundation
 import Vision
 
-/// An extra local check for app/widget removal menus. OCR is not a guarantee of visual
-/// correctness; the planner still has to identify the app and verify each result.
 enum HomeScreenRemovalGuard {
     struct Target: Sendable {
         let text: String
-        /// Normalized screenshot coordinates, origin at top left.
         let bounds: CGRect
     }
 
@@ -35,8 +32,6 @@ enum HomeScreenRemovalGuard {
                 .filter { !$0.isEmpty }.joined(separator: " "))
         }
         let prohibited = ["delete", "uninstall", "offload", "erase", "require face id", "require touch id"]
-        // A generic Remove button is safe only in an explicitly identified
-        // widget/stack confirmation, never an unrelated removal dialog.
         let widgetConfirmation = normalized.contains { target, text in
             text.hasPrefix("remove ") && target.text.contains("?")
                 && (text.contains("widget") || text.contains("stack"))
@@ -60,12 +55,8 @@ enum HomeScreenRemovalGuard {
                 + " Choose Remove App, then Remove from Home Screen on the next screenshot; never Delete App.")
         }
         if action == .press(.escape) { return action }
-        // Do not allow keyboard activation, double taps, or drags in a removal menu.
         guard case .tap(let x, let y) = action, x.isFinite, y.isFinite,
               (0...1).contains(x), (0...1).contains(y) else { throw blocked() }
-        // iOS menu rows extend beyond the text, often to an icon on the right.
-        // Match the observed row, then send the tap at the safe label's center.
-        // Never execute the original off-label coordinate in a removal menu.
         let rowTargets = normalized.filter { target, _ in
             let bounds = target.bounds.insetBy(dx: 0, dy: -0.016)
             return y >= bounds.minY && y <= bounds.maxY
@@ -74,8 +65,6 @@ enum HomeScreenRemovalGuard {
         let allowed = rowTargets.filter { _, text in
             allowedLabels.contains(text)
         }.sorted { abs($0.0.bounds.midX - x) < abs($1.0.bounds.midX - x) }
-        // Widget alerts can place Cancel and Remove side by side. Use X to
-        // disambiguate them, while refusing an equidistant/overlapping target.
         if allowed.count > 1 {
             let nearest = abs(allowed[0].0.bounds.midX - x)
             let next = abs(allowed[1].0.bounds.midX - x)

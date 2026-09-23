@@ -1,6 +1,5 @@
 import Foundation
 
-// swiftc -swift-version 6 ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift ShortReel/Services/BluetoothHID/HIDPointerDrag.swift Tests/HIDPointerDragTests.swift -o /tmp/sr-pointer-drag-tests
 @main @MainActor
 struct HIDPointerDragTests {
     enum Failure: Error { case assertion(String), transport }

@@ -7,8 +7,6 @@ static NSData *bytes(const uint8_t *value, NSUInteger count) { return [NSData da
 #define DATA(...) bytes((uint8_t[]){__VA_ARGS__}, sizeof((uint8_t[]){__VA_ARGS__}))
 static void check(BOOL passed, NSString *reason) { if (!passed) { NSLog(@"FAIL: %@", reason); exit(1); } }
 
-// Exercise dispatch before CoreBluetooth's peer-state gate without making any
-// radio calls. Other managers and PSMs must keep their original dispatch.
 @interface FakePeer : NSObject
 @property id manager;
 @property int opens;
@@ -71,7 +69,7 @@ int main(void) { @autoreleasepool {
         readPacket = packet; dispatch_semaphore_signal(received);
     } onClose:^(NSError *failure) { dispatch_semaphore_signal(closed); } error:&error];
     check(socket != nil, error.localizedDescription ?: @"socket adapter initialized");
-    close(pair[0]); // adapter owns a duplicate, not the framework's descriptor
+    close(pair[0]);
     check([socket writePacket:DATA(0xA1,2,0,0,0,0,1,0,2,0) maximumSize:64 error:&error], error.localizedDescription ?: @"socket write");
     uint8_t buffer[32]; ssize_t count = recv(pair[1],buffer,sizeof(buffer),0);
     check(count == 10 && [bytes(buffer,count) isEqual:DATA(0xA1,2,0,0,0,0,1,0,2,0)], @"complete HID report reaches peer socket");

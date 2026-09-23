@@ -1,6 +1,3 @@
-// From apple/: swiftc ShortReel/Models/*.swift ShortReel/Services/DeviceHost.swift
-// ShortReel/Services/DevicePrompts/{WarmUpPlaybook,DeviceWorkflow,DevicePromptPlanner,DevicePromptPlan}.swift Tests/PersonaPersistenceTests.swift
-// -o /tmp/shortreel-persona-tests && /tmp/shortreel-persona-tests
 import Foundation
 import SwiftData
 

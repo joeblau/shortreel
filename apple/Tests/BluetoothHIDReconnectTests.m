@@ -3,8 +3,6 @@
 #import <unistd.h>
 #import "../ShortReel/Services/BluetoothHID/CBHIDBridge.m"
 
-// No CoreBluetooth manager or IOBluetooth device is created in this test.
-// Real socket pairs exercise the bridge's channel readiness checks.
 static void check(BOOL passed, NSString *reason) {
     if (!passed) { NSLog(@"FAIL: %@", reason); exit(1); }
 }
@@ -135,8 +133,6 @@ static void check(BOOL passed, NSString *reason) {
 }
 - (NSUInteger)pendingCount { return [(NSDictionary *)[_bridge valueForKey:@"connectionRequests"] count]; }
 - (void)dealloc {
-    // Teardown only our socket adapters. Do not call the production stop path,
-    // which correctly expects a real manager with its KVO observation installed.
     for (CBHIDPeerEntry *entry in [(NSDictionary *)[_bridge valueForKey:@"entries"] allValues]) {
         [entry.controlSocket close]; [entry.interruptSocket close];
     }

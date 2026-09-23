@@ -2,7 +2,6 @@ import Foundation
 import Vision
 
 extension UITarsPhonePlanner {
-    // Intentionally has no user goal, earlier Thought, or proposed input.
     static let perceptionPrompt = """
         Which layout is visible on this iPhone? Answer with exactly one label: ASSISTIVETOUCH (open accessibility menu with controls such as Home, Device and Custom; a floating circular button alone is not an open menu), SPOTLIGHT (iPhone system search field with Siri Suggestions or app search results, often a keyboard; suggested icons do not make this Home), HOME (Home app grid and dock, no open search field or keyboard), EDITING (Home grid with minus badges and Edit/Done controls), SWITCHER (large overlapping app preview cards), APP (one full-screen app), UNKNOWN. Then one short sentence of visible evidence. Do not choose an action.
         A browser showing a website or Google search results is APP, even when there are no app icons or preview cards. Identify the browser by its toolbar/address field; page text mentioning another app does not identify the foreground app. Reserve UNKNOWN for a screen you cannot read or identify.
@@ -14,10 +13,6 @@ extension UITarsPhonePlanner {
         let evidence: String
     }
 
-    /// Verify the requested app against this image independently of the general
-    /// layout label. A readable non-target screen is a navigation prerequisite,
-    /// not missing user intent. This check authorizes only Home or completion
-    /// of a single app-opening request, never a tap or a compound task.
     static func inspectAppLaunch(app: String, frame: PhoneScreenFrame,
                                  configuration: Configuration, session: URLSession) async throws -> AppLaunchObservation {
         let prompt = """
@@ -48,8 +43,6 @@ extension UITarsPhonePlanner {
     }
 
     static func inspectScreen(frame: PhoneScreenFrame, configuration: Configuration, session: URLSession) async throws -> PhoneScreenObservation {
-        // Spotlight's suggested app icons can fool the model into reporting Home.
-        // Ground its distinctive empty-search layout in this frame before planning.
         if let spotlight = try? spotlightObservation(in: frame.cgImage) { return spotlight }
         let data = try await fetch(makePerceptionRequest(frame: frame, configuration: configuration), session: session)
         return try PhoneScreenObservation.decode(responseText(data, useResponsesApi: configuration.useResponsesApi))
@@ -65,15 +58,12 @@ extension UITarsPhonePlanner {
             guard let candidate = observation.topCandidates(1).first, candidate.confidence >= 0.4 else { return nil }
             return (candidate.string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), observation.boundingBox)
         }
-        // Vision coordinates start at the bottom left. Require the suggestion
-        // header and its trailing control above a separate, lower Search field.
         guard let suggestions = text.first(where: { $0.0 == "siri suggestions" && $0.1.midY > 0.65 }),
               text.contains(where: {
                   $0.0 == "show more" && $0.1.midX > suggestions.1.midX
                       && abs($0.1.midY - suggestions.1.midY) < 0.04
               }),
               text.contains(where: {
-                  // OCR can read the magnifying-glass glyph as Q.
                   ["search", "q search"].contains($0.0)
                       && $0.1.midX < 0.5 && (0.25...0.6).contains($0.1.midY)
               }),
@@ -85,16 +75,11 @@ extension UITarsPhonePlanner {
             evidence: "Current screenshot OCR shows Siri Suggestions and Show More above the empty Search field and keyboard. Spotlight is already open; suggested app icons are not the Home grid.")
     }
 
-    /// Local checks describe input mechanics from the observed layout. A
-    /// positive result is evidence for the critic, never permission to bypass
-    /// goal/target verification. Negative results request a new proposal.
     static func deterministicReview(_ decision: PhoneVisionDecision, observation: PhoneScreenObservation) -> PhoneActionReview? {
         guard case .action(let action, _) = decision else { return nil }
         switch (observation.state, action) {
         case (.appSwitcher, .drag(let x, let y, let endX, let endY)),
              (.appSwitcher, .timedDrag(let x, let y, let endX, let endY, _, _, _)):
-            // Cards sit in the middle band; an upward finger motion that starts
-            // on one is the close gesture.
             let upward = endY < y - 0.15 && abs(endX - x) < 0.15
             let onCard = (0.15...0.85).contains(y) && (0.05...0.95).contains(x)
             if upward && onCard {
@@ -114,10 +99,6 @@ extension UITarsPhonePlanner {
         }
     }
 
-    /// Turns an allowed gesture into the form iOS actually needs. A card in
-    /// the App Switcher only dismisses when carried to the top edge or
-    /// flicked; a slow drag released mid-screen snaps back, which the model
-    /// then reads as "still visible" and repeats.
     static func normalized(_ decision: PhoneVisionDecision, for observation: PhoneScreenObservation) -> PhoneVisionDecision {
         guard observation.state == .appSwitcher, case .action(let action, let reason) = decision else { return decision }
         switch action {
@@ -160,14 +141,9 @@ extension UITarsPhonePlanner {
                 opensSearch = (0.2...0.7).contains(y) && endY > y + 0.15 && abs(endX - x) < 0.15
             default: opensSearch = false
             }
-            // The user's explicit launch intent, independent Home observation,
-            // and bounded search-opening input establish this prerequisite.
-            // No app target is selected here; review it on the next frame.
             if opensSearch {
                 return .init(verdict: .allow, evidence: "Home is visible and this input opens Spotlight for the requested app launch. Verify search on the next screenshot before typing.")
             }
-            // Icon and Search-control taps still need the visual critic to
-            // check the target against the goal and current screenshot.
             switch decision {
             case .action(.tap, _): break
             default:
@@ -175,8 +151,6 @@ extension UITarsPhonePlanner {
             }
         }
         let mechanics = deterministicReview(decision, observation: observation)
-        // A mechanically valid swipe is not evidence that this is the app the
-        // user asked to close (or that closing was requested at all).
         if let mechanics, mechanics.verdict != .allow { return mechanics }
         let proposal: String
         switch decision {
@@ -206,8 +180,6 @@ extension UITarsPhonePlanner {
         return try PhoneActionReview.decode(responseText(data, useResponsesApi: configuration.useResponsesApi))
     }
 
-    /// Anchor the installed-app target to this screenshot's Top Hit heading
-    /// and matching app caption, not to memorized phone coordinates.
     static func spotlightAppRegion(in image: CGImage, app: String) throws -> CGRect? {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
@@ -232,8 +204,6 @@ extension UITarsPhonePlanner {
                       width: min(1, caption.1.midX + halfWidth) - max(0, caption.1.midX - halfWidth), height: bottom - top)
     }
 
-    /// Keep layout-specific mechanics out of unrelated screen reviews. In
-    /// particular, Home launch checks must not become card-dismissal checks.
     static func reviewGuidance(for state: PhoneScreenObservation.State) -> String {
         switch state {
         case .home:

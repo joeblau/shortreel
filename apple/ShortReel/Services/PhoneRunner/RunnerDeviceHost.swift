@@ -1,9 +1,5 @@
 import Foundation
 
-/// Drives a phone through the on-device ShortReelRunner HTTP server instead of
-/// the Bluetooth HID + AssistiveTouch path. The host is stateless: the runner
-/// supervisor owns the real lifecycle, so `connect` is only a health probe and
-/// every action goes straight to the runner.
 @MainActor
 final class RunnerDeviceHost: DeviceHost {
     let events: AsyncStream<DeviceHostEvent>

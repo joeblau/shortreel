@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-// Builds ShortReel.app in Release, installs it to /Applications, and launches it.
 import { $ } from "bun";
 import { existsSync } from "node:fs";
 
@@ -10,9 +9,6 @@ const installedApp = "/Applications/ShortReel.app";
 
 $.cwd(root);
 
-// go-ios provides the `ios` CLI the runner uses to talk to USB phones. It is
-// published on npm with prebuilt binaries in `dist/` and relies on an npm
-// postinstall to copy one onto PATH; Bun skips that, so place it ourselves.
 if ((await $`which ios`.quiet().nothrow()).exitCode !== 0) {
   console.log("→ Installing go-ios");
   const install = await $`bun install -g go-ios`.quiet().nothrow();
@@ -34,7 +30,6 @@ if ((await $`which ios`.quiet().nothrow()).exitCode !== 0) {
   }
 }
 
-// The optional local UI-TARS planner needs llama.cpp. Codex and Claude use their own CLIs.
 if (process.env.SHORTREEL_INSTALL_UITARS === "1" && (await $`which llama-server`.quiet().nothrow()).exitCode !== 0) {
   if ((await $`which brew`.quiet().nothrow()).exitCode === 0) {
     console.log("→ Installing llama.cpp with Homebrew");
@@ -67,8 +62,6 @@ if (!existsSync(builtApp)) {
   process.exit(1);
 }
 
-// Bluetooth + USB capture is the default and needs no Developer Mode.
-// Only include on-device runners when explicitly requested for this build.
 const runnerProducts = `${root}.build/runner/Build/Products/Debug-iphoneos`;
 const runnerNames = ["ShortReelRunner.app", "ShortReelRunnerUITests-Runner.app"];
 const runnerDestination = `${builtApp}/Contents/Resources/PhoneRunner`;
@@ -87,8 +80,6 @@ if (process.env.SHORTREEL_INCLUDE_RUNNER === "1") {
   console.log("→ Bluetooth control with USB screenshots (no iPhone runner or Developer Mode required)");
 }
 
-// Give local builds a stable identity so macOS can retain the user's
-// Bluetooth and camera permissions when the executable changes.
 let signingIdentity = process.env.SHORTREEL_CODE_SIGN_IDENTITY;
 if (!signingIdentity) {
   const identities = await $`security find-identity -v -p codesigning`.quiet().nothrow();
@@ -106,11 +97,8 @@ if (signingIdentity) {
 
 console.log("→ Quitting any running ShortReel");
 if ((await $`pgrep -x ShortReel`.quiet().nothrow()).exitCode === 0) {
-  // Normal Quit lets the app stop its XCTest sessions and port forwards.
   await $`osascript -e 'tell application "ShortReel" to quit'`.quiet();
 }
-// Wait for termination before replacing the bundle; Launch Services can
-// otherwise try to reopen the exiting process and return -600 or -609.
 const quitDeadline = Date.now() + 10_000;
 while ((await $`pgrep -x ShortReel`.quiet().nothrow()).exitCode === 0) {
   if (Date.now() >= quitDeadline) {

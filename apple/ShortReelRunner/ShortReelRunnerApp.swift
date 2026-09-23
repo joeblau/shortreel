@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Stub host app. Its only job is to carry the ShortReelRunnerUITests bundle;
-/// the driver lives in the test process, not here.
 @main
 struct ShortReelRunnerApp: App {
     var body: some Scene {

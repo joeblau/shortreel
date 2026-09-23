@@ -2,8 +2,6 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-/// Executes one input per observed screen. A model result never authorizes a
-/// second input without another frame captured after the first input completed.
 @MainActor
 final class PhoneVisualRunner {
     private let capture: (Date) async throws -> PhoneScreenFrame
@@ -62,8 +60,6 @@ final class PhoneVisualRunner {
         self.stepBudget = stepBudget
     }
 
-    /// A controlled input diagnostic, separate from model-chosen workflows.
-    /// Leaves the switcher open for human inspection and never dismisses apps.
     func testAppSwitcher(onProgress: @escaping @MainActor (String) -> Void,
                          onStep: @escaping (PhoneVisionStep) -> Void) async throws -> String {
         guard !isRunning, maximumDuration.isFinite, maximumDuration > 0, let inspect else {
@@ -95,8 +91,6 @@ final class PhoneVisualRunner {
                 }
                 return "App Switcher verified after the gesture. " + observation.evidence
             }
-            // Test the gesture directly from the observed screen; do not make
-            // it depend on a separate Home gesture succeeding first.
             let action: PhonePromptAction = .press(.appSwitcher)
             onStep(.init(id: UUID(), number: number, action: description(of: action),
                          detail: "Testing one swipe up from the bottom edge, holding before release; no apps will be dismissed.", capturedAt: frame.capturedAt, input: action))
@@ -148,9 +142,7 @@ final class PhoneVisualRunner {
         let plan = try await beforeDeadline(preparationDeadline) { try await compile(goal, warmUpScript, onProgress) }
         try plan.validate(script: warmUpScript)
         try checkAvailability(deadline: preparationDeadline)
-        // Preparation must not consume the user's viewing/session time budget.
         let deadline = ContinuousClock.now + .seconds(duration)
-        // The complete program is durable before even the first physical input.
         try onTransactionPlan(plan)
         var cursor = warmUpScript.map { WarmUpScriptCursor(script: $0) }
         if let cursor { try onScriptCheckpoint(cursor.checkpoint) }
@@ -226,10 +218,6 @@ final class PhoneVisualRunner {
                     steps[last].beforeFrame = nil
                 }
             }
-            // Feed facts, not diagnostic enum names such as foregroundApp
-            // (which can bias small classifiers toward an "otherApp" branch).
-            // An empty OCR section can also bias clear visual evidence toward
-            // "unknown"; include the section only when text was actually read.
             let screenText = text.regions.map(\.text).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                 .joined(separator: "\n")
             let evidence = plan.watchQuery != nil
@@ -262,8 +250,6 @@ final class PhoneVisualRunner {
                     context += "\nPhase: \(cursor.step.id.rawValue). Advance already sent: \(cursor.advanceSent). Submission already sent: \(cursor.submissionSent)."
                 }
                 if cursor.step.id == .account {
-                    // The fixed phase reads identity only after opening the own
-                    // profile. A creator's handle in a feed is not this account.
                     if state.accountGate == true || !phase.states.contains(where: { $0.accountGate == true }) {
                         guard let classifyAccount else { throw PhoneTransactionError.unavailable }
                         account = try await beforeDeadline(operationDeadline) { try await classifyAccount(frame, observation, cursor.script, goal) }
@@ -298,10 +284,6 @@ final class PhoneVisualRunner {
                 visits[key, default: 0] += 1
                 guard visits[key, default: 0] <= state.maximumVisits else { throw PhoneVisionError.limitReached }
                 question = .init(id: key, evidence: context,
-                    // Keep the saved alternatives stable for the classifier.
-                    // Surface guards validate its choice below; removing options
-                    // here changes the question and can turn clear Home evidence
-                    // into an "unknown" answer.
                     options: state.branches.map { .init(id: $0.id, description: $0.condition) }
                         + [.init(id: "unknown", description: "None of the listed conditions is clearly supported by the current evidence.")],
                     question: state.question ?? "Which condition is clearly supported by the current screen evidence?")
@@ -469,8 +451,6 @@ final class PhoneVisualRunner {
                     continue
                 }
             }
-            // Only a declared, classified branch can change state. The locator
-            // cannot return finished, invent retries, or change the graph.
             onStep(.init(id: UUID(), number: number, action: branch.next == "$stop" ? "Stopped at a workflow condition" : "Checked the current screen",
                 detail: "Observed: \(observation.evidence)\nMatched: \(branch.command == nil ? branch.condition : branch.expected)", capturedAt: frame.capturedAt,
                 decisionSource: "Laya Core ML", accountCheck: account, failureCheck: failure))
@@ -500,7 +480,6 @@ final class PhoneVisualRunner {
                     phaseIndex = next
                 } else { phaseIndex += 1 }
                 stateID = plan.phases[phaseIndex].entry
-                // Budgets apply to each visit of a scripted phase (e.g. each video).
                 visits = [:]
                 recoveryAttempts = [:]
                 phaseVisits = 0
@@ -529,9 +508,6 @@ final class PhoneVisualRunner {
         }
         try checkFrameAge(frame)
         if let sourceID, frame.sourceID != sourceID { throw PhoneVisionError.sourceChanged }
-        // The encoder already bounds and decodes every published frame, so the
-        // per-step check only guards identity and size invariants, plus a cheap
-        // header-level JPEG completeness parse instead of a full re-decode.
         guard !frame.sourceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               (1...8_192).contains(frame.pixelWidth), (1...8_192).contains(frame.pixelHeight),
               frame.pixelWidth * frame.pixelHeight <= 32_000_000,
@@ -553,9 +529,6 @@ final class PhoneVisualRunner {
         case wait
     }
 
-    /// Navigation is necessary evidence, not sufficient proof of page count.
-    /// The visual completion review still identifies the boundaries and contents.
-    /// Any non-navigation input conservatively invalidates the previous sweep.
     static func hasCleanupSweep(_ steps: [PhoneVisionStep]) -> Bool {
         var left = false, right = false
         for step in steps.reversed() {
@@ -568,7 +541,6 @@ final class PhoneVisualRunner {
                 if endX < x { left = true } else { right = true }
             default: return false
             }
-            // Require a post-action observation for each leg of the sweep.
             guard step.afterFrame != nil || step.screenChanged != nil else { return false }
             if left && right { return true }
         }
@@ -599,8 +571,6 @@ final class PhoneVisualRunner {
         }
     }
 
-    // Compare screen content, not JPEG bytes. Clock ticks, compression noise,
-    // and the moving AssistiveTouch pointer must not reset a stalled tap loop.
     private static func screenFingerprint(_ image: CGImage) -> [UInt8] {
         var pixels = [UInt8](repeating: 0, count: 32 * 64)
         pixels.withUnsafeMutableBytes { bytes in
@@ -615,7 +585,6 @@ final class PhoneVisualRunner {
     private static func sameScreen(_ lhs: [UInt8], _ rhs: [UInt8]) -> Bool {
         guard lhs.count == rhs.count, !lhs.isEmpty else { return false }
         var changed = 0
-        // Leave status-bar and home-indicator pixels out of the comparison.
         for index in (32 * 4)..<(32 * 60) {
             if abs(Int(lhs[index]) - Int(rhs[index])) > 18 { changed += 1 }
         }
@@ -634,15 +603,11 @@ final class PhoneVisualRunner {
         case .timedDrag(let x, let y, let endX, let endY, let duration, let press, let hold):
             "Drag \(Int(x * 100))%, \(Int(y * 100))% → \(Int(endX * 100))%, \(Int(endY * 100))% (\(duration)s, holds \(press)s/\(hold)s)"
         case .press(let key): "Press \(key.rawValue)"
-        // validated() rejects these compound operations in the visual loop.
         case .openApp(let name): "Open \(name)"
         case .search: "Search"
         }
     }
 
-    /// A stalled model/capture callback must not outlive the request's time limit
-    /// or later deliver input after Stop. Tasks receive cancellation immediately;
-    /// late results are ignored even if a provider ignores task cancellation.
     private func beforeDeadline<Value: Sendable>(
         _ deadline: ContinuousClock.Instant,
         operation: @escaping @MainActor () async throws -> Value

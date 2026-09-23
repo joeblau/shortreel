@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-// Build signed device runners, or inspect prerequisites without changing phones.
 import { $ } from "bun";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -53,7 +52,6 @@ try {
   const configured = ["http:", "https:"].includes(endpoint.protocol)
     && typeof parsed.apiKey === "string" && parsed.apiKey.trim().length > 0
     && typeof parsed.model === "string" && parsed.model.trim().length > 0;
-  // Never print configuration contents or credentials.
   report(configured, `UI-TARS model configuration: ${configured ? "present (inference not tested)" : "incomplete"}`);
 } catch {
   report(false, "UI-TARS model configuration missing or invalid. Complete npx @ui-tars/cli start.");

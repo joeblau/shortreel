@@ -1,6 +1,5 @@
 import Foundation
 
-// From apple/: swiftc -swift-version 6 ShortReel/Services/DevicePrompts/{WarmUpScript,DevicePromptPlan,DevicePromptPlanner}.swift Tests/WarmUpScriptTests.swift -o /tmp/shortreel-script-tests && /tmp/shortreel-script-tests
 @main
 enum WarmUpScriptTests {
     enum Failure: Error { case assertion(String) }
@@ -96,7 +95,6 @@ enum WarmUpScriptTests {
         try rejectsContract {
             _ = try WarmUpScriptRegistry.script(network: .youtube, activity: .watch, itemLimit: 1, duration: 300, version: 99)
         }
-        // A direct initializer cannot bypass validation at the cursor boundary.
         let invalid = WarmUpScript(network: .x, activity: .post, itemLimit: 1, duration: 300, version: 2)
         try rejectsContract { try WarmUpScriptCursor(script: invalid).validate(.tap(0.5, 0.5)) }
     }

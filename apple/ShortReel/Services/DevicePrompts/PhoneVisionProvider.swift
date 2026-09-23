@@ -1,7 +1,6 @@
 import Foundation
 
 enum PhoneVisionProvider: String, CaseIterable, Identifiable, Sendable {
-    // Preserve the saved selection from releases that called Codex "Astra".
     case codex = "astra"
     case claude
     case uiTars

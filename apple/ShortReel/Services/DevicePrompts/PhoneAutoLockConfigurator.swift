@@ -6,11 +6,6 @@ struct PhoneHomeTarget: Sendable {
     let y: Double
 }
 
-/// Drives Settings › Display & Brightness › Auto-Lock › Never using the
-/// Bluetooth keyboard (Spotlight → type → Return) plus one observed tap. No
-/// model is involved, and an unrecognized page stops without tapping. iOS
-/// offers no USB-writable preference for auto-lock on unsupervised phones, so
-/// the setting is changed through the same input path the user has.
 @MainActor
 struct PhoneAutoLockConfigurator {
     let openSearch: () async throws -> Void
@@ -44,8 +39,6 @@ struct PhoneAutoLockConfigurator {
         try checkFrame(result, after: tappedAt, sourceID: sourceID)
     }
 
-    /// The Auto-Lock page lists durations above the Never row. Require that
-    /// shape so an unexpected screen cannot turn this into a stray tap.
     static func neverTarget(in targets: [PhoneHomeTarget]) throws -> PhoneHomeTarget {
         func normalized(_ text: String) -> String {
             text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

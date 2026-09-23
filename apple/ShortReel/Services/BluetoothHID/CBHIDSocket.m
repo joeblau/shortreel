@@ -57,8 +57,6 @@ static NSError *CBHIDSocketError(NSInteger code, NSString *message) {
     _reader = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, duplicated, 0, _queue);
     __weak CBHIDSocket *weakSelf = self;
     dispatch_source_set_event_handler(_reader, ^{ [weakSelf readAvailablePackets]; });
-    // A cancelled source may still have a pending read handler. Close its owned
-    // duplicate only when that handler has completed, avoiding FD reuse races.
     dispatch_source_set_cancel_handler(_reader, ^{ close(duplicated); });
     dispatch_resume(_reader);
     return self;
@@ -119,9 +117,6 @@ static NSError *CBHIDSocketError(NSInteger code, NSString *message) {
             return;
         }
         struct iovec vector = { .iov_base = (void *)packet.bytes, .iov_len = packet.length };
-        // Matches TapKit's writePacket:toSocketFileDescriptor:. This empty
-        // SOL_SOCKET/SCM_RIGHTS control message preserves a transaction boundary
-        // in CoreBluetooth's otherwise stream-based local socket transport.
         struct cmsghdr boundary = { .cmsg_len = sizeof(struct cmsghdr), .cmsg_level = SOL_SOCKET, .cmsg_type = SCM_RIGHTS };
         struct msghdr message = { .msg_iov = &vector, .msg_iovlen = 1,
             .msg_control = &boundary, .msg_controllen = sizeof(boundary) };

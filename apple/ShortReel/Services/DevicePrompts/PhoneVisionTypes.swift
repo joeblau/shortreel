@@ -1,14 +1,12 @@
 import CoreGraphics
 import Foundation
 
-/// Image bytes and identity stay together so a plan cannot use another phone's screen.
 struct PhoneScreenFrame: Identifiable, Sendable, Equatable {
     let id: UUID
     let capturedAt: Date
     let pixelWidth: Int
     let pixelHeight: Int
     let jpegData: Data
-    /// Pre-decoded on the capture queue so views never decode JPEG on the main actor.
     let cgImage: CGImage
     let sourceID: String
 
@@ -21,29 +19,18 @@ struct PhoneVisionStep: Identifiable, Sendable, Equatable {
     let action: String
     let detail: String
     let capturedAt: Date
-    // Execution facts stay separate from the planner's (possibly wrong) reason.
     var input: PhonePromptAction? = nil
     var beforeFrame: PhoneScreenFrame? = nil
     var afterFrame: PhoneScreenFrame? = nil
     var screenChanged: Bool? = nil
-    /// Opt-in task memory for long stage workflows; ordinary requests exclude
-    /// earlier planner reasoning from subsequent prompts.
     var progressNote: String? = nil
-    /// Retained across a run of waits so a video replay can be compared with
-    /// the start of observation instead of only the last two transitions.
     var playbackStartFrame: PhoneScreenFrame? = nil
     var playbackReviewRequested = false
     var playbackEvidence: String? = nil
 
     var pageState: String? = nil
     var decisionSource: String? = nil
-    /// The local SemanticIf account-step verdict (contract TASK-8, issue #15),
-    /// with the probabilities, margin, and prompt hash behind it. Journaled
-    /// with the step so a stopped run names the local decision.
     var accountCheck: WarmUpAccountDecision? = nil
-    /// The local SemanticIf failure-mode verdict for the active step (contract
-    /// TASK-5, issue #16). Journaled with the step so a recovered or stopped
-    /// run names the detected failureMode id and its contract recovery.
     var failureCheck: WarmUpFailureDecision? = nil
 
     var executionFeedback: String {
@@ -60,52 +47,30 @@ struct PhoneVisionStep: Identifiable, Sendable, Equatable {
     }
 }
 
-/// The local account-step verdict (contract TASK-8, issue #15): the SemanticIf
-/// scorer's decision on the current frame's OCR, with the evidence the runner
-/// acts on and the readout diagnostics the journal keeps. `Codable` so
-/// `DeviceRunJournal` persists it with the step.
 struct WarmUpAccountDecision: Codable, Equatable, Sendable {
     enum Outcome: String, Codable, Sendable {
-        /// OCR of the current frame satisfies the account success criteria.
         case matches
-        /// A different signed-in handle was read. Terminal: needsInput.
         case mismatch
-        /// A sign-in / account-picker surface was read. Terminal: needsInput.
         case signedOut = "signed-out"
-        /// No confident handle (or the margin was below threshold): the
-        /// contract's recovery — one Home + reopen, then needsInput.
         case unreadable
     }
 
     var outcome: Outcome
-    /// Finished/needsInput message the runner uses for this verdict.
     var evidence: String
-    /// Probability of each option id, in the row's declared option order.
     var probabilities: [String: Double]
     var margin: Double
     var threshold: Double
     var promptHash: String
 }
 
-/// The local failure-mode verdict for one warm-up step (contract TASK-5,
-/// issue #16): the SemanticIf scorer's decision on the current frame scored
-/// against the step's contract failureModes. `failureModeID == nil` means no
-/// failure was detected (or the margin was too close to call). Uncertain
-/// classification cannot authorize an input. `Codable` so `DeviceRunJournal` persists it with the step.
 struct WarmUpFailureDecision: Codable, Equatable, Sendable {
     var stepID: String
-    /// The detected contract `failureModes[].id`; nil for none/uncertain.
     var failureModeID: String?
-    /// The margin was below threshold; never an assertive branch.
     var uncertain: Bool
-    /// The contract's `terminal` flag for the detected mode.
     var terminal: Bool
-    /// The contract's detection and recovery text for the detected mode.
     var detection: String
     var recovery: String
-    /// Message the runner journals and uses for needsInput.
     var evidence: String
-    /// Probability of each option id, in the row's declared option order.
     var probabilities: [String: Double]
     var margin: Double
     var threshold: Double
@@ -122,8 +87,6 @@ enum PhoneVisionDecision: Sendable, Equatable {
         switch self {
         case .action(let action, let reason):
             try Self.requireDescription(reason)
-            // App launch and search are compound command sequences. The visual
-            // agent must observe the screen between their individual inputs.
             switch action {
             case .openApp, .search:
                 throw PhoneVisionError.invalidDecision("Choose one visible interaction at a time.")
@@ -133,8 +96,6 @@ enum PhoneVisionDecision: Sendable, Equatable {
                 }
             default: break
             }
-            // Every rejection is a malformed model answer, whichever planner
-            // produced it, so the runner can retry once with the reason.
             do { try DevicePromptPlanner.validate(.init(actions: [action])) }
             catch { throw PhoneVisionError.invalidDecision(error.localizedDescription) }
         case .wait(let seconds, let reason):
@@ -172,7 +133,6 @@ enum PhoneVisionError: LocalizedError {
     }
 }
 
-
 struct PhoneScreenObservation: Decodable, Sendable, Equatable {
     enum State: String, Codable, Sendable {
         case home, homeEditing, appSwitcher, foregroundApp, spotlight, assistiveTouch, dialog, unknown
@@ -181,8 +141,6 @@ struct PhoneScreenObservation: Decodable, Sendable, Equatable {
     let appCardsVisible: Bool
     let evidence: String
 
-    /// A short description of UI controls/layout, without video content or
-    /// navigation history. Small local classifiers should not see unrelated OCR.
     var checkEvidence: String? = nil
     struct Video: Decodable, Sendable, Equatable {
         let creator: String

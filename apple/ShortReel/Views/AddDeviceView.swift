@@ -1,7 +1,6 @@
 import SwiftData
 import SwiftUI
 
-/// Discover and pair a real Bluetooth device; its identity comes from the scan.
 struct AddDeviceView: View {
     let defaultPersona: Persona?
     @Environment(\.dismiss) private var dismiss

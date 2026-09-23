@@ -1,8 +1,5 @@
 import Foundation
 
-// Run with:
-// swiftc ShortReel/Services/BluetoothHID/HIDServiceRecord.swift Tests/HIDServiceRecordTests.swift -o /tmp/shortreel-sdp-tests
-// /tmp/shortreel-sdp-tests
 @main
 enum HIDServiceRecordTests {
     struct Element {
@@ -48,7 +45,6 @@ enum HIDServiceRecordTests {
     }
 
     static func main() {
-        // Exercise UTF-8 and lengths exceeding an 8-bit field.
         for name in ["ShortReel", "Joe’s Mac", String(repeating: "M", count: 300)] {
             var reader = Reader(bytes: Array(HIDServiceRecord.makeRecord(serviceName: name)))
             let count = reader.littleEndian16()
@@ -61,7 +57,6 @@ enum HIDServiceRecordTests {
             }
             precondition(reader.offset == reader.bytes.count, "Trailing record bytes")
 
-            // IDs/types come from Bluetooth SIG Assigned Numbers, HID profile.
             let requiredTypes: [Int: UInt8] = [
                 0x0201: 1, 0x0202: 1, 0x0203: 1,
                 0x0204: 5, 0x0205: 5, 0x0206: 6, 0x0207: 6,

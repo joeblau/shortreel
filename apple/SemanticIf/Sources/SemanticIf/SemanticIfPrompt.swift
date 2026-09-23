@@ -1,30 +1,14 @@
 import CryptoKit
 import Foundation
 
-/// Pure-Swift port of Semif's direct-readout prompt contract, from
-/// `src/semif_phase1/core.py` and `src/semif_phase1/direct.py`
-/// (TheoLeeCJ/SemIf, MIT license). A decision row is rendered into a
-/// system + user chat pair, templated exactly as Semif's
-/// `apply_chat_template(..., tokenize=False, add_generation_prompt=True,
-/// enable_thinking=False)` call, encoded, and every answer letter is proven
-/// to occupy exactly one token appended after the prompt. Rows that fail any
-/// check are rejected by throwing; nothing is ever approximated.
-///
-/// Tokenization stays behind `SemanticIfTokenizing` so tests can run against
-/// a stub; issue #10 wires the real swift-transformers tokenizer in.
 enum SemanticIfPrompt {
-    /// `LETTERS` in core.py: answer slots in declaration order.
     static let letters = Array("ABCDEFGHIJKLMNOP")
 
-    /// `DIRECT_SYSTEM` in core.py, verbatim.
     static let directSystem = "Apply the supplied criterion to the supplied evidence. "
         + "Choose exactly one listed option. "
         + "Respond with only its uppercase letter, with no explanation or reasoning."
 
-    /// `PROMPT_VERSION` in direct.py.
     static let promptVersion = "direct-options-v1"
-
-    // MARK: - Row validation (`validate_row` in core.py)
 
     static func validate(_ row: SemanticIfDecision) throws {
         if row.id.isEmpty || row.question.isEmpty {
@@ -51,8 +35,6 @@ enum SemanticIfPrompt {
         }
     }
 
-    // MARK: - Message construction (`direct_messages` in core.py)
-
     static func directMessages(_ row: SemanticIfDecision) throws -> [SemanticIfMessage] {
         try validate(row)
         let payload: SemanticIfJSON = .object([
@@ -67,22 +49,10 @@ enum SemanticIfPrompt {
         ])
         return [
             SemanticIfMessage(role: .system, content: directSystem),
-            // json.dumps(payload, ensure_ascii=False): default separators, raw Unicode.
             SemanticIfMessage(role: .user, content: payload.pythonDumped),
         ]
     }
 
-    // MARK: - Chat template
-
-    /// Renders messages the way the pinned Qwen3.5-4B chat template
-    /// (`chat_template.jinja`, sha256 a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715,
-    /// Qwen/Qwen3.5-4B @ 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a) renders them under
-    /// Semif's `apply_chat_template` flags `tokenize=False, add_generation_prompt=True,
-    /// enable_thinking=False`. Only Semif's direct-readout shape is supported: an
-    /// optional leading system message followed by user messages, no tools, no
-    /// assistant/tool history. Contents are trimmed as the template's `|trim` does.
-    /// Issue #10 may replace this with swift-transformers' Jinja application; this
-    /// function pins the expected output so the swap can be diffed byte-for-byte.
     static func applyQwen35ChatTemplate(_ messages: [SemanticIfMessage]) throws -> String {
         guard !messages.isEmpty else { throw SemanticIfPromptError.emptyMessages }
         var rendered = ""
@@ -99,10 +69,6 @@ enum SemanticIfPrompt {
         return rendered
     }
 
-    // MARK: - Encoding and answer slots (`encode_prompt` / `_slot_ids` in direct.py)
-
-    /// Renders, encodes, and boundary-checks one decision. Mirrors direct.py's
-    /// `encode_prompt`: any failure throws and the row is rejected outright.
     static func encodePrompt<T: SemanticIfTokenizing>(
         _ row: SemanticIfDecision, tokenizer: T, maxTokens: Int = 4096
     ) throws -> SemanticIfEncodedPrompt {
@@ -121,8 +87,6 @@ enum SemanticIfPrompt {
         return SemanticIfEncodedPrompt(ids: ids, answerSlots: slots, promptHash: digest(prompt))
     }
 
-    /// `_slot_ids` in direct.py: each letter must be one exact round-trip token,
-    /// and no two letters may share a token.
     static func answerSlotIDs<T: SemanticIfTokenizing>(tokenizer: T, count: Int) throws -> [Int32] {
         var result: [Int32] = []
         for letter in letters.prefix(count) {
@@ -138,25 +102,17 @@ enum SemanticIfPrompt {
         return result
     }
 
-    // MARK: - Hashing (`digest` in core.py)
-
     static func digest(_ text: String) -> String {
         SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }
 
-/// Tokenizer seam for `SemanticIfPrompt`. Implementations must match the
-/// Hugging Face calls Semif makes: `encode` is `tokenizer.encode(_:,
-/// add_special_tokens=False)`, `decode` is `tokenizer.decode(_:)`, and
-/// `applyDirectChatTemplate` is `apply_chat_template(messages, tokenize=False,
-/// add_generation_prompt=True, enable_thinking=False)` rendered to a string.
 protocol SemanticIfTokenizing: Sendable {
     func encode(_ text: String) -> [Int32]
     func decode(_ tokens: [Int32]) -> String
     func applyDirectChatTemplate(_ messages: [SemanticIfMessage]) throws -> String
 }
 
-/// One chat message, role + text content (Semif never sends richer content).
 struct SemanticIfMessage: Sendable, Equatable {
     enum Role: String, Sendable {
         case system
@@ -167,17 +123,12 @@ struct SemanticIfMessage: Sendable, Equatable {
     var content: String
 }
 
-/// Result of a successful `encodePrompt`: prompt token ids, the one-token id
-/// of each answer letter in option order, and Semif's `prompt_sha256`.
 struct SemanticIfEncodedPrompt: Sendable, Equatable {
     var ids: [Int32]
     var answerSlots: [Int32]
     var promptHash: String
 }
 
-/// One decision row. `state` keeps its JSON value (string, object, or array)
-/// with object key order preserved, exactly as Python's dict does. Public so
-/// the parity harness (issue #13) can load fixture rows from another module.
 public struct SemanticIfDecision: Sendable, Equatable {
     public struct Option: Sendable, Equatable {
         public var id: String
@@ -201,9 +152,6 @@ public struct SemanticIfDecision: Sendable, Equatable {
         self.options = options
     }
 
-    /// Decodes one parsed JSONL row, performing validate_row's structural
-    /// checks (fields present, `id`/`question` strings, options a list of
-    /// `{id, description}` string pairs) and then the semantic checks.
     public init(json: SemanticIfJSON) throws {
         guard case .object(let fields) = json else {
             throw SemanticIfPromptError.malformedJSON("Row must be a JSON object")
@@ -239,8 +187,6 @@ public struct SemanticIfDecision: Sendable, Equatable {
     }
 }
 
-/// Rejection reasons, mirroring the ValueError messages Semif raises. A row
-/// that hits any of these is excluded; scores are never approximated.
 enum SemanticIfPromptError: Error, Equatable {
     case missingFields([String])
     case invalidIDOrQuestion
@@ -291,10 +237,6 @@ enum SemanticIfPromptError: Error, Equatable {
     }
 }
 
-/// Ordered, Python-`json`-compatible JSON value. Object key order is document
-/// order, and integers stay distinct from doubles, so `pythonDumped` is
-/// byte-identical to `json.dumps(value, ensure_ascii=False)`. Public so the
-/// parity harness (issue #13) can parse Semif's recorded result rows.
 public enum SemanticIfJSON: Sendable, Equatable {
     case null
     case bool(Bool)
@@ -338,10 +280,6 @@ public enum SemanticIfJSON: Sendable, Equatable {
         }
     }
 
-    /// `json.dumps(value, ensure_ascii=False)` with Python's default
-    /// separators (", " and ": "). Non-finite doubles render as Python's
-    /// `Infinity` / `-Infinity` / `NaN`; `SemanticIfPrompt.validate` rejects
-    /// them before this is ever used for a prompt.
     var pythonDumped: String {
         switch self {
         case .null:
@@ -353,8 +291,6 @@ public enum SemanticIfJSON: Sendable, Equatable {
         case .double(let value):
             if value.isNaN { return "NaN" }
             if value.isInfinite { return value > 0 ? "Infinity" : "-Infinity" }
-            // Swift's shortest round-trip description matches Python's repr
-            // for finite doubles, including the two-digit exponent form.
             return String(describing: value)
         case .string(let value):
             return SemanticIfJSON.escape(value)
@@ -366,9 +302,6 @@ public enum SemanticIfJSON: Sendable, Equatable {
         }
     }
 
-    /// Python's string escaping with ensure_ascii=False: only quotes,
-    /// backslashes, and control characters are escaped; all other Unicode is
-    /// emitted raw.
     private static func escape(_ value: String) -> String {
         var result = "\""
         for scalar in value.unicodeScalars {
@@ -391,11 +324,6 @@ public enum SemanticIfJSON: Sendable, Equatable {
         return result + "\""
     }
 
-    /// Parses one JSON document, preserving object key order like Python's
-    /// `json.loads`. Integers that fit Int64 stay integers (Python's ints are
-    /// arbitrary precision; wider literals degrade to Double here). Unlike
-    /// Python, the non-standard literals NaN/Infinity are rejected up front —
-    /// Semif would reject them in validation anyway.
     public static func parse(_ text: String) throws -> SemanticIfJSON {
         var parser = Parser(text: text[...])
         let value = try parser.parseValue()
@@ -590,7 +518,6 @@ public enum SemanticIfJSON: Sendable, Equatable {
 }
 
 private extension String {
-    /// Jinja's `|trim`: strip leading/trailing whitespace as the chat template does.
     var trimmedForTemplate: String {
         trimmingCharacters(in: .whitespacesAndNewlines)
     }

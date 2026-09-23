@@ -2,8 +2,6 @@ import Foundation
 import Observation
 import SwiftData
 
-/// Owns the registry of phones and keeps their SwiftData connection state in
-/// sync with the underlying `DeviceHost`.
 @Observable
 @MainActor
 final class DeviceManager {
@@ -18,16 +16,10 @@ final class DeviceManager {
     private(set) var controlTestStatus: String?
     private(set) var autoLockStatus: String?
     private var autoLockRuns: Set<String> = []
-    /// Stage name currently running per device identifier, for status text.
     private(set) var activeStages: [String: String] = [:]
     private var promptSessions: [String: DevicePromptSession] = [:]
     private var pointerTests: Set<String> = []
-    /// Injected by the execute-leg supervisor: when it returns a runner client
-    /// for a device, that device's input goes over the on-device runner
-    /// instead of Bluetooth HID. Lifecycle stays on the transport host.
     @ObservationIgnored var runnerProvider: ((DeviceDescriptor) -> (any PhoneRunnerServing)?)?
-    /// Devices the user disconnected by hand stay offline until they connect
-    /// them again; every other known bond is re-established automatically.
     private var manualDisconnects: Set<String> = []
     private var reconnectAttempts: [String: Int] = [:]
     @ObservationIgnored private var reconnectTasks: [String: Task<Void, Never>] = [:]
@@ -56,19 +48,12 @@ final class DeviceManager {
 
     private var visionModels = UserDefaults.standard.dictionary(forKey: PhoneVisionProvider.modelPreferenceKey) as? [String: String] ?? [:]
 
-    /// Required scorer lifecycle, surfaced in the planner menu. Loading is lazy.
     private(set) var semanticIfState: SemanticIfScorerState = .idle
     @ObservationIgnored private var semanticIfScorer: (any SemanticIfScoring)?
-    /// Laya runs directly through Core ML on this Mac.
     @ObservationIgnored private let semanticIfBackend = SemanticIfScorerBackend.layaCoreML
-    /// Invalidates an in-flight load's completion, like screenConnectionAttempts.
     @ObservationIgnored private var semanticIfLoadAttempt: UUID?
     @ObservationIgnored private var semanticIfLoadTask: Task<Void, Never>?
 
-    /// Loads the local scorer on demand: the menu's warm-up action, and a
-    /// warm-up run whose account check asks for a decision (#15). The first
-    /// load downloads the pinned checkpoint through `LayaCoreMLModel`'s
-    /// Application Support path.
     func warmSemanticIfScorer() {
         guard semanticIfScorer == nil, semanticIfLoadAttempt == nil else { return }
         semanticIfState = .loading
@@ -96,7 +81,6 @@ final class DeviceManager {
         }
     }
 
-    /// Drops the loaded scorer and cancels any in-flight load.
     func unloadSemanticIfScorer() {
         semanticIfLoadTask?.cancel()
         semanticIfLoadTask = nil
@@ -116,9 +100,6 @@ final class DeviceManager {
         return semanticIfScorer
     }
 
-    /// The bundled warm-up contract (per-step failure modes and budgets,
-    /// contract TASK-5/6, issue #16), decoded once from warmup-tasks.json.
-    /// `WarmUpTasksContractTests` pins the JSON to the Swift registry.
     private var warmUpContractStore: WarmUpContractStore?
     func warmUpContracts() -> WarmUpContractStore? {
         if let warmUpContractStore { return warmUpContractStore }
@@ -127,15 +108,11 @@ final class DeviceManager {
         return store
     }
 
-
-    /// The model the current planner will use.
     var visionModel: String {
         get { visionModel(for: visionProvider) }
         set { setVisionModel(newValue, for: visionProvider) }
     }
 
-    /// Each planner remembers its own model, so the menu can show every
-    /// planner's choice without switching to it first.
     func visionModel(for provider: PhoneVisionProvider) -> String {
         if let saved = visionModels[provider.rawValue], PhoneVisionProvider.isValidModel(saved) { return saved }
         return provider.defaultModel ?? ""
@@ -152,8 +129,6 @@ final class DeviceManager {
         }
     }
 
-    /// Warms up whatever the selected planner needs (the local UI-TARS
-    /// server) so the first request does not pay for it.
     func prepareVisionProvider() {
         if visionProvider == .uiTars { LocalUITarsServer.shared.ensureRunning() }
     }
@@ -169,7 +144,6 @@ final class DeviceManager {
 
     var isAnyPromptRunning: Bool { promptSessions.values.contains(where: \.isRunning) }
 
-    /// What ShortReel is doing to a phone right now, if anything.
     func activity(for device: Device) -> DeviceActivity? {
         let session = promptSession(for: device)
         if session.isRunning {
@@ -185,7 +159,6 @@ final class DeviceManager {
         activeStages[device.identifier] = name
     }
 
-    /// Supported model clients, including the current selection.
     var availableVisionProviders: [PhoneVisionProvider] {
         PhoneVisionProvider.allCases.filter { $0 == visionProvider || isVisionProviderInstalled($0) }
     }
@@ -215,9 +188,6 @@ final class DeviceManager {
 
     private var context: ModelContext { container.mainContext }
 
-    /// Starts listening for host events and re-establishes every known
-    /// connection. Connections never survive a relaunch, so stored state is
-    /// reset first.
     func start() {
         guard listeners.isEmpty else { return }
         prepareVisionProvider()
@@ -231,8 +201,6 @@ final class DeviceManager {
             listeners.append(listener)
         }
 
-        // An iPhone can reconnect from AssistiveTouch as soon as ShortReel opens,
-        // including before the user opens the scan sheet.
         do { try bluetoothHost.prepareForPairing() }
         catch { discovery.errorMessage = error.localizedDescription }
 
@@ -241,10 +209,6 @@ final class DeviceManager {
             device.connectionState = .disconnected
         }
         try? context.save()
-        // Re-establish every connection that existed before. USB devices are
-        // always eligible; Bluetooth phones only when their bond with this
-        // Mac is still in the system pairing list, which filters out legacy
-        // demo entries with invented addresses.
         for device in devices where canAutoConnect(device) {
             connect(device)
         }
@@ -277,8 +241,6 @@ final class DeviceManager {
             }
         }
     }
-
-    // MARK: - Connections
 
     func shutdown() async {
         usbWatchTask?.cancel()
@@ -337,8 +299,6 @@ final class DeviceManager {
                     discovery.errorMessage = "The phone did not provide its Bluetooth address. Reconnect the cable and try again."
                     return
                 }
-                // The real address comes from this trusted phone; nothing is
-                // inferred from a similar name or a previously saved entry.
                 let candidate = DiscoveredBluetoothDevice(id: DiscoveredBluetoothDevice.canonicalAddress(address),
                     name: prepared.name, isPaired: false, isNearby: true)
                 pair(candidate, to: persona, onPaired: onPaired)
@@ -387,14 +347,10 @@ final class DeviceManager {
         }
     }
 
-    /// Whether the on-device runner currently supplies input for this device,
-    /// so the UI can show which leg is driving.
     func runnerActive(for descriptor: DeviceDescriptor) -> Bool {
         runnerProvider?(descriptor) != nil
     }
 
-    /// The host that performs input for a device: the on-device runner when
-    /// the supervisor provides one, otherwise the transport host.
     private func inputHost(for device: Device) -> any DeviceHost {
         if let runner = runnerProvider?(device.descriptor) {
             return RunnerDeviceHost(runner: runner)
@@ -431,10 +387,6 @@ final class DeviceManager {
         device.transport == .usb || host(for: device.transport).canAutoConnect(device.descriptor)
     }
 
-    /// A phone that drops without the user asking for it comes back on its
-    /// own: retry with a growing pause, giving up after a few attempts so an
-    /// absent phone does not spin forever. It can still reconnect inbound
-    /// from AssistiveTouch at any time.
     private func scheduleReconnect(for device: Device) {
         let identifier = device.identifier
         guard device.isLive,
@@ -475,9 +427,6 @@ final class DeviceManager {
         }
     }
 
-    /// Drives Settings › Auto-Lock › Never on the phone itself so it stops
-    /// locking its screen. Needs both live channels and the verified USB
-    /// screen, since the final tap is chosen by reading the settings page.
     func disableAutoLock(_ device: Device) {
         guard device.isLive, device.transport == .bluetoothHID else { return }
         let descriptor = device.descriptor
@@ -537,8 +486,6 @@ final class DeviceManager {
         let host = inputHost(for: device)
         let screen = screenCapture(for: device)
         let blockedReason: () -> String? = { [weak self] in
-            // Cached sessions outlive the SwiftData instance used to create
-            // them. Resolve the current record instead of retaining a weak model.
             guard let self,
                   let device = self.allDevices().first(where: { $0.isLive && $0.identifier == descriptor.identifier })
             else { return "This device is no longer available." }
@@ -570,7 +517,6 @@ final class DeviceManager {
             checking = verifier.checkFactory
         }
         let perform: (PhonePromptAction) async throws -> Void = { [weak self] action in
-            // The transaction engine owns verification and bounded recovery.
             try await DevicePromptExecutor.perform(action, using: host, on: descriptor,
                 checking: self?.visionProvider == .onDevice ? checking : nil)
         }
@@ -771,9 +717,6 @@ final class DeviceManager {
         disabledScreenAutoConnections.contains(device.identifier)
     }
 
-    /// All gallery callers share one pass. USB inventory refreshes are ordered
-    /// because USBPhoneSetup deliberately ignores overlapping discovery calls.
-    /// A trusted USB screen remains useful while Bluetooth input is disconnected.
     func refreshDeviceScreens() async {
         if let screenRefreshTask {
             screenRefreshRequested = true
@@ -786,8 +729,6 @@ final class DeviceManager {
                 self.screenRefreshRequested = false
                 await self.refreshDeviceScreensPass()
             } while self.screenRefreshRequested
-            // Clear before the shared task completes. A new caller must not
-            // join an already-finished task and lose its requested refresh.
             self.screenRefreshTask = nil
         }
         screenRefreshTask = task
@@ -805,7 +746,6 @@ final class DeviceManager {
                 guard device.isLive, device.identifier == identifier else { continue }
                 refreshedDevices.append((device, identifier))
             } catch is CancellationError {
-                // A removed device must not become a refresh error.
             } catch {
                 guard device.isLive, device.identifier == identifier else { continue }
                 screenConnectionErrors[identifier] = error.localizedDescription
@@ -828,7 +768,6 @@ final class DeviceManager {
                       let sourceID = matchingScreenSource(for: device) else { continue }
                 try await connectScreen(for: device, sourceID: sourceID, automatically: true)
             } catch is CancellationError {
-                // A removed device or explicit stop must not become an error.
             } catch {
                 guard device.isLive, device.identifier == identifier,
                       !isScreenAutoConnectDisabled(for: device) else { continue }
@@ -896,8 +835,6 @@ final class DeviceManager {
             verifiedScreens[identifier] = sourceID
             screenConnectionErrors[identifier] = nil
         } catch {
-            // A stop/removal can invalidate this attempt during any await. Its
-            // cleanup must never stop or release a subsequent capture attempt.
             guard screenConnectionAttempts[identifier] == attempt else { throw CancellationError() }
             if !(error is CancellationError) {
                 screenConnectionErrors[identifier] = error.localizedDescription
@@ -928,8 +865,6 @@ final class DeviceManager {
             screenConnectionStops[identifier] = nil
         }
     }
-
-    // MARK: - Registry
 
     func bind(_ device: Device, to persona: Persona) {
         persona.device = device
@@ -962,8 +897,6 @@ final class DeviceManager {
         context.delete(device)
         try? context.save()
     }
-
-    // MARK: - Private
 
     private func handle(_ event: DeviceHostEvent) {
         switch event {

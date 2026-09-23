@@ -2,9 +2,6 @@ import AVFoundation
 import SwiftData
 import SwiftUI
 
-/// The Devices section shows this wall of phones. Tap a phone to give it instructions;
-/// every registered phone keeps its place in the gallery and uses the capture
-/// session owned by DeviceManager.
 struct DeviceGalleryView: View {
     var onAddDevice: () -> Void
 
@@ -13,7 +10,6 @@ struct DeviceGalleryView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var promptDevice: Device?
-    /// The inspector can be hidden without forgetting which phone it shows.
     @State private var isInspectorPresented = false
     @State private var inspectorSegment: DeviceInspectorSegment = .agent
     @State private var refreshRevision = 0
@@ -52,7 +48,6 @@ struct DeviceGalleryView: View {
                                         width: cardWidth,
                                         isSelected: isInspectorPresented && promptDevice == device,
                                         onPrompt: {
-                                            // Tapping the shown phone hides the inspector; any other opens it.
                                             if isInspectorPresented, promptDevice == device {
                                                 isInspectorPresented = false
                                             } else {
@@ -118,8 +113,6 @@ struct DeviceGalleryView: View {
         .inspector(isPresented: $isInspectorPresented) {
             DevicePromptInspector(device: promptDevice, segment: $inspectorSegment)
         }
-        // Screen setup happens in the Settings segment, so re-scan once the
-        // user leaves it, the same way the old settings sheet did on dismiss.
         .onChange(of: inspectorSegment) { previous, _ in
             if previous == .settings { refreshRevision += 1 }
         }
@@ -128,7 +121,6 @@ struct DeviceGalleryView: View {
         }
     }
 
-    /// Reflow fixed-size cards without resizing previews when the inspector toggles.
     private func galleryColumns(for width: CGFloat) -> [GridItem] {
         let availableWidth = max(0, width - galleryPadding * 2)
         let count = max(1, Int((availableWidth + columnSpacing) / (cardWidth + columnSpacing)))
@@ -138,7 +130,6 @@ struct DeviceGalleryView: View {
         )
     }
 
-    /// Shows the inspector for the last shown phone, or the first live one.
     private func toggleInspector() {
         if isInspectorPresented {
             isInspectorPresented = false
@@ -163,8 +154,6 @@ private struct DeviceScreenCard: View {
         if device.isLive {
             let capture = deviceManager.screenCapture(for: device)
             VStack(alignment: .leading, spacing: 12) {
-                // Name on the left; transport, screen, and menu glyphs on the
-                // right. Status text lives in tooltips and accessibility labels.
                 HStack(spacing: 12) {
                     Text(device.name)
                         .font(.headline)
@@ -194,15 +183,12 @@ private struct DeviceScreenCard: View {
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
                     .fixedSize()
-                    // First focusable control in the window; no ring at launch.
                     .focusEffectDisabled()
                     .accessibilityLabel("Options for \(device.name)")
                 }
 
                 Button(action: onPrompt) {
                     screen(capture)
-                        // Reserve the final preview size before the first frame
-                        // arrives, so loading never changes the card's position.
                         .frame(width: width - 20, height: (width - 20) * 19.5 / 9)
                         .background(Color.black.opacity(0.18))
                         .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -244,8 +230,6 @@ private struct DeviceScreenCard: View {
                         content.opacity(hasFrame ? 0 : 1)
                     }
 
-                // The layer stays in place; only its opacity changes when a
-                // verified stream becomes available, never on individual frames.
                 Color.clear.overlay {
                     if let frame {
                         Image(decorative: frame.cgImage, scale: 1)
@@ -397,8 +381,6 @@ private struct DevicePromptInspector: View {
 
     private func agentPane(_ device: Device) -> some View {
         VStack(spacing: 0) {
-            // The history shrinks independently of its scrollable contents so
-            // the composer stays pinned.
             DevicePromptHistory(device: device)
                 .frame(minHeight: 0, maxHeight: .infinity)
 
@@ -408,9 +390,6 @@ private struct DevicePromptInspector: View {
     }
 }
 
-/// One line naming the selected phone, shared by every inspector segment,
-/// with the planner menu on the right. Connection state already shows on
-/// the gallery card and in the Settings segment.
 private struct DeviceInspectorHeader: View {
     let device: Device
 
@@ -431,8 +410,6 @@ private struct DeviceInspectorHeader: View {
     }
 }
 
-/// The phone's status glyph: a spinner while ShortReel is working on it,
-/// otherwise the transport symbol tinted by connection state.
 private struct DeviceActivityGlyph: View {
     let device: Device
 
@@ -452,8 +429,6 @@ private struct DeviceActivityGlyph: View {
     }
 }
 
-/// Glyph plus a line of text: what is happening to the phone, or how it is
-/// connected when nothing is.
 private struct DeviceStatusRow: View {
     let device: Device
 

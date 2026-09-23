@@ -1,7 +1,5 @@
 import Foundation
 
-// Pure tests for the production Grok decoder and isolation gate. No subprocess,
-// network request, authentication access, screen capture, or phone input occurs.
 @main
 enum GrokPhonePlannerTests {
     @MainActor
@@ -48,7 +46,6 @@ enum GrokPhonePlannerTests {
         try expectNeedsInput(result(visual, goal: "Tap 50%, 40%"))
         expect(try result(visual.merging(["x": 0.5, "y": 0.4]) { _, new in new }, goal: "Tap 50%, 40%") == .action(.tap(0.5, 0.4), reason: "Open Safari using its visible dock icon."), "Visual descriptions must not change explicit user coordinates")
         try expectNeedsInput(result(visual.merging(["x": 0.5, "y": 0.4, "targetID": 2]) { _, new in new }, goal: "Tap 50%, 40%", targets: [photos]))
-        // A visual description must not rescue an invalid supplied OCR ID.
         for patch: [String: Any] in [["targetID": 59], ["targetID": 2]] {
             try expectNeedsInput(result(visual.merging(patch) { _, new in new }, targets: [photos]))
         }

@@ -1,12 +1,10 @@
 import Foundation
 
-/// A single external process launch: an executable path plus literal argv.
 struct ProcessInvocation: Sendable, Equatable {
     var executable: String
     var arguments: [String]
 }
 
-/// Captured result of a finished process.
 struct ProcessResult: Sendable, Equatable {
     var stdout: String
     var stderr: String
@@ -26,17 +24,11 @@ enum RunnerCommandError: Error, LocalizedError, Equatable {
     }
 }
 
-/// Process execution seam. The supervisor and provisioning shell out to
-/// go-ios and security(1) exclusively through this protocol so tests drive
-/// them with a fake. `run` must terminate the process when the awaiting
-/// task is cancelled — long-running children (tunnel, runtest, forward)
-/// rely on cancellation as their stop signal.
 protocol ProcessRunning: Sendable {
     func run(_ invocation: ProcessInvocation) async throws -> ProcessResult
 }
 
 extension ProcessRunning {
-    /// Runs a one-shot command that must exit 0, throwing RunnerCommandError otherwise.
     @discardableResult
     func runChecked(_ invocation: ProcessInvocation) async throws -> ProcessResult {
         let result = try await run(invocation)
@@ -47,7 +39,6 @@ extension ProcessRunning {
     }
 }
 
-/// Production ProcessRunning over Foundation.Process.
 struct SystemProcessRunner: ProcessRunning {
     func run(_ invocation: ProcessInvocation) async throws -> ProcessResult {
         try Task.checkCancellation()
@@ -63,8 +54,6 @@ struct SystemProcessRunner: ProcessRunning {
     }
 }
 
-/// All Process state lives behind `lock` so the @Sendable cancellation
-/// handler can touch it; hence unchecked Sendable.
 private final class SystemProcessHandle: @unchecked Sendable {
     private let process = Process()
     private let stdoutPipe = Pipe()
@@ -150,8 +139,6 @@ private final class SystemProcessHandle: @unchecked Sendable {
     }
 }
 
-/// Lifecycle states of one phone's on-device runner, surfaced on
-/// `RunnerSupervisor.states`.
 enum RunnerState: Sendable, Equatable {
     case starting
     case ready(localPort: UInt16)
@@ -170,16 +157,10 @@ enum RunnerSupervisorError: Error, LocalizedError {
     }
 }
 
-/// The userspace tunnel seam, satisfied by GoIosTunnelDaemon in production.
 protocol TunnelManaging: Sendable {
     func ensureRunning() async throws
 }
 
-/// Shared userspace RemotePairing tunnel daemon (`ios tunnel start
-/// --userspace`, go-ios v1.3.x). One agent process serves every attached
-/// phone, so all RunnerSupervisor instances share `.shared` instead of
-/// spawning a tunnel per UDID. If the agent dies the next ensureRunning
-/// relaunches it; the agent itself re-establishes per-device tunnels.
 actor GoIosTunnelDaemon: TunnelManaging {
     static let shared = GoIosTunnelDaemon(processes: SystemProcessRunner())
 
@@ -233,22 +214,9 @@ actor GoIosTunnelDaemon: TunnelManaging {
     }
 }
 
-/// Per-phone lifecycle manager for the on-device ShortReelRunner
-/// (docs/phone-runner-design.md §Mac-side). Bring-up sequence: shared
-/// userspace tunnel → `ios image auto` (DDI) → optional `ios install` of a
-/// built runner product → `ios runtest` launching the UITests bundle via
-/// testmanagerd → `ios forward` of the runner port → /health polling.
-/// Thereafter a keepalive loop restarts the runner with exponential backoff
-/// (capped at `Configuration.maxAttempts`) whenever health fails, covering
-/// testmanagerd jetsam and tunnel drops.
-///
-/// Command lines follow go-ios v1.3.x (`runtest` is the generic XCUITest
-/// launcher; `runxctest` takes an .xctestrun file and `runwda` is
-/// WDA-specific). Command syntax is checked against go-ios 1.3.2.
 actor RunnerSupervisor {
     struct Configuration: Sendable {
         var udid: String
-        /// Built .app to install before launching; nil skips installation.
         var runnerProductPath: URL? = nil
         var uitestRunnerProductPath: URL? = nil
         var localPort: UInt16 = PhoneRunnerProtocol.port
@@ -269,8 +237,6 @@ actor RunnerSupervisor {
         }
     }
 
-    /// Single-consumer stream of lifecycle states. Finishes when the
-    /// supervisor fails permanently or `stop()` is called.
     nonisolated let states: AsyncStream<RunnerState>
 
     private let continuation: AsyncStream<RunnerState>.Continuation
@@ -290,8 +256,6 @@ actor RunnerSupervisor {
         (states, continuation) = AsyncStream.makeStream(of: RunnerState.self)
     }
 
-    /// Convenience initializer using the shared tunnel daemon and a client
-    /// for the configured forwarded port.
     init(configuration: Configuration, processes: ProcessRunning = SystemProcessRunner()) {
         self.init(configuration: configuration,
                   processes: processes,
@@ -432,7 +396,6 @@ actor RunnerSupervisor {
     }
 }
 
-/// Serialize image auto commands because they share the downloaded image cache.
 private actor RunnerImageMountQueue {
     static let shared = RunnerImageMountQueue()
     private var tail: Task<Void, Never>?
