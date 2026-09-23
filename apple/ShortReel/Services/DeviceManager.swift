@@ -56,25 +56,8 @@ final class DeviceManager {
 
     private var visionModels = UserDefaults.standard.dictionary(forKey: PhoneVisionProvider.modelPreferenceKey) as? [String: String] ?? [:]
 
-    /// Whether local Laya Core ML scoring may load its model. On by default; turning
-    /// it off unloads the scorer and leaves runs planner-only, exactly as
-    /// before local checks existed. Persisted like the planner selection.
-    var semanticIfEnabled: Bool = UserDefaults.standard.object(forKey: SemanticIfScorerState.enabledKey) as? Bool ?? true {
-        didSet {
-            guard semanticIfEnabled != oldValue else { return }
-            UserDefaults.standard.set(semanticIfEnabled, forKey: SemanticIfScorerState.enabledKey)
-            if semanticIfEnabled {
-                semanticIfState = .idle
-            } else {
-                unloadSemanticIfScorer()
-            }
-        }
-    }
-
-    /// Lifecycle of the local scorer, surfaced in the planner menu. Nothing
-    /// loads — and nothing downloads — while scoring is disabled or no run
-    /// has asked for a decision.
-    private(set) var semanticIfState: SemanticIfScorerState = .disabled
+    /// Required scorer lifecycle, surfaced in the planner menu. Loading is lazy.
+    private(set) var semanticIfState: SemanticIfScorerState = .idle
     @ObservationIgnored private var semanticIfScorer: (any SemanticIfScoring)?
     /// Laya runs directly through Core ML on this Mac.
     @ObservationIgnored private let semanticIfBackend = SemanticIfScorerBackend.layaCoreML
@@ -87,7 +70,7 @@ final class DeviceManager {
     /// load downloads the pinned checkpoint through `LayaCoreMLModel`'s
     /// Application Support path.
     func warmSemanticIfScorer() {
-        guard semanticIfEnabled, semanticIfScorer == nil, semanticIfLoadAttempt == nil else { return }
+        guard semanticIfScorer == nil, semanticIfLoadAttempt == nil else { return }
         semanticIfState = .loading
         let attempt = UUID()
         semanticIfLoadAttempt = attempt
@@ -119,13 +102,18 @@ final class DeviceManager {
         semanticIfLoadTask = nil
         semanticIfLoadAttempt = nil
         semanticIfScorer = nil
-        semanticIfState = semanticIfEnabled ? .idle : .disabled
+        semanticIfState = .idle
     }
 
-    /// The scorer a run may use, once loaded; the warm-up account check (#15)
-    /// decides locally through this, and falls back to the planner when nil.
-    func readySemanticIfScorer() -> (any SemanticIfScoring)? {
-        semanticIfScorer
+    func requiredSemanticIfScorer() async throws -> any SemanticIfScoring {
+        if let semanticIfScorer { return semanticIfScorer }
+        warmSemanticIfScorer()
+        await semanticIfLoadTask?.value
+        try Task.checkCancellation()
+        guard let semanticIfScorer else {
+            throw PhoneVisionError.unavailable("Laya Core ML must be ready before running a workflow. " + semanticIfState.menuStatus)
+        }
+        return semanticIfScorer
     }
 
     /// The bundled warm-up contract (per-step failure modes and budgets,
@@ -222,7 +210,7 @@ final class DeviceManager {
         self.visionProvider = UserDefaults.standard.string(forKey: PhoneVisionProvider.preferenceKey)
             .flatMap(PhoneVisionProvider.init(rawValue:)) ?? .defaultProvider
         UserDefaults.standard.set(visionProvider.rawValue, forKey: PhoneVisionProvider.preferenceKey)
-        self.semanticIfState = semanticIfEnabled ? .idle : .disabled
+        self.semanticIfState = .idle
     }
 
     private var context: ModelContext { container.mainContext }
@@ -582,7 +570,7 @@ final class DeviceManager {
             checking = verifier.checkFactory
         }
         let perform: (PhonePromptAction) async throws -> Void = { [weak self] action in
-            // The model observes the next frame and chooses any retry itself.
+            // The transaction engine owns verification and bounded recovery.
             try await DevicePromptExecutor.perform(action, using: host, on: descriptor,
                 checking: self?.visionProvider == .onDevice ? checking : nil)
         }
@@ -595,9 +583,9 @@ final class DeviceManager {
             case .uiTars:
                 return try await UITarsPhonePlanner.nextDecision(goal: goal, frame: frame, history: history)
             case .codex:
-                return try await CodexPhonePlanner.nextDecision(goal: goal, frame: frame, history: history, model: self.visionModel)
+                return try await CodexPhonePlanner.locateInput(request: goal, frame: frame, model: self.visionModel)
             case .claude:
-                return try await ClaudePhonePlanner.nextDecision(goal: goal, frame: frame, history: history, model: self.visionModel)
+                return try await ClaudePhonePlanner.locateInput(request: goal, frame: frame, model: self.visionModel)
             case .onDevice:
                 return try await PhoneVisionClient.nextDecision(goal: goal, frame: frame, history: history)
             }
@@ -609,47 +597,138 @@ final class DeviceManager {
                 case .claude: return try await ClaudePhonePlanner.inspectScreen(frame: frame, model: self.visionModel)
                 case .uiTars, .onDevice: return try await UITarsPhonePlanner.inspectScreen(frame: frame)
                 }
+            }, observe: { [weak self] frame, question in
+                guard let self else { throw PhoneTransactionError.unavailable }
+                switch self.visionProvider {
+                case .codex: return try await CodexPhonePlanner.inspectScreen(frame: frame, model: self.visionModel, question: question)
+                case .claude: return try await ClaudePhonePlanner.inspectScreen(frame: frame, model: self.visionModel, question: question)
+                case .uiTars, .onDevice: return try await UITarsPhonePlanner.inspectScreen(frame: frame)
+                }
             }, prepareCleanupAction: { action, frame in
                 try await HomeScreenRemovalGuard.prepare(action, frame: frame)
-            }, classifyAccount: { [weak self] frame, script, brief in
-                // Contract TASK-8 (#15): the account step is scored locally
-                // once the SemanticIf checkpoint is loaded. While it loads —
-                // or when scoring is disabled or failed — the verdict is nil
-                // and the run keeps exactly the planner-only path of today.
-                guard let self else { throw PhoneVisionError.unavailable("This device is no longer available.") }
-                guard let scorer = self.readySemanticIfScorer() else {
-                    if self.semanticIfEnabled { self.warmSemanticIfScorer() }
-                    return nil
-                }
+            }, classifyAccount: { [weak self] frame, observation, script, brief in
+                guard let self else { throw PhoneTransactionError.unavailable }
+                let scorer = try await self.requiredSemanticIfScorer()
                 guard let handle = WarmUpStateTree.expectedHandle(brief), !handle.isEmpty,
-                      let platform = Platform.allCases.first(where: { $0.displayName == script.network.rawValue })
-                else { return nil }
-                // A scorer that errors mid-run (row rejection, model fault)
-                // degrades to the planner-only path rather than failing a run
-                // the planner could still drive.
-                return try? await WarmUpAccountClassifier.classify(frame: frame,
-                    platform: platform.displayName, accountLocation: WarmUpPlaybook.accountLocation(for: platform),
-                    handle: handle, scorer: scorer)
-            }, classifyFailure: { [weak self] frame, script, stepID, playbackSummary in
-                // Contract TASK-5 (#16): non-account steps are scored against
-                // their contract failureModes locally once the checkpoint is
-                // loaded. While it loads — or when scoring is disabled, the
-                // contract is missing, or scoring errors — the verdict is nil
-                // and the run keeps exactly the planner-only path of today.
-                guard let self else { throw PhoneVisionError.unavailable("This device is no longer available.") }
-                guard let scorer = self.readySemanticIfScorer() else {
-                    if self.semanticIfEnabled { self.warmSemanticIfScorer() }
-                    return nil
+                      let platform = Platform.allCases.first(where: { $0.displayName == script.network.rawValue }) else {
+                    throw PhoneTransactionError.unavailable
                 }
-                guard let step = self.warmUpContracts()?.step(scriptIdentifier: script.identifier, stepID: stepID.rawValue)
-                else { return nil }
-                return try? await WarmUpFailureClassifier.classify(frame: frame,
+                return try await WarmUpAccountClassifier.classify(frame: frame,
+                    platform: platform.displayName, accountLocation: WarmUpPlaybook.accountLocation(for: platform),
+                    handle: handle, scorer: scorer, observation: observation)
+            }, classifyFailure: { [weak self] frame, script, stepID, playbackSummary in
+                guard let self else { throw PhoneTransactionError.unavailable }
+                let scorer = try await self.requiredSemanticIfScorer()
+                guard let step = self.warmUpContracts()?.step(scriptIdentifier: script.identifier, stepID: stepID.rawValue) else {
+                    throw PhoneTransactionError.unavailable
+                }
+                return try await WarmUpFailureClassifier.classify(frame: frame,
                     scriptIdentifier: script.identifier, platform: script.network.rawValue,
                     step: step, playbackSummary: playbackSummary, scorer: scorer)
             }, stepBudget: { [weak self] script, stepID in
-                // Contract TASK-6 / INV-6 (#16): per-step budgets apply whether
-                // or not the local scorer is loaded.
                 self?.warmUpContracts()?.step(scriptIdentifier: script.identifier, stepID: stepID.rawValue)?.budget
+            }, compile: { [weak self] goal, script, progress in
+                guard let self else { throw PhoneTransactionError.unavailable }
+                let provider = self.visionProvider
+                let model = self.visionModel
+                let builtIn = try PhoneTransactionCompiler.builtIn(goal: goal, script: script)
+                if builtIn == nil, provider != .codex && provider != .claude {
+                    throw PhonePromptPlanningError.needsClarification("Choose Codex or Claude to prepare this workflow.")
+                }
+                progress(self.semanticIfState == .ready ? "Preparing workflow…" : "Loading Laya for screen classification…")
+                _ = try await self.requiredSemanticIfScorer()
+                try Task.checkCancellation()
+                if let builtIn {
+                    progress("Using the built-in app-opening workflow…")
+                    return builtIn
+                }
+                let generate: @MainActor @Sendable (String, String, String?) async throws -> PhoneTransactionPlan = { prompt, instructions, phase in
+                    let data: Data
+                    do {
+                        switch provider {
+                        case .codex:
+                            data = try await CodexPhonePlanner.textResponse(prompt: prompt, instructions: instructions,
+                                schema: PhoneTransactionCompiler.schema(for: phase), model: model)
+                        case .claude:
+                            data = try await ClaudePhonePlanner.textResponse(prompt: prompt, instructions: instructions,
+                                schema: PhoneTransactionCompiler.schema(for: phase), model: model)
+                        case .uiTars, .onDevice: throw PhoneTransactionError.unavailable
+                        }
+                    } catch PhonePlannerProcessError.timedOut {
+                        throw PhoneVisionError.unavailable("Workflow preparation timed out before any phone input. Check the selected provider's connection and try again.")
+                    }
+                    return try JSONDecoder().decode(PhoneTransactionPlan.self, from: data)
+                }
+                if let script {
+                    if script.network == .tikTok, script.activity == .watch {
+                        progress("Preparing TikTok search and watch workflow…")
+                        let instructions = "Extract a relevant search query from the persona's niche. Return one or two plain ASCII alphanumeric words, separated by one space, at most 32 characters. Return only the query JSON. Do not plan phone actions."
+                        let data: Data
+                        switch provider {
+                        case .codex:
+                            data = try await CodexPhonePlanner.textResponse(prompt: goal, instructions: instructions,
+                                schema: PhoneTransactionCompiler.watchQuerySchema, model: model)
+                        case .claude:
+                            data = try await ClaudePhonePlanner.textResponse(prompt: goal, instructions: instructions,
+                                schema: PhoneTransactionCompiler.watchQuerySchema, model: model)
+                        case .uiTars, .onDevice: throw PhoneTransactionError.unavailable
+                        }
+                        struct Query: Decodable { let query: String }
+                        let query = try JSONDecoder().decode(Query.self, from: data).query
+                        guard let url = Bundle.main.url(forResource: "tiktok-watch", withExtension: "json") else {
+                            throw PhoneTransactionError.unavailable
+                        }
+                        return try PhoneTransactionCompiler.tikTokWatch(script: script, query: query, template: Data(contentsOf: url))
+                    }
+                    guard let store = self.warmUpContracts() else { throw PhoneTransactionError.unavailable }
+                    progress("Preparing warm-up: 0 of \(script.steps.count) steps ready…")
+                    return try await PhoneTransactionCompiler.compilePhases(script: script, progress: progress) { step in
+                        guard let contract = store.step(scriptIdentifier: script.identifier, stepID: step.id.rawValue) else {
+                            throw PhoneTransactionError.unavailable
+                        }
+                        let configuration = String(decoding: try JSONEncoder().encode(script), as: UTF8.self)
+                        let criteria = contract.successCriteria.joined(separator: "; ")
+                        let failures = contract.failureModes.map { "\($0.id): \($0.detection); recovery: \($0.recovery); terminal: \($0.terminal)" }.joined(separator: "\n")
+                        let prompt = """
+                            Request: \(goal)
+                            Warm-up configuration: \(configuration)
+                            Compile ONLY phase \(step.id.rawValue): \(step.instruction)
+                            Success criteria: \(criteria)
+                            Failure contracts: \(failures)
+                            """
+                        let instructions = PhoneTransactionCompiler.instructions + """
+
+                            This request compiles ONE phase of a larger fixed workflow. Return exactly one phase,
+                            with id \(step.id.rawValue). Do not include other phases. Use at most 8 states and
+                            concise conditions. The app assembles phases in registered order before any input.
+                            Include branches for all valid entry surfaces (Home, another app, or the target app
+                            when appropriate). Home can have an empty grid and unlabeled Dock icons. A Home
+                            Screen is not a locked or unidentifiable app. Do not require icon text labels.
+                            In advance the ONLY allowed command is swipe up; other branches observe/transition
+                            or stop with null command. No waits or recovery taps in advance. In submit the only
+                            command is a tap. In verifySubmission all commands are null. There is no back key;
+                            locate and tap a visible back control when needed.
+                            Open and consume have at most FOUR states. Reuse states instead of copying full
+                            checks into each recovery. Keep conditions under 120 characters and targets under
+                            140 characters. The runtime already handles verification retries and action budgets.
+                            """
+                        return try await generate(prompt, instructions, step.id.rawValue)
+                    }
+                }
+                progress("Asking \(provider.displayName) to prepare the workflow…")
+                let prompt = try PhoneTransactionCompiler.request(goal: goal, script: nil)
+                return try await generate(prompt, PhoneTransactionCompiler.instructions, nil)
+            }, classify: { [weak self] question in
+                guard let self else { throw PhoneTransactionError.unavailable }
+                let scorer = try await self.requiredSemanticIfScorer()
+                let row = SemanticIfRow(id: question.id, state: .string(question.evidence),
+                    question: question.question, options:
+                        question.options.map { .init(id: $0.id, description: $0.description) })
+                let result = try await scorer.score(row)
+                switch result.decision {
+                case .option(let id): return id
+                case .uncertain: return nil
+                }
             })
         let session = DevicePromptSession(deviceName: descriptor.name, deviceIdentifier: descriptor.identifier, blockedReason: blockedReason,
             visualRunner: runner, visualBlockedReason: visualBlockedReason,

@@ -112,6 +112,7 @@ struct DevicePromptHistory: View {
     let device: Device
 
     @Environment(DeviceManager.self) private var deviceManager
+    @State private var contentSize = CGSize.zero
 
     var body: some View {
         let session = deviceManager.promptSession(for: device)
@@ -125,36 +126,41 @@ struct DevicePromptHistory: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 16) {
+                    // A transcript entry can grow to many screens. Lazy layout
+                    // estimated its height and scrolled before the final bubble
+                    // existed, leaving the newest result below the viewport.
+                    VStack(alignment: .leading, spacing: 16) {
                         ForEach(session.entries) { entry in
                             ChatTranscriptEntry(entry: entry)
                         }
-                        Color.clear
-                            .frame(height: 1)
-                            .id("bottom")
+                        Color.clear.frame(height: 1).id("bottom")
                     }
                     .padding(16)
+                    .onGeometryChange(for: CGSize.self) { $0.size } action: { contentSize = $0 }
                 }
                 .defaultScrollAnchor(.bottom)
-                .onChange(of: transcriptRevision(session)) { _, _ in
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo("bottom", anchor: .bottom)
-                    }
+                .task(id: scrollRevision(session)) {
+                    // Wait until changed text/disclosures have their final size.
+                    await Task.yield()
+                    guard !Task.isCancelled else { return }
+                    proxy.scrollTo("bottom", anchor: .bottom)
                 }
             }
+            .id(device.identifier)
         }
     }
 
-    /// Changes whenever a bubble is added or the last one changes, so the
-    /// transcript follows the conversation like Messages does.
-    private func transcriptRevision(_ session: DevicePromptSession) -> Int {
-        guard let last = session.entries.last else { return 0 }
+    private func scrollRevision(_ session: DevicePromptSession) -> Int {
         var hasher = Hasher()
-        hasher.combine(session.entries.count)
-        hasher.combine(last.steps.count)
-        hasher.combine(last.sentActions.count)
-        hasher.combine(last.status)
-        hasher.combine(last.message)
+        hasher.combine(contentSize.width)
+        hasher.combine(contentSize.height)
+        for entry in session.entries {
+            hasher.combine(entry.id)
+            hasher.combine(entry.updatedAt)
+            hasher.combine(entry.steps.count)
+            hasher.combine(entry.status)
+            hasher.combine(entry.message)
+        }
         return hasher.finalize()
     }
 }
@@ -355,10 +361,9 @@ struct PlannerMenu: View {
                 }
             }
 
-            // Local Laya checks live next to the planner choice: one toggle
-            // (there is no app-level Settings scene), plus the scorer state.
+            // Classification is required for every workflow.
             Divider()
-            Toggle("Local Checks on This Mac", isOn: semanticIfEnabled)
+            Text("Workflow Classification (Required)")
             Text("Laya Core ML: \(deviceManager.semanticIfState.menuStatus)")
                 .foregroundStyle(.secondary)
             if deviceManager.semanticIfState.canWarm {
@@ -430,12 +435,4 @@ struct PlannerMenu: View {
         )
     }
 
-    /// The planner menu is also the Settings surface for local checks, since
-    /// the app has no app-level Settings scene.
-    private var semanticIfEnabled: Binding<Bool> {
-        Binding(
-            get: { deviceManager.semanticIfEnabled },
-            set: { deviceManager.semanticIfEnabled = $0 }
-        )
-    }
 }

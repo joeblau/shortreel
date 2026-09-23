@@ -1,425 +1,251 @@
 import Foundation
-import CoreGraphics
-import ImageIO
 
-// swiftc -swift-version 6 SemanticIf/Sources/SemanticIf/{SemanticIfPrompt,SemanticIfScoring}.swift ShortReel/Services/DevicePrompts/{WarmUpScript,DevicePromptPlan,DevicePromptPlanner,DeviceWorkflow,PhoneVisionTypes,PhoneVisualRunner,WarmUpStateTree,PhoneSubmissionCheckpoint,PhoneSubmissionGuard,PhonePlaybackTracker,DeviceRunJournal,DevicePromptSession,WarmUpAccountClassifier,WarmUpFailureClassifier}.swift Tests/DevicePromptSessionTests.swift -o /tmp/shortreel-prompt-session-tests
-@main @MainActor
-enum DevicePromptSessionTests {
-    private enum TestError: LocalizedError {
-        case failure(String)
-        var errorDescription: String? {
-            switch self { case .failure(let message): message }
-        }
-    }
-
-    /// A manually released suspension point simulates a pending model decision or
-    /// screen capture without relying on the timing of a real device.
-    @MainActor private final class Gate {
-        private(set) var isWaiting = false
-        private var continuation: CheckedContinuation<Void, Never>?
-
-        func wait() async {
-            isWaiting = true
-            await withCheckedContinuation { continuation = $0 }
-        }
-
-        func release() {
-            precondition(isWaiting && continuation != nil)
-            continuation?.resume()
-            continuation = nil
-        }
-    }
-
+// Run Tests/run-transactions.sh from apple/.
+@main @MainActor enum DevicePromptSessionTests {
+    typealias T = TransactionTestSupport
     static func main() async throws {
-        try await successfulRunRecordsSteps()
-        try await blockedReasonFailsBeforeStart()
-        try await missingScreenFailsWithReason()
-        try await modelNeedsInputRestoresDraft()
-        try await failurePrefixAndDraftRestore()
-        try await cancellationIgnoresLateDecision()
-        try await visualStartFiresOnce()
-        try await entriesCappedAtFifty()
-        try await queueRunsInOrder()
-        try await stoppedQueueRequiresResume()
-        try await journalRecoveryRequiresReview()
-        try await journalsAreDeviceScoped()
-        try await corruptJournalFailsClosed()
-        try await unwritableJournalBlocksExecution()
+        try await bothEntryPointsSaveTransactions()
+        try await gatesAndDrafts()
+        try await serialQueueAndCancellation()
+        try await pendingInputRequiresReview()
+        try await journalRoundTripAndLegacyRecovery()
+        try await journalFailureAndIsolation()
         try await retiredSessionCannotOverwriteReplacement()
-        print("Device prompt session tests passed (15 scenarios)")
+        try await historyCap()
+        try await restartPurgesHistory()
+        try await freshWatchAfterRestart()
+        print("Device session tests passed (Agent/Stage persistence, gates, queue, cancellation, recovery, journal failures, retirement, history)")
     }
-
-    private static func successfulRunRecordsSteps() async throws {
-        let finalCapture = Gate()
-        var captures = 0
-        var decisions = 0
-        var dispatched: [PhonePromptAction] = []
-        var observedFrames: [PhoneScreenFrame] = []
-        let runner = PhoneVisualRunner(capture: { after in
-            captures += 1
-            if captures == 2 { await finalCapture.wait() }
-            let frame = try visualFrame(after: after)
-            observedFrames.append(frame)
-            return frame
-        }, decide: { goal, frame, history in
-            decisions += 1
-            try expect(goal == "Find the Home screen with the app icons", "The visual session changed the goal")
-            if decisions == 1 {
-                try expect(history.isEmpty, "A new request reused another request's actions")
-                return .action(.home, reason: "Return to the Home screen.")
+    static func session(_ rig: T.Rig, journal: DeviceRunJournal? = nil) -> DevicePromptSession {
+        DevicePromptSession(deviceName: "Phone", journal: journal, blockedReason: { nil }, visualRunner: rig.runner())
+    }
+    static func bothEntryPointsSaveTransactions() async throws {
+        for workflow: DeviceWorkflow? in [nil, .createContent] {
+            let journal = T.journal(); defer { try? FileManager.default.removeItem(at: journal.fileURL.deletingLastPathComponent()) }
+            let rig = T.Rig(); let gate = T.Gate()
+            rig.captureOverride = { after in
+                if rig.captures == 2 { await gate.wait() }
+                return try T.frame(after: after)
             }
-            try expect(history.count == 1 && frame.id != observedFrames[0].id, "Completion did not use a new frame after input")
-            return .finished("The Home screen is visible.")
-        }, perform: { dispatched.append($0) }, blockedReason: { nil })
-        let session = visualSession(runner)
-        session.draft = "Find the Home screen with the app icons"
-        session.submit()
-        try await waitUntil { finalCapture.isWaiting }
-        try expect(dispatched == [.home], "The visual action did not reach the driver")
-        try expect(session.isRunning && session.entries.last?.status == .running, "The session claimed completion before observing the result")
-        try expect(session.entries.last?.steps.count == 1, "The session did not record its visual step")
-        try expect(session.entries.last?.steps.first?.capturedAt == observedFrames.first?.capturedAt, "The session lost the frame associated with its step")
-        finalCapture.release()
-        try await waitUntil { !session.isRunning }
-        try expect(captures == 2 && decisions == 2 && dispatched.count == 1, "The session skipped result verification or repeated input")
-        try expect(session.entries.last?.status == .completed, "A visually verified result was not marked Completed")
-        try expect(session.entries.last?.message == "The Home screen is visible.", "The visually verified result was replaced")
-        try expect(session.draft.isEmpty, "Successful visual execution restored the submitted draft")
-    }
-
-    private static func blockedReasonFailsBeforeStart() async throws {
-        var captures = 0
-        let runner = PhoneVisualRunner(capture: { after in
-            captures += 1
-            return try visualFrame(after: after)
-        }, decide: { _, _, _ in throw TestError.failure("A blocked phone used screen understanding") },
-            perform: { _ in throw TestError.failure("A blocked phone sent input") }, blockedReason: { nil })
-        let session = DevicePromptSession(deviceName: "Phone", blockedReason: { "Connect this phone first." },
-            visualRunner: runner)
-        try expect(session.unavailableReason == "Connect this phone first.", "The unavailable reason was changed")
-        session.draft = "go home"
-        session.submit()
-        try expect(!session.isRunning && captures == 0, "A disconnected phone entered the visual loop")
-        try expect(session.entries.last?.status == .failed, "The disconnected gate did not explain the failure")
-        try expect(session.entries.last?.message == "Connect this phone first.", "The gate reason was changed")
-        try expect(session.draft == "go home", "The disconnected gate lost the draft")
-    }
-
-    private static func missingScreenFailsWithReason() async throws {
-        // No runner at all: the default explanation is used.
-        let noRunner = DevicePromptSession(deviceName: "Test Phone", blockedReason: { nil })
-        try expect(!noRunner.canUseScreen, "A session without a runner claimed screen access")
-        noRunner.draft = "Close all apps"
-        noRunner.submit()
-        try expect(!noRunner.isRunning, "A screenless request started a task")
-        try expect(noRunner.entries.last?.status == .failed, "A screenless request was not reported as failed")
-        try expect(noRunner.entries.last?.message == "The selected model needs a live phone screen before it can choose an action.",
-            "The missing-screen explanation was changed")
-        try expect(noRunner.draft == "Close all apps", "The screenless request lost its draft")
-
-        // Runner exists but the screen is unavailable: the runner's reason wins.
-        var captures = 0
-        let runner = PhoneVisualRunner(capture: { _ in
-            captures += 1
-            throw TestError.failure("Unavailable capture ran")
-        }, decide: { _, _, _ in throw TestError.failure("Unavailable model ran") },
-            perform: { _ in throw TestError.failure("Unexpected input") }, blockedReason: { nil })
-        let session = DevicePromptSession(deviceName: "Test Phone", blockedReason: { nil },
-            visualRunner: runner, visualBlockedReason: { "USB screen is unavailable" })
-        try expect(!session.canUseScreen, "An unavailable screen was reported as usable")
-        session.draft = "Show the Home screen"
-        session.submit()
-        try expect(!session.isRunning && captures == 0, "An unavailable screen was bypassed")
-        try expect(session.entries.last?.status == .failed, "A lost screen was not reported as failed")
-        try expect(session.entries.last?.message == "USB screen is unavailable", "The screen failure reason was hidden")
-        try expect(session.draft == "Show the Home screen", "The screenless request lost its draft")
-    }
-
-    private static func modelNeedsInputRestoresDraft() async throws {
-        for nextDraft in ["", "Choose the Personal account"] {
-            let model = Gate()
-            var captures = 0
-            let runner = PhoneVisualRunner(capture: { after in
-                captures += 1
-                return try visualFrame(after: after)
-            }, decide: { _, _, _ in
-                await model.wait()
-                return .needsInput("Which account should I choose?")
-            }, perform: { _ in throw TestError.failure("Clarification sent an input") }, blockedReason: { nil })
-            let session = visualSession(runner)
-            session.draft = "Choose my account"
-            session.submit()
-            try await waitUntil { model.isWaiting }
-            session.draft = nextDraft
-            model.release()
-            try await waitUntil { !session.isRunning }
-            try expect(captures == 1, "Clarification captured extra frames")
-            try expect(session.entries.last?.status == .needsInput, "Visual clarification did not ask for input")
-            try expect(session.entries.last?.message == "Which account should I choose?", "Visual clarification text was lost")
-            try expect(session.entries.last?.steps.isEmpty == true, "Clarification invented visual steps")
-            try expect(session.draft == (nextDraft.isEmpty ? "Choose my account" : nextDraft), "Clarification lost the original goal or overwrote the next draft")
+            let session = session(rig, journal: journal)
+            if let workflow { session.submit(workflow: workflow, details: "Save a draft") }
+            else { session.draft = "Go Home"; session.submit() }
+            try await T.until { gate.waiting }
+            let pending = try journal.load().last!
+            try T.expect(pending.transactionPlan == rig.plan && pending.transactionCheckpoint?.status == .verifying && pending.transactionCheckpoint?.input != nil,
+                "Plan or pre-input checkpoint was not durable")
+            try T.expect(session.isRunning && session.entries.last?.status == .running, "Completed before observing input result")
+            gate.release(); try await T.until { !session.isRunning }
+            let saved = try journal.load().last!
+            try T.expect(saved.status == .completed && saved.transactionCheckpoint?.status == .completed && saved.steps.count == 2, "Verified result was not saved")
+            try T.expect(session.draft.isEmpty && rig.actions == [.home], "Completed request retained draft or repeated input")
+            let json = try String(contentsOf: journal.fileURL, encoding: .utf8)
+            try T.expect(!json.contains("jpegData") && !json.contains("beforeFrame"), "Journal retained screenshots")
         }
     }
-
-    private static func failurePrefixAndDraftRestore() async throws {
-        // A failure after completed steps discloses them and keeps the draft clear.
-        var dispatched: [PhonePromptAction] = []
-        let runner = PhoneVisualRunner(capture: { try visualFrame(after: $0) }, decide: { _, _, history in
-            if history.isEmpty { return .action(.home, reason: "Return to the Home screen.") }
-            throw TestError.failure("Bluetooth write failed")
-        }, perform: { dispatched.append($0) }, blockedReason: { nil })
-        let session = visualSession(runner)
-        session.draft = "Go home then open Mail"
-        session.submit()
-        try await waitUntil { !session.isRunning }
-        try expect(dispatched == [.home], "Execution continued after a failed decision")
-        try expect(session.entries.last?.status == .failed, "Failed run was not reported")
-        try expect(session.entries.last?.message == "Stopped after 1 step. Bluetooth write failed",
-            "Failure did not disclose completed input or hid the underlying error")
-        try expect(session.entries.last?.steps.count == 1, "The session lost steps completed before the failure")
-        try expect(session.draft.isEmpty, "A partially completed run restored its draft")
-
-        // A failure before anything ran restores the draft for editing.
-        let failingCapture = PhoneVisualRunner(capture: { _ in
-            throw TestError.failure("The USB screen disconnected")
-        }, decide: { _, _, _ in throw TestError.failure("Unexpected decision") },
-            perform: { _ in throw TestError.failure("Unexpected input") }, blockedReason: { nil })
-        let screenless = visualSession(failingCapture)
-        screenless.draft = "Open Safari"
-        screenless.submit()
-        try await waitUntil { !screenless.isRunning }
-        try expect(screenless.entries.last?.status == .failed, "A capture failure was not reported")
-        try expect(screenless.entries.last?.message == "The USB screen disconnected",
-            "A failure with no completed input used the stopped-after prefix")
-        try expect(screenless.entries.last?.steps.isEmpty == true, "A failed capture invented visual steps")
-        try expect(screenless.draft == "Open Safari", "A run that never sent input lost the draft")
-    }
-
-    private static func cancellationIgnoresLateDecision() async throws {
-        let model = Gate()
-        var dispatched: [PhonePromptAction] = []
-        let runner = PhoneVisualRunner(capture: { try visualFrame(after: $0) }, decide: { _, _, _ in
-            await model.wait() // A provider may finish despite task cancellation.
-            return .action(.home, reason: "Return to the Home screen.")
-        }, perform: { dispatched.append($0) }, blockedReason: { nil })
-        let session = visualSession(runner)
-        session.draft = "Show the Home screen with app icons"
-        session.submit()
-        try await waitUntil { model.isWaiting }
-        session.cancel()
-        try await waitUntil { !session.isRunning }
-        try expect(session.entries.last?.status == .cancelled, "Stopping a visual request did not show Stopped")
-        try expect(session.entries.last?.message == "Stopped. Input already sent to the phone cannot be undone.",
-            "The cancellation reason was lost")
-        model.release()
-        await Task.yield()
-        try expect(dispatched.isEmpty && session.entries.last?.steps.isEmpty == true, "A late model result sent or logged an action after Stop")
-        try expect(session.entries.last?.status == .cancelled, "A late result changed the Stopped status")
-    }
-
-    private static func visualStartFiresOnce() async throws {
+    static func gatesAndDrafts() async throws {
+        let rig = T.Rig()
+        let blocked = DevicePromptSession(deviceName: "Phone", blockedReason: { "Disconnected" }, visualRunner: rig.runner())
+        blocked.draft = "go home"; blocked.submit()
+        try T.expect(blocked.entries.last?.status == .failed && blocked.draft == "go home" && rig.captures == 0, "Connection gate regressed")
+        let screenless = DevicePromptSession(deviceName: "Phone", blockedReason: { nil })
+        screenless.draft = "go home"; screenless.submit()
+        try T.expect(!screenless.isRunning && screenless.entries.last?.status == .failed && screenless.draft == "go home", "Screen gate regressed")
+        for nextDraft in ["", "next request"] {
+            let rig = T.Rig(); let gate = T.Gate()
+            rig.compileOverride = { _, _ in await gate.wait(); throw PhonePromptPlanningError.needsClarification("Specify the account") }
+            let session = session(rig)
+            session.draft = "Open profile"; session.submit()
+            try await T.until { gate.waiting }; session.draft = nextDraft; gate.release()
+            try await T.until { !session.isRunning }
+            try T.expect(session.entries.last?.status == .needsInput && session.entries.last?.message == "Specify the account", "Compiler clarification was lost")
+            try T.expect(session.draft == (nextDraft.isEmpty ? "Open profile" : nextDraft) && rig.actions.isEmpty, "Clarification overwrote draft or ran input")
+        }
         var starts = 0
-        var capturesAtStart: [Int] = []
-        var captures = 0
-        let runner = PhoneVisualRunner(capture: { after in
-            captures += 1
-            return try visualFrame(after: after)
-        }, decide: { _, _, _ in .finished("The Home screen is visible.") },
-            perform: { _ in throw TestError.failure("Already-visible goal received unnecessary input") }, blockedReason: { nil })
-        let session = DevicePromptSession(deviceName: "Test Phone", blockedReason: { nil },
-            visualRunner: runner, onVisualStart: {
-                starts += 1
-                capturesAtStart.append(captures)
-            })
-        session.draft = "Show the Home screen"
-        session.submit()
-        try await waitUntil { !session.isRunning }
-        try expect(session.entries.last?.status == .completed, "The run did not complete")
-        try expect(starts == 1, "onVisualStart did not fire exactly once")
-        try expect(capturesAtStart == [0], "onVisualStart fired after the first capture instead of at run start")
+        let success = T.Rig()
+        let started = DevicePromptSession(deviceName: "Phone", blockedReason: { nil }, visualRunner: success.runner(), onVisualStart: { starts += 1 })
+        started.draft = "home"; started.submit(); try await T.until { !started.isRunning }
+        try T.expect(starts == 1, "Start callback was not once per run")
     }
-
-    private static func entriesCappedAtFifty() async throws {
-        let session = DevicePromptSession(deviceName: "Phone", blockedReason: { "Connect this phone first." })
-        for index in 1...55 {
-            session.draft = "Request \(index)"
-            session.submit()
+    static func serialQueueAndCancellation() async throws {
+        let rig = T.Rig(); let gate = T.Gate()
+        rig.compileOverride = { _, _ in
+            if rig.compileGoals.count == 1 { await gate.wait() }
+            return rig.plan
         }
-        try expect(session.entries.count == 50, "History grew past its cap")
-        try expect(session.entries.first?.prompt == "Request 6" && session.entries.last?.prompt == "Request 55",
-            "The oldest entries were not dropped first")
-        try expect(session.entries.allSatisfy { $0.status == .failed }, "Capped history changed entry outcomes")
-    }
-
-    private static func queueRunsInOrder() async throws {
-        let gate = Gate()
-        var goals: [String] = []
-        let runner = PhoneVisualRunner(capture: { try visualFrame(after: $0) }, decide: { goal, _, _ in
-            goals.append(goal)
-            if goals.count == 1 { await gate.wait() }
-            return .finished("Verified")
-        }, perform: { _ in }, blockedReason: { nil })
-        let session = visualSession(runner)
-        session.draft = "first"; session.submit()
-        try await waitUntil { gate.isWaiting }
+        let session = session(rig)
+        session.draft = "first"; session.submit(); try await T.until { gate.waiting }
         session.draft = "second"; session.submit()
-        session.draft = "third"; session.submit()
-        try expect(session.queuedCount == 2 && goals == ["first"], "Busy requests were dropped or ran concurrently")
-        session.cancelQueued(id: session.entries.last!.id)
-        try expect(!session.queuePaused, "Removing one queued job paused unrelated work")
-        gate.release()
-        try await waitUntil { !session.isRunning }
-        try expect(goals == ["first", "second"], "Device FIFO order was not preserved")
-        try expect(session.entries.map(\.status) == [.completed, .completed, .cancelled], "Queue outcomes were lost")
+        try T.expect(session.queuedCount == 1 && rig.compileGoals == ["first"], "Queue ran concurrently")
+        session.cancel(); gate.release(); try await T.until { !session.isRunning }
+        try T.expect(session.queuePaused && session.queuedCount == 1 && rig.actions.isEmpty, "Cancellation drained queue or late compilation dispatched")
+        session.resumeQueue(); try await T.until { !session.isRunning }
+        try T.expect(rig.compileGoals == ["first", "second"] && session.entries.map(\.status) == [.cancelled, .completed], "Explicit resume did not preserve order")
     }
-
-    private static func stoppedQueueRequiresResume() async throws {
-        let gate = Gate()
-        var goals: [String] = []
-        let runner = PhoneVisualRunner(capture: { try visualFrame(after: $0) }, decide: { goal, _, _ in
-            goals.append(goal)
-            if goals.count == 1 { await gate.wait() }
-            return .finished("Verified")
-        }, perform: { _ in }, blockedReason: { nil })
-        let session = visualSession(runner)
-        session.draft = "first"; session.submit()
-        try await waitUntil { gate.isWaiting }
-        session.draft = "second"; session.submit()
-        session.cancel(); gate.release()
-        try await waitUntil { !session.isRunning }
-        try expect(session.queuePaused && session.queuedCount == 1 && goals == ["first"], "Stop drained the remaining queue")
-        session.resumeQueue()
-        try await waitUntil { !session.isRunning }
-        try expect(goals == ["first", "second"], "Explicit resume did not run pending work")
+    static func pendingInputRequiresReview() async throws {
+        let rig = T.Rig()
+        rig.classifyOverride = { question in
+            if question.id.hasSuffix(".verify") { throw CocoaError(.fileReadUnknown) }
+            return "go"
+        }
+        let session = session(rig)
+        session.draft = "Go home"; session.submit(); try await T.until { !session.isRunning }
+        try T.expect(session.entries.last?.status == .needsReview && session.hasUnreviewedRuns && rig.actions == [.home], "Unverified physical input was retryable")
+        session.draft = "next"; session.submit()
+        try T.expect(session.queuedCount == 1 && !session.isRunning, "Pending input did not block queue")
     }
-
-    private static func retiredSessionCannotOverwriteReplacement() async throws {
-        let journal = temporaryJournal()
-        defer { try? FileManager.default.removeItem(at: journal.fileURL.deletingLastPathComponent()) }
-        let gate = Gate()
-        let oldRunner = PhoneVisualRunner(capture: { try visualFrame(after: $0) }, decide: { _, _, _ in
-            await gate.wait(); return .finished("Late result")
-        }, perform: { _ in }, blockedReason: { nil })
-        let old = DevicePromptSession(deviceName: "Phone", journal: journal, blockedReason: { nil }, visualRunner: oldRunner)
-        old.draft = "Old run"; old.submit()
-        try await waitUntil { gate.isWaiting }
-        old.retire(because: "Input connection changed")
-        let newRunner = PhoneVisualRunner(capture: { try visualFrame(after: $0) },
-            decide: { _, _, _ in .finished("New result") }, perform: { _ in }, blockedReason: { nil })
-        let replacement = DevicePromptSession(deviceName: "Phone", journal: journal, blockedReason: { nil }, visualRunner: newRunner)
-        replacement.draft = "New run"; replacement.submit()
-        try await waitUntil { !replacement.isRunning }
-        gate.release()
-        try await waitUntil { !old.isRunning }
-        let saved = try journal.load()
-        try expect(saved.count == 2 && saved.last?.prompt == "New run" && saved.last?.status == .completed,
-            "A discarded session overwrote newer durable history")
+    static func journalRoundTripAndLegacyRecovery() async throws {
+        for legacy in [true, false] {
+            let journal = T.journal(); defer { try? FileManager.default.removeItem(at: journal.fileURL.deletingLastPathComponent()) }
+            let id = UUID()
+            let interrupted = DevicePromptEntry(id: id, prompt: "interrupted", status: .running, message: "Running",
+                transactionPlan: legacy ? nil : T.plan(), transactionCheckpoint: legacy ? nil : .init(phase: "task", state: "start", branch: "go", status: .dispatching, input: "home", visits: ["task.start": 1]))
+            let queued = DevicePromptEntry(id: UUID(), prompt: "next", status: .queued, message: "Queued")
+            try journal.save([interrupted, queued])
+            if legacy {
+                var json = try JSONSerialization.jsonObject(with: Data(contentsOf: journal.fileURL)) as! [String: Any]
+                var entries = json["entries"] as! [[String: Any]]
+                for index in entries.indices { entries[index].removeValue(forKey: "transactionPlan"); entries[index].removeValue(forKey: "transactionCheckpoint") }
+                json["entries"] = entries
+                try JSONSerialization.data(withJSONObject: json).write(to: journal.fileURL)
+            }
+            let rig = T.Rig(); let restored = session(rig, journal: journal)
+            try T.expect(restored.entries.first?.status == .needsReview && restored.queuePaused && rig.actions.isEmpty, "Restart replayed a transaction")
+            restored.resumeQueue()
+            try T.expect(!restored.isRunning, "Queue resumed without review")
+            restored.acknowledgeReview(id: id); restored.resumeQueue(); try await T.until { !restored.isRunning }
+            try T.expect(rig.compileGoals == ["next"] && restored.entries.last?.status == .completed, "Review replayed old run or lost queued work")
+            try T.expect(try journal.load().first?.reviewedAt != nil, "Review acknowledgement was not durable")
+        }
     }
-
-    private static func temporaryJournal(_ device: String = "phone") -> DeviceRunJournal {
-        DeviceRunJournal(deviceIdentifier: device,
-            directory: FileManager.default.temporaryDirectory.appendingPathComponent("shortreel-journal-" + UUID().uuidString))
-    }
-
-    private static func journalRecoveryRequiresReview() async throws {
-        let journal = temporaryJournal()
-        defer { try? FileManager.default.removeItem(at: journal.fileURL.deletingLastPathComponent()) }
-        let script = WarmUpScript(network: .tikTok, activity: .comment, itemLimit: 1, duration: 300)
-        let uncertain = DevicePromptEntry(id: UUID(), prompt: "comment", status: .running, message: "Sending",
-            steps: [.init(id: UUID(), number: 1, action: "Tap", detail: "Send", capturedAt: Date())],
-            workflow: .warmUp, scriptTitle: script.title,
-            submission: .init(state: .submitting, activity: "comment", updatedAt: Date(), detail: "Before sending"),
-            scriptCheckpoint: WarmUpScriptCursor(script: script).checkpoint, warmUpScript: script)
-        let queued = DevicePromptEntry(id: UUID(), prompt: "next", status: .queued, message: "Queued")
-        try journal.save([uncertain, queued])
-        var goals: [String] = []
-        let runner = PhoneVisualRunner(capture: { try visualFrame(after: $0) }, decide: { goal, _, _ in
-            goals.append(goal); return .finished("Verified")
-        }, perform: { _ in }, blockedReason: { nil })
-        let recovered = DevicePromptSession(deviceName: "Renamed Phone", journal: journal,
-            blockedReason: { nil }, visualRunner: runner)
-        try expect(recovered.entries.first?.status == .needsReview && !recovered.isRunning && recovered.queuePaused,
-            "Interrupted execution resumed without review")
-        try expect(recovered.entries.first?.warmUpScript == script && recovered.entries.first?.scriptCheckpoint != nil,
-            "Versioned script or checkpoint was lost")
-        try expect(recovered.entries.first?.steps.count == 1 && recovered.entries.first?.submission?.state == .submitting,
-            "Execution evidence was lost")
-        recovered.resumeQueue()
-        try expect(goals.isEmpty && !recovered.isRunning, "Pending jobs ran before uncertain submission review")
-        recovered.acknowledgeReview(id: uncertain.id)
-        recovered.resumeQueue()
-        try await waitUntil { !recovered.isRunning }
-        try expect(goals == ["next"], "Recovery retried the uncertain submission or lost queued work")
-        let saved = try journal.load()
-        try expect(saved.first?.reviewedAt != nil && saved.last?.status == .completed, "Recovery acknowledgement was not durable")
-        let json = try String(contentsOf: journal.fileURL, encoding: .utf8)
-        try expect(!json.contains("jpegData") && !json.contains("beforeFrame"), "Journal retained screenshot payloads")
-    }
-
-    private static func journalsAreDeviceScoped() async throws {
-        let first = temporaryJournal("first")
-        defer { try? FileManager.default.removeItem(at: first.fileURL.deletingLastPathComponent()) }
-        let second = DeviceRunJournal(deviceIdentifier: "second", directory: first.fileURL.deletingLastPathComponent())
-        try first.save([.init(id: UUID(), prompt: "Only first", status: .completed, message: "Done")])
-        let secondEntries = try second.load()
-        try expect(secondEntries.isEmpty, "Another device inherited a run")
-        try expect(first.fileURL != second.fileURL, "Device histories share a file")
-    }
-
-    private static func corruptJournalFailsClosed() async throws {
-        let journal = temporaryJournal()
-        defer { try? FileManager.default.removeItem(at: journal.fileURL.deletingLastPathComponent()) }
+    static func journalFailureAndIsolation() async throws {
+        let journal = T.journal(); defer { try? FileManager.default.removeItem(at: journal.fileURL.deletingLastPathComponent()) }
         try FileManager.default.createDirectory(at: journal.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let original = Data("not a journal".utf8)
-        try original.write(to: journal.fileURL)
-        let session = DevicePromptSession(deviceName: "Phone", journal: journal, blockedReason: { nil })
-        session.draft = "Do something"; session.submit(); session.resumeQueue()
-        try expect(session.persistenceError != nil && !session.isRunning, "Corrupt history allowed execution")
-        let preserved = try Data(contentsOf: journal.fileURL)
-        try expect(preserved == original, "Unreadable journal was overwritten")
+        try Data("not JSON".utf8).write(to: journal.fileURL)
+        let rig = T.Rig(); let broken = session(rig, journal: journal)
+        broken.draft = "run"; broken.submit()
+        try T.expect(broken.persistenceError != nil && !broken.isRunning && rig.actions.isEmpty, "Corrupt history allowed execution")
+        try T.expect(try String(contentsOf: journal.fileURL, encoding: .utf8) == "not JSON", "Corrupt history was overwritten")
+        let unwritable = DeviceRunJournal(deviceIdentifier: "phone", directory: URL(fileURLWithPath: "/dev/null/shortreel"))
+        let failed = session(rig, journal: unwritable); failed.draft = "run"; failed.submit()
+        try T.expect(failed.persistenceError != nil && !failed.isRunning && rig.actions.isEmpty, "Unwritable journal allowed execution")
+        let first = T.journal(); defer { try? FileManager.default.removeItem(at: first.fileURL.deletingLastPathComponent()) }
+        let second = DeviceRunJournal(deviceIdentifier: "second", directory: first.fileURL.deletingLastPathComponent())
+        try first.save([.init(id: UUID(), prompt: "one", status: .completed, message: "done")])
+        try T.expect(try second.load().isEmpty, "Device histories overlapped")
+        let invalid = DevicePromptEntry(id: UUID(), prompt: "bad", status: .running, message: "bad", transactionPlan: T.plan(),
+            transactionCheckpoint: .init(phase: "missing", state: "start", branch: nil, status: .dispatching, input: "home", visits: [:]))
+        try first.save([invalid])
+        let invalidSession = session(rig, journal: first)
+        try T.expect(invalidSession.persistenceError != nil, "Invalid saved state was accepted")
     }
-
-    private static func unwritableJournalBlocksExecution() async throws {
-        let journal = DeviceRunJournal(deviceIdentifier: "phone", directory: URL(fileURLWithPath: "/dev/null/shortreel"))
-        var captures = 0
-        let runner = PhoneVisualRunner(capture: { after in captures += 1; return try visualFrame(after: after) },
-            decide: { _, _, _ in .finished("Unexpected") }, perform: { _ in }, blockedReason: { nil })
-        let session = DevicePromptSession(deviceName: "Phone", journal: journal, blockedReason: { nil }, visualRunner: runner)
-        session.draft = "Run"; session.submit()
-        try expect(captures == 0 && !session.isRunning && session.persistenceError != nil, "Failed durable storage allowed dispatch")
+    static func retiredSessionCannotOverwriteReplacement() async throws {
+        let journal = T.journal(); defer { try? FileManager.default.removeItem(at: journal.fileURL.deletingLastPathComponent()) }
+        let gate = T.Gate(); let oldRig = T.Rig()
+        oldRig.compileOverride = { _, _ in await gate.wait(); return oldRig.plan }
+        let old = session(oldRig, journal: journal); old.draft = "old"; old.submit()
+        try await T.until { gate.waiting }; old.retire(because: "Replaced")
+        let new = session(T.Rig(), journal: journal); new.draft = "new"; new.submit()
+        try await T.until { !new.isRunning }; gate.release(); try await T.until { !old.isRunning }
+        let saved = try journal.load()
+        try T.expect(saved.count == 2 && saved.last?.prompt == "new" && saved.last?.status == .completed, "Late retired run overwrote new history")
     }
-
-    private static func visualSession(_ runner: PhoneVisualRunner) -> DevicePromptSession {
-        DevicePromptSession(deviceName: "Test Phone", blockedReason: { nil }, visualRunner: runner)
+    static func restartPurgesHistory() async throws {
+        let old = T.journal()
+        defer { try? FileManager.default.removeItem(at: old.fileURL.deletingLastPathComponent()) }
+        let terminal = DevicePromptEntry(id: UUID(), prompt: "private old request", status: .failed, message: "old result")
+        let queued = DevicePromptEntry(id: UUID(), prompt: "old queued request", status: .queued, message: "Queued")
+        let preparing = DevicePromptEntry(id: UUID(), prompt: "never dispatched", status: .running, message: "Preparing workflow")
+        try old.save([terminal, queued, preparing])
+        let fresh = DeviceRunJournal(deviceIdentifier: "phone", directory: old.fileURL.deletingLastPathComponent(), appSessionID: UUID())
+        let rig = T.Rig()
+        let cleared = session(rig, journal: fresh)
+        try T.expect(cleared.entries.isEmpty && cleared.queuedCount == 0 && !cleared.hasUnreviewedRuns, "Restart retained old chat or queued jobs")
+        try T.expect(try !String(contentsOf: fresh.fileURL, encoding: .utf8).contains("private old request"), "Purged history remained on disk")
+        let interrupted = DevicePromptEntry(id: UUID(), prompt: "interrupted input", status: .running, message: "Running",
+            transactionPlan: T.plan(), transactionCheckpoint: .init(phase: "task", state: "start", branch: "go", status: .dispatching, input: "home", visits: [:]))
+        try old.save([interrupted])
+        let protected = session(rig, journal: fresh)
+        try T.expect(protected.entries.isEmpty && protected.restartRequiresReview, "Restart lost input uncertainty or kept old transcript")
+        protected.draft = "new request"; protected.submit()
+        try T.expect(!protected.isRunning && rig.actions.isEmpty, "Unreviewed interrupted input allowed another run")
+        protected.acknowledgeRestartReview()
+        try await T.until { !protected.isRunning }
+        try T.expect(protected.entries.last?.status == .completed && rig.compileGoals == ["new request"], "Review replayed the interrupted request")
+        let anotherLaunch = DeviceRunJournal(deviceIdentifier: "phone", directory: old.fileURL.deletingLastPathComponent(), appSessionID: UUID())
+        let next = session(T.Rig(), journal: anotherLaunch)
+        try T.expect(next.entries.isEmpty && !next.restartRequiresReview, "Acknowledged review persisted across restart")
     }
-
-    private static func visualFrame(after: Date) throws -> PhoneScreenFrame {
-        guard let context = CGContext(data: nil, width: 8, height: 12, bitsPerComponent: 8,
-            bytesPerRow: 32, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
-            throw TestError.failure("Could not create test screen")
+    static func freshWatchAfterRestart() async throws {
+        let old = T.journal()
+        defer { try? FileManager.default.removeItem(at: old.fileURL.deletingLastPathComponent()) }
+        let fresh = DeviceRunJournal(deviceIdentifier: "phone", directory: old.fileURL.deletingLastPathComponent(), appSessionID: UUID())
+        let watch = WarmUpScript(network: .tikTok, activity: .watch, itemLimit: 3, duration: 300)
+        let goal = "Platform: TikTok\nAccount check: Verify exactly @fixture, before browsing."
+        // Reproduce the screenshot: old transcript was already purged and only
+        // the legacy uncertainty flag remains. New Watch must reach the screen
+        // condition loop, launch the app, and verify the account before search.
+        try old.save([], restartRequiresReview: true)
+        let rig = T.Rig()
+        rig.plan = .init(version: 1, phases: [try PhoneTransactionCompiler.accountPhase(script: watch)]
+            + watch.steps.dropFirst().map { T.plan(command: nil, phase: $0.id.rawValue).phases[0] })
+        rig.observeOverride = { _, _ in
+            .init(state: rig.actions.isEmpty ? .home : .foregroundApp, appCardsVisible: false,
+                evidence: rig.actions.isEmpty ? "Home Screen with TikTok in the Dock." : "TikTok is open.")
         }
-        context.setFillColor(red: 0.3, green: 0.5, blue: 0.7, alpha: 1)
-        context.fill(CGRect(x: 0, y: 0, width: 8, height: 12))
-        guard let image = context.makeImage() else { throw TestError.failure("Could not make test screen") }
-        let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil) else {
-            throw TestError.failure("Could not create test JPEG")
+        rig.classifyOverride = { question in
+            if question.id.hasSuffix(".verify") { return "confirmed" }
+            switch question.id {
+            case "account.start": return "home"
+            case "account.launcher": return "present"
+            case "account.profile": return "profile"
+            default: throw CancellationError() // Stop before browsing in this fixture.
+            }
         }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else { throw TestError.failure("Could not encode test JPEG") }
-        return .init(id: UUID(), capturedAt: max(Date(), after.addingTimeInterval(0.000_001)),
-            pixelWidth: 8, pixelHeight: 12, jpegData: data as Data, cgImage: image, sourceID: "Test Phone")
-    }
+        let current = session(rig, journal: fresh)
+        current.submit(workflow: .warmUp, details: goal, warmUpScript: watch)
+        try T.expect(current.isRunning && current.queuedCount == 0 && current.restartRequiresReview,
+            "Legacy restart gate blocked a fresh Watch or discarded submission uncertainty")
+        try await T.until { !current.isRunning }
+        try T.expect(rig.compileGoals == [goal], "Watch replayed the old request")
+        try T.expect(rig.captures >= 6 && rig.actions == [.tap(0.5, 0.5), .tap(0.5, 0.5)]
+            && rig.accountCalls == 1 && rig.questions.contains { $0.id == "search.start" },
+            "Stage Watch did not enter the Semantic If screen loop after restart")
+        try T.expect(!current.queuePaused, "Legacy review flag paused Watch after it started")
 
-    private static func waitUntil(_ predicate: () -> Bool) async throws {
-        let deadline = ContinuousClock.now + .seconds(2)
-        while !predicate() {
-            guard ContinuousClock.now < deadline else { throw TestError.failure("Timed out waiting for session state") }
-            try await Task.sleep(for: .milliseconds(1))
+        // A stopped Watch cannot poison the next launch's queue.
+        let interrupted = DevicePromptEntry(id: UUID(), prompt: "old watch", status: .needsReview, message: "Interrupted",
+            workflow: .warmUp, transactionCheckpoint: .init(phase: "account", state: "launcher", branch: nil,
+                status: .verifying, input: "tap", visits: [:]), warmUpScript: watch)
+        try old.save([interrupted])
+        let cleared = session(T.Rig(), journal: fresh)
+        try T.expect(cleared.entries.isEmpty && !cleared.restartRequiresReview && !cleared.queuePaused,
+            "Interrupted Watch navigation still left a restart gate")
+
+        // A possible publication still blocks a new publishing request, survives
+        // further launches, and one acknowledgement starts only the new request.
+        var publishing = interrupted
+        publishing.submission = .init(state: .uncertain, activity: "post", updatedAt: Date(), detail: "Unconfirmed")
+        try old.save([publishing])
+        let publishingRig = T.Rig(); let publishingGate = T.Gate()
+        publishingRig.compileOverride = { _, _ in await publishingGate.wait(); throw CancellationError() }
+        let protected = session(publishingRig, journal: fresh)
+        let post = WarmUpScript(network: .tikTok, activity: .post, itemLimit: 1, duration: 300)
+        protected.submit(workflow: .warmUp, details: goal, warmUpScript: post)
+        try T.expect(protected.queueRequiresReview && protected.queuedCount == 1 && !protected.isRunning,
+            "Uncertain publication did not block a new Post")
+        try T.expect(protected.entries.last?.message.contains("reviewed") == true, "Queue hid its actual blocking reason")
+        protected.acknowledgeRestartReview()
+        try await T.until { publishingGate.waiting }
+        try T.expect(publishingRig.compileGoals == [goal], "Acknowledgement required another Resume or replayed publication")
+        protected.cancel(); publishingGate.release(); try await T.until { !protected.isRunning }
+    }
+    static func historyCap() async throws {
+        let rig = T.Rig(); rig.plan = T.plan(command: nil)
+        let session = session(rig)
+        for index in 0..<53 {
+            session.draft = "request \(index)"; session.submit(); try await T.until { !session.isRunning }
         }
-    }
-
-    private static func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {
-        guard condition() else { throw TestError.failure(message) }
+        try T.expect(session.entries.count == 50 && session.entries.last?.prompt == "request 52", "History cap lost current entries")
     }
 }

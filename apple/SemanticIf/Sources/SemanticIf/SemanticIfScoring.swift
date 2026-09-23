@@ -119,10 +119,22 @@ public enum LayaAccountPrompt {
         .init(id: "unknown", description: "A different screen or unreadable text."),
     ]
 
-    public static func row(platform: String, ocrText: [String]) -> SemanticIfRow {
-        SemanticIfRow(id: "warmup.account.\(platform.lowercased())",
-            state: .string(ocrText.isEmpty ? "[No readable screen text]" : ocrText.joined(separator: "\n")),
+    public static func row(platform: String, ocrText: [String], visualEvidence: String? = nil) -> SemanticIfRow {
+        let visual = visualEvidence?.trimmingCharacters(in: .whitespacesAndNewlines)
+        // UI recognition and identifier matching are separate checks. Upload
+        // prompts, bios, and other OCR can dominate an otherwise clear profile.
+        let evidence = visual.flatMap { $0.isEmpty ? nil : $0 }
+            ?? (ocrText.isEmpty ? "[No readable screen text]" : ocrText.joined(separator: "\n"))
+        return SemanticIfRow(id: "warmup.account.\(platform.lowercased())",
+            state: .string(evidence),
             question: question, options: options)
+    }
+
+    public static func hasSignInControls(_ ocrText: [String]) -> Bool {
+        ocrText.contains { text in
+            let label = text.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            return label.range(of: #"^(log in|sign in|sign up)( to .+)?$|^continue with .+$"#, options: .regularExpression) != nil
+        }
     }
 
     public static func handles(in text: String) -> [String] {
@@ -135,9 +147,10 @@ public enum LayaAccountPrompt {
     /// No handle or conflicting handles means unreadable. Only a confident
     /// profile classification with one exact, case-insensitive match can pass.
     public static func outcome(surface: SemanticIfResult.Decision, expectedHandle: String,
-                               observedHandles: [String]) -> String? {
+                               observedHandles: [String], signInControlsVisible: Bool? = nil) -> String? {
+        if signInControlsVisible == true { return "signed-out" }
         switch surface {
-        case .option("signed-out"): return "signed-out"
+        case .option("signed-out"): return signInControlsVisible == false ? "unreadable" : "signed-out"
         case .option("profile"):
             func normalize(_ handle: String) -> String {
                 String(handle.trimmingCharacters(in: .whitespacesAndNewlines).drop(while: { $0 == "@" })).lowercased()

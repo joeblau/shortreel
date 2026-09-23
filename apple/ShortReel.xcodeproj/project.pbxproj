@@ -61,6 +61,7 @@
 		7B0C160689061791C18F65BA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5E9AA251BD0C01F7006B100 /* ContentView.swift */; };
 		7B80C96E5A7757EAE7AF4B58 /* warmup-tasks.json in Resources */ = {isa = PBXBuildFile; fileRef = E5F3ACC44758713A8641760B /* warmup-tasks.json */; };
 		7E84B828201884A72EF4515A /* PhoneVisualRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70CD7A63765E5B1F9E02A0C3 /* PhoneVisualRunner.swift */; };
+		7FA7483E86291E08634B6E2B /* PhoneTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1A281DC25FB652D487CE7C /* PhoneTransaction.swift */; };
 		82C15156CB2CBE1EE33FB01C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8F9D17B1E23AE149DA481298 /* AVFoundation.framework */; };
 		8451F24AE3C4EAEF503209FA /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5392515B443A64A2145BDB2C /* CoreBluetooth.framework */; };
 		8767A12EE5A78137E4C841EA /* RunnerDeviceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44757B1CDFC4E4381EDB8410 /* RunnerDeviceHost.swift */; };
@@ -76,6 +77,7 @@
 		B2F434F9B4864F5E0A3F2363 /* ThirdParty in Resources */ = {isa = PBXBuildFile; fileRef = 9F72B94633954F07555ACDF3 /* ThirdParty */; };
 		B47989288B7C62003867E8EF /* PersistentModel+Live.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99E5A136D8AC113ADBCC2BE5 /* PersistentModel+Live.swift */; };
 		B55EF687A66D7DDC4466C87C /* DeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2317D5A658EBB9BE247789F /* DeviceManager.swift */; };
+		B6111B27AC08051B1D49413A /* PhoneWatchChecks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAB6C3EADEF75E78F6F4798 /* PhoneWatchChecks.swift */; };
 		B7FA44DE4A0BB6C1C79D69B7 /* PhoneScreenSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 443618430E058A41E7CD3709 /* PhoneScreenSource.swift */; };
 		BB29C5B2E5F0DE475475D9CA /* UITarsActionDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0356F3AE9ED9B41A09ABB0F0 /* UITarsActionDecoder.swift */; };
 		BC80B11728EF18030D492B6E /* SemanticIfPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3876A1D246A6C037034188A /* SemanticIfPrompt.swift */; };
@@ -96,6 +98,7 @@
 		DCA2D54C767DBD738F596521 /* PhoneSubmissionGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE083C518ED9E400EA41ACB /* PhoneSubmissionGuard.swift */; };
 		DFE9D9A573F5F2D8CCEDAAF2 /* PersonalityEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B8024220078F28FDF842F8 /* PersonalityEditor.swift */; };
 		E2DCD4A37D6CBE0F91AE0557 /* DeviceRunQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9465A252DF3A8045176580 /* DeviceRunQueueView.swift */; };
+		E6DFA15B2B94AEB26730ADF9 /* tiktok-watch.json in Resources */ = {isa = PBXBuildFile; fileRef = AE9A9EC0BBAE87013223A5AD /* tiktok-watch.json */; };
 		ED39EE96CE71B8FFC0F1E39C /* PhoneScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52749801244FE485B01392EB /* PhoneScreenView.swift */; };
 		F0D2548A4A0C773C75318E75 /* RunnerServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA87F5163C40AC259CFA7EF4 /* RunnerServer.swift */; };
 		F188BA69F1CDB7D98CF99F3A /* RunnerSupervisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9DBE6EB898E94C8ADA08CAB /* RunnerSupervisor.swift */; };
@@ -153,6 +156,7 @@
 		4C1DDD23D35C5356F6CE79C2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		52749801244FE485B01392EB /* PhoneScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenView.swift; sourceTree = "<group>"; };
 		5392515B443A64A2145BDB2C /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
+		5F1A281DC25FB652D487CE7C /* PhoneTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneTransaction.swift; sourceTree = "<group>"; };
 		678B88A41058DF01BB3EADA3 /* LayaCoreMLModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayaCoreMLModel.swift; sourceTree = "<group>"; };
 		6D0EFAB86E5D6ABD9AF466BA /* SemanticIfScoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticIfScoring.swift; sourceTree = "<group>"; };
 		6D3BD33728E2425B6E3E3FF5 /* ClaudePhonePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudePhonePlanner.swift; sourceTree = "<group>"; };
@@ -178,6 +182,7 @@
 		99E5A136D8AC113ADBCC2BE5 /* PersistentModel+Live.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistentModel+Live.swift"; sourceTree = "<group>"; };
 		9AECAEEC93E421CF3D1B4E50 /* HomeScreenRemovalGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenRemovalGuard.swift; sourceTree = "<group>"; };
 		9B49AE5A0B00F4C00465A39F /* PhoneRunnerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneRunnerProtocol.swift; sourceTree = "<group>"; };
+		9BAB6C3EADEF75E78F6F4798 /* PhoneWatchChecks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneWatchChecks.swift; sourceTree = "<group>"; };
 		9CA70D82245585A3B68D8F2A /* HIDControlSession.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDControlSession.m; sourceTree = "<group>"; };
 		9CE65DBA70C8DF036D5D3321 /* CoreMediaIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMediaIO.framework; path = System/Library/Frameworks/CoreMediaIO.framework; sourceTree = SDKROOT; };
 		9EC3AD27C56EE36B44C0FD22 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
@@ -192,6 +197,7 @@
 		AC6C2ACE5756BAA8418C05E5 /* RunnerExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerExecutor.swift; sourceTree = "<group>"; };
 		AC75CFDBF497B370A2487B50 /* PhoneScreenCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenCaptureService.swift; sourceTree = "<group>"; };
 		ACC04184FCB60567DE8ADA2F /* WarmUpPlaybook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpPlaybook.swift; sourceTree = "<group>"; };
+		AE9A9EC0BBAE87013223A5AD /* tiktok-watch.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "tiktok-watch.json"; sourceTree = "<group>"; };
 		B27CEE80EA70FFB83D8C4E2A /* DevicePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicePromptView.swift; sourceTree = "<group>"; };
 		B3876A1D246A6C037034188A /* SemanticIfPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticIfPrompt.swift; sourceTree = "<group>"; };
 		B9B36AE8D1615521173731DB /* WarmUpPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarmUpPlan.swift; sourceTree = "<group>"; };
@@ -342,6 +348,7 @@
 		9C0F5032C7B6B97136E1D26E /* Contracts */ = {
 			isa = PBXGroup;
 			children = (
+				AE9A9EC0BBAE87013223A5AD /* tiktok-watch.json */,
 				E5F3ACC44758713A8641760B /* warmup-tasks.json */,
 			);
 			path = Contracts;
@@ -405,10 +412,12 @@
 				E144B3427256B20055F97CA0 /* PhonePlaybackTracker.swift */,
 				8FF9D7203A56D8D70CDB8858 /* PhoneSubmissionCheckpoint.swift */,
 				0BE083C518ED9E400EA41ACB /* PhoneSubmissionGuard.swift */,
+				5F1A281DC25FB652D487CE7C /* PhoneTransaction.swift */,
 				399A52CD1FE15865901DB711 /* PhoneVisionClient.swift */,
 				1858E168352352BB12C19916 /* PhoneVisionProvider.swift */,
 				C4C4C867582A66B1699096BD /* PhoneVisionTypes.swift */,
 				70CD7A63765E5B1F9E02A0C3 /* PhoneVisualRunner.swift */,
+				9BAB6C3EADEF75E78F6F4798 /* PhoneWatchChecks.swift */,
 				314163F6B013975E8CEDDC78 /* SemanticIfScorerState.swift */,
 				0356F3AE9ED9B41A09ABB0F0 /* UITarsActionDecoder.swift */,
 				10541CA6BA27250DC0FE75BD /* UITarsPhonePlanner.swift */,
@@ -598,6 +607,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B2F434F9B4864F5E0A3F2363 /* ThirdParty in Resources */,
+				E6DFA15B2B94AEB26730ADF9 /* tiktok-watch.json in Resources */,
 				7B80C96E5A7757EAE7AF4B58 /* warmup-tasks.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -661,10 +671,12 @@
 				ED39EE96CE71B8FFC0F1E39C /* PhoneScreenView.swift in Sources */,
 				F9E80C576A16A0DE934594E9 /* PhoneSubmissionCheckpoint.swift in Sources */,
 				DCA2D54C767DBD738F596521 /* PhoneSubmissionGuard.swift in Sources */,
+				7FA7483E86291E08634B6E2B /* PhoneTransaction.swift in Sources */,
 				AC1A7B6F044BB026C4BF0B90 /* PhoneVisionClient.swift in Sources */,
 				03DD723C30364E3A0C8E13DB /* PhoneVisionProvider.swift in Sources */,
 				4C1F0730AE4E3FF2DEC47881 /* PhoneVisionTypes.swift in Sources */,
 				7E84B828201884A72EF4515A /* PhoneVisualRunner.swift in Sources */,
+				B6111B27AC08051B1D49413A /* PhoneWatchChecks.swift in Sources */,
 				6E448BC9A4BA1AFD2F14F127 /* RunnerClient.swift in Sources */,
 				205D6A2126B2D1CD3FDAB54C /* RunnerCoordinator.swift in Sources */,
 				8767A12EE5A78137E4C841EA /* RunnerDeviceHost.swift in Sources */,

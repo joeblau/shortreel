@@ -125,7 +125,8 @@ struct ClaudePhonePlannerTests {
         }
         try check(try argument("--permission-mode") == "dontAsk", "Interactive permissions enabled")
         let instructions = try argument("--system-prompt-file")
-        try check(try String(contentsOfFile: instructions, encoding: .utf8) == PhonePlannerContext.instructions, "Provider instructions differ")
+        let instructionText = try String(contentsOfFile: instructions, encoding: .utf8)
+        try check([PhonePlannerContext.instructions, PhonePlannerContext.inspectionInstructions].contains(instructionText), "Provider instructions differ")
         try check((try FileManager.default.attributesOfItem(atPath: instructions)[.posixPermissions] as? NSNumber)?.intValue == 0o600, "Instruction permissions changed")
         let raw = FileHandle.standardInput.readDataToEndOfFile()
         let message = try JSONSerialization.jsonObject(with: raw) as! [String: Any]

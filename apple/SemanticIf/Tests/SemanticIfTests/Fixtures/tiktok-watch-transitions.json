@@ -1,0 +1,542 @@
+[
+  {
+    "expected" : "home",
+    "id" : "account.start",
+    "options" : [
+      {
+        "description" : "The iPhone Home Screen is visible.",
+        "id" : "home"
+      },
+      {
+        "description" : "An app or App Switcher is open.",
+        "id" : "app"
+      },
+      {
+        "description" : "A passcode keypad, lock screen, or system authentication prompt is visible.",
+        "id" : "blocked"
+      },
+      {
+        "description" : "None of the listed conditions is clearly supported by the current evidence.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "Which screen is visible on the iPhone?",
+    "state" : "The iPhone Home Screen is visible, with TikTok in the Dock."
+  },
+  {
+    "expected" : "present",
+    "id" : "account.launcher",
+    "options" : [
+      {
+        "description" : "TikTok icon present",
+        "id" : "present"
+      },
+      {
+        "description" : "TikTok icon absent",
+        "id" : "absent"
+      },
+      {
+        "description" : "None of the listed conditions is clearly supported by the current evidence.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "Is the TikTok app icon visible on the Home Screen or in its Dock?",
+    "state" : "The TikTok app icon is visible in the Dock."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "account.launcher.verify",
+    "options" : [
+      {
+        "description" : "The TikTok app is open in the foreground.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "TikTok is open in the foreground."
+  },
+  {
+    "expected" : "profile",
+    "id" : "account.profile",
+    "options" : [
+      {
+        "description" : "The TikTok app is open in the foreground.",
+        "id" : "profile"
+      },
+      {
+        "description" : "None of the listed conditions is clearly supported by the current evidence.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "Which app interface is visible?",
+    "state" : "TikTok’s interface is visible with the For You tab selected."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "account.profile.verify",
+    "options" : [
+      {
+        "description" : "The signed-in account's profile header and handle are visible.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "The signed-in account's profile header and @fixture handle are visible."
+  },
+  {
+    "expected" : "profile",
+    "id" : "search.home",
+    "options" : [
+      {
+        "description" : "A social media profile page.",
+        "id" : "profile"
+      },
+      {
+        "description" : "A full-screen video feed.",
+        "id" : "feed"
+      },
+      {
+        "description" : "A search page with a search text field.",
+        "id" : "search"
+      },
+      {
+        "description" : "A login or sign-up screen.",
+        "id" : "login"
+      },
+      {
+        "description" : "None of the listed conditions is clearly supported by the current evidence.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What kind of screen is this?",
+    "state" : "TikTok profile page with username and followers."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "search.home.verify",
+    "options" : [
+      {
+        "description" : "The TikTok video feed is visible.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "The TikTok video feed is visible."
+  },
+  {
+    "expected" : "feed",
+    "id" : "search.feed",
+    "options" : [
+      {
+        "description" : "A full-screen video feed.",
+        "id" : "feed"
+      },
+      {
+        "description" : "A login or sign-up screen.",
+        "id" : "login"
+      },
+      {
+        "description" : "None of the listed conditions is clearly supported by the current evidence.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What kind of screen is this?",
+    "state" : "TikTok video feed with For You selected and a Search button."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "search.feed.verify",
+    "options" : [
+      {
+        "description" : "The TikTok search field is visible.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "The TikTok search field is visible."
+  },
+  {
+    "expected" : "empty",
+    "id" : "search.field",
+    "options" : [
+      {
+        "description" : "Empty search field with the keyboard visible.",
+        "id" : "empty"
+      },
+      {
+        "description" : "Search field containing text with the keyboard visible.",
+        "id" : "text"
+      },
+      {
+        "description" : "Search field with the keyboard hidden.",
+        "id" : "unfocused"
+      },
+      {
+        "description" : "None of the listed conditions is clearly supported by the current evidence.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is the state of the search field?",
+    "state" : "Empty focused search field with the keyboard visible."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "search.field.verify",
+    "options" : [
+      {
+        "description" : "The search field contains swing trading and suggested searches are visible.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "The search field contains swing trading and suggested searches are visible."
+  },
+  {
+    "expected" : "suggestions",
+    "id" : "suggestion.suggestions",
+    "options" : [
+      {
+        "description" : "Suggested search queries.",
+        "id" : "suggestions"
+      },
+      {
+        "description" : "Video search results.",
+        "id" : "results"
+      },
+      {
+        "description" : "A loading indicator.",
+        "id" : "loading"
+      },
+      {
+        "description" : "None of the listed conditions is clearly supported by the current evidence.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is below the search field?",
+    "state" : "Search suggestions are listed below the search field."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "suggestion.suggestions.verify",
+    "options" : [
+      {
+        "description" : "Search results for the selected suggestion are visible.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "Search results for the selected suggestion are visible."
+  },
+  {
+    "expected" : "top",
+    "id" : "suggestion.results",
+    "options" : [
+      {
+        "description" : "A grid of videos with the Videos tab selected.",
+        "id" : "videos"
+      },
+      {
+        "description" : "Search results with the Top tab selected.",
+        "id" : "top"
+      },
+      {
+        "description" : "A social media profile page.",
+        "id" : "profile"
+      },
+      {
+        "description" : "None of the listed conditions is clearly supported by the current evidence.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What search results are visible?",
+    "state" : "Search results with the Top tab selected."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "suggestion.results.verify",
+    "options" : [
+      {
+        "description" : "A grid of videos with the Videos tab selected is visible.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "A grid of video search results with the Videos tab selected."
+  },
+  {
+    "expected" : "results",
+    "id" : "open.grid0",
+    "options" : [
+      {
+        "description" : "A grid of video search results.",
+        "id" : "results"
+      },
+      {
+        "description" : "None of the listed conditions is clearly supported by the current evidence.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What kind of screen is this?",
+    "state" : "A grid of video search results."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "open.grid0.verify",
+    "options" : [
+      {
+        "description" : "A full-screen video player is visible.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "A full-screen video player is visible."
+  },
+  {
+    "expected" : "player",
+    "id" : "open.player0",
+    "options" : [
+      {
+        "description" : "A full-screen video player.",
+        "id" : "player"
+      },
+      {
+        "description" : "An advertisement.",
+        "id" : "ad"
+      },
+      {
+        "description" : "A social media profile page.",
+        "id" : "profile"
+      },
+      {
+        "description" : "A different or unreadable screen.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is visible on the screen?",
+    "state" : "A full-screen video player with a heart button."
+  },
+  {
+    "expected" : "playing",
+    "id" : "consume.playback",
+    "options" : [
+      {
+        "description" : "A playing video.",
+        "id" : "playing"
+      },
+      {
+        "description" : "A paused video with a play button.",
+        "id" : "paused"
+      },
+      {
+        "description" : "A screen without a readable video player.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is visible on the screen?",
+    "state" : "A video is playing with playback controls."
+  },
+  {
+    "expected" : "playing",
+    "id" : "consume.playback.verify",
+    "options" : [
+      {
+        "description" : "A playing video.",
+        "id" : "playing"
+      },
+      {
+        "description" : "A paused video with a play button.",
+        "id" : "paused"
+      },
+      {
+        "description" : "A screen without a readable video player.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is visible on the screen?",
+    "state" : "A video is playing with playback controls."
+  },
+  {
+    "expected" : "playing",
+    "id" : "consume.playback",
+    "options" : [
+      {
+        "description" : "A playing video.",
+        "id" : "playing"
+      },
+      {
+        "description" : "A paused video with a play button.",
+        "id" : "paused"
+      },
+      {
+        "description" : "A screen without a readable video player.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is visible on the screen?",
+    "state" : "A video is playing with playback controls."
+  },
+  {
+    "expected" : "player",
+    "id" : "advance.player",
+    "options" : [
+      {
+        "description" : "A full-screen video player.",
+        "id" : "player"
+      },
+      {
+        "description" : "A grid of video search results.",
+        "id" : "results"
+      },
+      {
+        "description" : "A different or unreadable screen.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is visible on the screen?",
+    "state" : "A full-screen video player."
+  },
+  {
+    "expected" : "player",
+    "id" : "advance.player.verify",
+    "options" : [
+      {
+        "description" : "A full-screen video player.",
+        "id" : "player"
+      },
+      {
+        "description" : "A grid of video search results.",
+        "id" : "results"
+      },
+      {
+        "description" : "A different or unreadable screen.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is visible on the screen?",
+    "state" : "A full-screen video player."
+  },
+  {
+    "expected" : "playing",
+    "id" : "consume.playback",
+    "options" : [
+      {
+        "description" : "A playing video.",
+        "id" : "playing"
+      },
+      {
+        "description" : "A paused video with a play button.",
+        "id" : "paused"
+      },
+      {
+        "description" : "A screen without a readable video player.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is visible on the screen?",
+    "state" : "A video is playing with playback controls."
+  },
+  {
+    "expected" : "playing",
+    "id" : "consume.playback.verify",
+    "options" : [
+      {
+        "description" : "A playing video.",
+        "id" : "playing"
+      },
+      {
+        "description" : "A paused video with a play button.",
+        "id" : "paused"
+      },
+      {
+        "description" : "A screen without a readable video player.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is visible on the screen?",
+    "state" : "A video is playing with playback controls."
+  },
+  {
+    "expected" : "playing",
+    "id" : "consume.playback",
+    "options" : [
+      {
+        "description" : "A playing video.",
+        "id" : "playing"
+      },
+      {
+        "description" : "A paused video with a play button.",
+        "id" : "paused"
+      },
+      {
+        "description" : "A screen without a readable video player.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is visible on the screen?",
+    "state" : "A video is playing with playback controls."
+  }
+]

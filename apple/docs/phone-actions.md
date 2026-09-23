@@ -103,6 +103,8 @@ Accepted aliases include `return`, `esc`, `shift+tab`, `cmd+a/c/x/v/z/l/space`, 
 
 Bluetooth supports the pointer gestures and keyboard operations above through AssistiveTouch. The iOS XCTest runner supports tap count, press duration, continuous drag timing, App Switcher, and the expanded keyboard set. AssistiveTouch’s menu is not an XCTest operation; that request reports unsupported rather than substituting another action.
 
+To hide the floating accessibility button, turn off **Settings → Accessibility → Touch → AssistiveTouch → Always Show Menu** on the iPhone. Keep **AssistiveTouch** enabled. The button stays hidden while a pointer device is connected; Bluetooth taps and drags still work. In Bluetooth mode, the `assistiveTouch` input can still open the menu when needed.
+
 Runner **wire protocol version 3** carries the new tap/hold/drag fields and keys. Rebuild and install the matching runner; the supervisor rejects incompatible versions so an older runner cannot silently ignore gesture parameters.
 
 This catalog does not expose multi-touch pinch/rotate, arbitrary key combinations, raw pointer-down/up state, device locking, volume buttons, app termination APIs, or blanket alert acceptance. Pinch exists separately in the runner transport but is not offered to this Bluetooth-compatible model action set. Unsupported actions stop without sending input. Model tasks continue to use fresh frames, cancellation, bounded execution, and stalled-action detection.

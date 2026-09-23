@@ -4,8 +4,7 @@ import Foundation
 /// `DeviceManager`. Pure value type so the standalone swiftc tests can map
 /// every state to its UI copy without the app.
 enum SemanticIfScorerState: Equatable, Sendable {
-    /// Turned off in the planner menu: nothing loads, nothing downloads, and
-    /// runs take the planner-only path exactly as before local checks existed.
+    /// Legacy display state. Execution always requires a ready classifier.
     case disabled
     /// On, but no load has been requested yet. Loading (and the one-time
     /// checkpoint download) happens only on the menu's warm-up action or when

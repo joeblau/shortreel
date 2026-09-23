@@ -36,6 +36,7 @@ Settings → **Test App Switcher** isolates the physical gesture from planning. 
 
 - Connect the selected iPhone to the Mac by USB, unlock it, and trust the Mac.
 - Connect its Bluetooth AssistiveTouch input channels in ShortReel.
+- To hide the floating accessibility button, turn off **Settings → Accessibility → Touch → AssistiveTouch → Always Show Menu** on the iPhone. Keep **AssistiveTouch** enabled. The button stays hidden while a pointer device is connected; Bluetooth taps and drags still work.
 - Set Auto-Lock to Never so the screen keeps streaming: Device Settings → **Set Auto-Lock to Never** drives the phone's own Settings app to change it (Spotlight → Auto-Lock → observed tap on Never). Low Power Mode must stay off, since it forces a 30-second auto-lock.
 - In **Devices → Phone Screen**, allow screen access. A uniquely matched screen connects automatically when the Bluetooth phone is connected. With multiple phones, unique names on both sides match automatically; phones sharing a name need an explicit screen-picker selection. macOS exposes USB phone screens as camera sources, which is why Camera permission is required. The USB source is multiplexed audio/video; the app has a microphone usage description for opening that source, but only configures video output and does not record audio.
 - Write a goal in the right-hand inspector and press **⌘ Enter**. Stop cancels the current request.
@@ -357,8 +358,12 @@ Each physical device has a serial FIFO queue. Its atomic JSON journal lives in
 Application Support/ShortReel/RunHistory, keyed by a hash of the stable device ID.
 It stores requests, versioned scripts, text-only step logs and playback evidence,
 cursor/submission checkpoints, statuses, and timestamps; it stores no screenshots.
-Successful runs drain the queue. Failure/stop pauses pending work. After relaunch,
-previously active runs require review and pending jobs wait for explicit Resume.
+Successful runs drain the queue. Failure/stop pauses pending work. Relaunch clears
+old requests, steps, and queued jobs. Interrupted Watch navigation leaves no restart
+gate. Other uncertain input retains a review flag; a fresh Watch can start with
+new observations, while other requests wait for acknowledgement. Acknowledging
+the result starts eligible queued work without a second Resume click. Reconnecting within
+the same app launch preserves the conversation.
 Acknowledging a reviewed result never retries it. Storage failure stops execution;
 corrupt or unsupported journals are preserved rather than overwritten. Retiring a
 session freezes its journal writes before replacing its device connection.
