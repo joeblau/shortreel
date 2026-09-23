@@ -242,8 +242,8 @@ import Foundation
             if question.id.hasSuffix(".verify") { return "confirmed" }
             switch question.id {
             case "account.start":
-                try T.expect(question.options.map(\.id) == ["home", "app", "blocked", "unknown"],
-                    "Screen filtering changed the saved classification alternatives")
+                try T.expect(question.options.map(\.id) == ["home", "blocked", "unknown"],
+                    "Offered a branch the observed Home screen state cannot satisfy")
                 try T.expect(!question.evidence.contains("OCR:"), "Empty OCR diluted the visual screen evidence")
                 return "home"
             case "account.launcher":

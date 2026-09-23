@@ -313,9 +313,14 @@ final class PhoneVisualRunner {
                 let key = "\(phase.id).\(state.id)"
                 visits[key, default: 0] += 1
                 guard visits[key, default: 0] <= state.maximumVisits else { throw PhoneVisionError.limitReached }
-                // Laya matches words like "signed-in" to the login stop, so require on-screen sign-in controls.
+                // Laya matches words, not negation ("not the Home Screen" scores as home, "signed-in" as login),
+                // so only offer branches the structured screen state and on-screen sign-in controls allow.
                 let signInVisible = LayaAccountPrompt.hasSignInControls(text.regions.filter { $0.confidence >= 0.6 }.map(\.text))
-                let branches = state.branches.filter { plan.watchQuery == nil || $0.id != "login" || signInVisible }
+                let branches = state.branches.filter {
+                    ($0.requiredScreens?.contains(observation.state) ?? true)
+                        && (plan.watchQuery == nil || $0.id != "login" || signInVisible)
+                }
+                guard !branches.isEmpty else { throw PhoneTransactionError.uncertain }
                 question = .init(id: key, evidence: context,
                     options: branches.map { .init(id: $0.id, description: $0.condition) }
                         + [.init(id: "unknown", description: "None of the listed conditions is clearly supported by the current evidence.")],

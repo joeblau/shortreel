@@ -8,10 +8,6 @@
         "id" : "home"
       },
       {
-        "description" : "An app or App Switcher is open.",
-        "id" : "app"
-      },
-      {
         "description" : "A passcode keypad, lock screen, or system authentication prompt is visible.",
         "id" : "blocked"
       },

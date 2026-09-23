@@ -27,6 +27,7 @@ enum PhonePlannerContext {
         Also supply checkEvidence: one short factual sentence (at most 180 characters) answering the
         visual question using the app's UI layout and controls. Omit video subjects, creators, captions,
         engagement counts, OCR transcripts, and task history from checkEvidence. Do not choose a branch.
+        State only what IS visible in checkEvidence; never name absent screens or elements (no "not the Home Screen").
         Keep requested numeric readings such as "Heart count: 25.4K" in evidence instead.
         If a full-screen video player is visible, supply video with the exact creator and caption,
         the observed playhead fraction along its progress bar (0...1), readable total duration in seconds,
