@@ -260,6 +260,23 @@ import Foundation
         try T.expect(rig.questions.contains { $0.id == "search.start" }, "Verified account did not advance to search")
         try T.expect(rig.accountCalls == 1, "Feed creators were read as the signed-in account before opening Profile")
 
+        let deferred = T.Rig(); deferred.plan = plan(account)
+        deferred.observeOverride = { _, _ in
+            let home = deferred.actions.filter { $0 == .home }.count >= 2
+            return .init(state: home ? .home : .foregroundApp, appCardsVisible: false,
+                evidence: home ? "Home Screen with TikTok in the Dock." : "TikTok Profile is open.")
+        }
+        deferred.classifyOverride = { question in
+            switch question.id {
+            case "account.start": return "app"
+            case "account.start.verify": return deferred.actions.count >= 2 ? "confirmed" : "failed"
+            default: throw CancellationError()
+            }
+        }
+        try await T.rejects { _ = try await deferred.run(workflow: .warmUp, script: script) }
+        try T.expect(deferred.actions == [.home, .home] && deferred.questions.contains { $0.id == "account.launcher" },
+            "A Home gesture swallowed by the app stopped the run instead of being resent once")
+
         let failedSearch = T.Rig(); failedSearch.plan = plan(account); failedSearch.accountOutcome = .unreadable
         failedSearch.classifyOverride = { question in
             if question.id.hasSuffix(".verify") { return "confirmed" }
@@ -269,13 +286,18 @@ import Foundation
         try T.expect(failedSearch.actions == [.press(.search)], "Unopened Spotlight allowed typing or resent Search")
 
         let closedSearch = T.Rig(); closedSearch.plan = plan(account); closedSearch.accountOutcome = .unreadable
-        closedSearch.classifyOverride = failedSearch.classifyOverride
+        var queryCapture: Int?
+        closedSearch.classifyOverride = { question in
+            if question.id == "account.query" { queryCapture = closedSearch.captures; return "empty" }
+            return try await failedSearch.classifyOverride!(question)
+        }
         closedSearch.observeOverride = { _, _ in
             .init(state: closedSearch.captures == 3 ? .spotlight : .home, appCardsVisible: false, evidence: "Current screen")
         }
         try await T.rejects { _ = try await closedSearch.run(workflow: .warmUp, script: script) }
-        try T.expect(closedSearch.actions == [.press(.search)] && closedSearch.captures == 4,
-            "Query ignored its fresh-frame Spotlight precondition")
+        try T.expect(queryCapture == 3 && closedSearch.actions == [.press(.search), .typeText("TikTok")],
+            "Query did not act on the verified post-input Spotlight frame")
+        try T.expect(closedSearch.captures == 6, "Typing was not verified on fresh frames")
 
         let wrongSurface = T.Rig(); wrongSurface.plan = plan(account)
         wrongSurface.classifyOverride = { _ in "app" }

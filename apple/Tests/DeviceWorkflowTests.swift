@@ -208,7 +208,7 @@ import Foundation
             return action
         }
         _ = try await rig.run(workflow: .clearHomeScreen)
-        try expect(rig.actions == [.tap(0.4, 0.6), .tap(0.4, 0.6), .swipe(.left), .swipe(.right)] && rig.captures == 8,
+        try expect(rig.actions == [.tap(0.4, 0.6), .tap(0.4, 0.6), .swipe(.left), .swipe(.right)] && rig.captures == 5,
             "Cleanup did not verify every input or preserve guard-grounded coordinates")
         let noSweep = T.Rig(); noSweep.plan = T.plan(command: nil)
         try await T.rejects { _ = try await noSweep.run(workflow: .clearHomeScreen) }
@@ -238,10 +238,10 @@ import Foundation
         })])
         let rig = T.Rig(); rig.plan = plan
         _ = try await rig.run(workflow: .createContent)
-        try expect(rig.actions.count == 20 && rig.captures == 40, "Stage inherited short Agent budget")
+        try expect(rig.actions.count == 20 && rig.captures == 21, "Stage inherited short Agent budget")
         let agent = T.Rig(); agent.plan = plan
         try await T.rejects { _ = try await agent.run() }
-        try expect(agent.captures == 30, "Agent run budget was ignored")
+        try expect(agent.actions.count == 15 && agent.captures == 16, "Agent run budget was ignored")
     }
 
 }

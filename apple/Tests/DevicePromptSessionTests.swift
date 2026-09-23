@@ -204,7 +204,7 @@ import Foundation
             "Legacy restart gate blocked a fresh Watch or discarded submission uncertainty")
         try await T.until { !current.isRunning }
         try T.expect(rig.compileGoals == [goal], "Watch replayed the old request")
-        try T.expect(rig.captures >= 6 && rig.actions == [.tap(0.5, 0.5), .tap(0.5, 0.5)]
+        try T.expect(rig.captures >= 5 && rig.actions == [.tap(0.5, 0.5), .tap(0.5, 0.5)]
             && rig.accountCalls == 1 && rig.questions.contains { $0.id == "search.start" },
             "Stage Watch did not enter the Semantic If screen loop after restart")
         try T.expect(!current.queuePaused, "Legacy review flag paused Watch after it started")
