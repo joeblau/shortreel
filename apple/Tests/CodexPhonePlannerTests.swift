@@ -58,6 +58,21 @@ struct CodexPhonePlannerTests {
         try check(routedNotes[0].executionFeedback.contains("Page: videoPlayer; decision: state tree"),
             "Route evidence was omitted from planner feedback")
         try decoderTests()
+        var video: [String: Any] = ["creator": "@creator", "caption": "A stable video caption",
+            "progress": 0.5, "durationSeconds": 20, "playing": true]
+        func observedVideo() throws -> PhoneScreenObservation {
+            try PhonePlannerResponse.observation(from: JSONSerialization.data(withJSONObject: ["screen": [
+                "state": "foregroundApp", "appCardsVisible": false, "evidence": "The video player is visible.",
+                "checkEvidence": "A playing video.", "video": video]]))
+        }
+        let observation = try observedVideo()
+        try check(observation.checkEvidence == "A playing video." && observation.video?.progress == 0.5,
+            "Focused UI evidence or playback measurements were discarded")
+        video["progress"] = 1.5
+        do {
+            _ = try observedVideo()
+            throw Failure.assertion("An invalid playhead fraction was accepted")
+        } catch is PhoneVisionError { }
         let schema = try JSONSerialization.jsonObject(with: PhonePlannerResponse.schema(inspectOnly: false)) as! [String: Any]
         let properties = schema["properties"] as! [String: Any]
         let variants = (properties["decision"] as! [String: Any])["anyOf"] as! [[String: Any]]
@@ -254,7 +269,9 @@ struct CodexPhonePlannerTests {
         let prompt = String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self)
         try check(try argument("--model") == (prompt.contains("test-custom-model") ? "custom-vision-model" : "gpt-6-astra"), "Selected model was not forwarded")
         let instructionPath = try argument("--cd") + "/instructions.txt"
-        try check(try String(contentsOfFile: instructionPath, encoding: .utf8) == PhonePlannerContext.instructions,
+        let expectedInstructions = prompt.contains(PhonePlannerContext.inspectionPrompt)
+            ? PhonePlannerContext.inspectionInstructions : PhonePlannerContext.instructions
+        try check(try String(contentsOfFile: instructionPath, encoding: .utf8) == expectedInstructions,
             "Codex did not use the shared instructions")
         try check(prompt.contains("CURRENT SCREEN") && !prompt.contains("untrusted old explanation"), "Missing current screen or leaked prior reasoning")
         let directory = try argument("--cd")

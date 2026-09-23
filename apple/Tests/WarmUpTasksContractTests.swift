@@ -166,17 +166,11 @@ enum WarmUpTasksContractTests {
                     try expect(state.first(where: { $0.0 == "successCriteria" })?.1 == .array(step.successCriteria.map { .string($0) }),
                         "\(label): success criteria missing from evidence")
                     try SemanticIfPrompt.validate(row.decision)
-                    // Every mode maps to exactly one recovery branch, and no
-                    // terminal mode maps to a runner-owned input (the runner
-                    // forces needsInput for terminal modes regardless).
+                    // Every recovery has a fixed attempt budget. Its executable
+                    // branch is now saved in the transaction before any input.
                     for mode in step.failureModes {
-                        let branch = WarmUpFailureClassifier.recoveryBranch(for: mode.id)
-                        if case .perform(let action) = branch {
-                            try expect(!(mode.terminal ?? false),
-                                "\(label): terminal mode \(mode.id) maps to a runner-owned input")
-                            try expect(action == .swipe(.up) || action == .press(.enter),
-                                "\(label): unexpected runner-owned recovery input for \(mode.id)")
-                        }
+                        try expect((1...2).contains(WarmUpFailureClassifier.attemptLimit(for: mode.id)),
+                            "\(label): unbounded recovery for \(mode.id)")
                         modeCount += 1
                     }
                     stepCount += 1

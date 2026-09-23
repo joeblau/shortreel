@@ -44,6 +44,11 @@ struct AddDeviceView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
+            Text("To hide the floating accessibility button, turn off Settings › Accessibility › Touch › AssistiveTouch › Always Show Menu on the iPhone. Keep AssistiveTouch enabled. The button stays hidden while a pointer device is connected; Bluetooth taps and drags still work.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             List(selection: $selection) {
                 if !deviceManager.phoneSetup.phones.isEmpty {
                     Section("Connected by USB") {

@@ -26,8 +26,7 @@ struct DevicePromptEntry: Identifiable, Sendable {
     var status: DevicePromptStatus
     var message: String
     var steps: [PhoneVisionStep] = []
-    /// Kept for request-history rendering; the pure visual loop records
-    /// frame-bound `steps` instead.
+    /// Kept for request-history rendering; transactions record frame-bound steps.
     var sentActions: [String] = []
     var workflow: DeviceWorkflow? = nil
     var scriptTitle: String? = nil
@@ -37,14 +36,15 @@ struct DevicePromptEntry: Identifiable, Sendable {
     var reviewedAt: Date? = nil
     var submission: PhoneSubmissionCheckpoint? = nil
     var scriptCheckpoint: WarmUpScriptCheckpoint? = nil
+    var transactionPlan: PhoneTransactionPlan? = nil
+    var transactionCheckpoint: PhoneTransactionCheckpoint? = nil
     var warmUpScript: WarmUpScript? = nil
     var testAppSwitcher = false
 }
 
 /// One independent conversation and serial action task for each physical phone.
-/// Every request runs the same loop: capture the screen, let the selected model
-/// choose one action, execute it, capture again. Warm-up scripts track verified
-/// milestones while keeping every physical input grounded in a fresh screen.
+/// Agent and Stage share the same saved transaction engine. Commands and
+/// transitions are fixed before execution; every input requires fresh evidence.
 @Observable @MainActor
 final class DevicePromptSession {
     var draft = ""
@@ -52,7 +52,14 @@ final class DevicePromptSession {
     private(set) var isRunning = false
     private(set) var queuePaused = false
     private(set) var persistenceError: String?
-    var hasUnreviewedRuns: Bool { entries.contains { $0.status == .needsReview && $0.reviewedAt == nil } }
+    private(set) var restartRequiresReview = false
+    var hasUnreviewedRuns: Bool { restartRequiresReview || entries.contains { $0.status == .needsReview && $0.reviewedAt == nil } }
+    /// Watch starts with fresh observations and has no submission phase. A
+    /// previous launch's uncertainty must not block this new, independent run.
+    var queueRequiresReview: Bool {
+        entries.contains { $0.status == .needsReview && $0.reviewedAt == nil }
+            || (restartRequiresReview && entries.first(where: { $0.status == .queued })?.warmUpScript?.activity != .watch)
+    }
     var queuedCount: Int { entries.filter { $0.status == .queued }.count }
 
     @ObservationIgnored private let journal: DeviceRunJournal?
@@ -81,14 +88,16 @@ final class DevicePromptSession {
         self.visualBlockedReason = visualBlockedReason
         self.onVisualStart = onVisualStart
         do {
-            entries = try self.journal?.load() ?? []
+            let recovered = try self.journal?.loadForSession()
+            entries = recovered?.entries ?? []
+            restartRequiresReview = recovered?.requiresReview ?? false
             for index in entries.indices where entries[index].status.isActive
-                || (entries[index].submission?.requiresReview == true && entries[index].reviewedAt == nil) {
+                || ((entries[index].submission?.requiresReview == true || entries[index].transactionCheckpoint?.requiresReview == true) && entries[index].reviewedAt == nil) {
                 entries[index].status = .needsReview
                 entries[index].message = "Interrupted by an app restart. Check the phone before starting a new request; this run will not be retried."
                 entries[index].updatedAt = Date()
             }
-            queuePaused = queuedCount > 0 || hasUnreviewedRuns
+            queuePaused = queuedCount > 0 || entries.contains { $0.status == .needsReview && $0.reviewedAt == nil }
             try persist()
         } catch {
             journalLoaded = false
@@ -137,21 +146,31 @@ final class DevicePromptSession {
             update(id, status: .failed, message: persistenceError ?? "Unable to save this request.")
             return
         }
+        if queueRequiresReview, let index = entries.firstIndex(where: { $0.id == id }) {
+            entries[index].message = "Waiting for the interrupted run to be reviewed."
+            guard persistOrPause() else { return }
+        }
         startNext()
     }
 
     /// Explicitly resume only never-started jobs; interrupted jobs are never retried.
     func resumeQueue() {
-        guard journalLoaded, !hasUnreviewedRuns, persistOrPause() else { return }
+        guard journalLoaded, !queueRequiresReview, persistOrPause() else { return }
         queuePaused = false
         startNext()
+    }
+
+    func acknowledgeRestartReview() {
+        restartRequiresReview = false
+        guard persistOrPause() else { restartRequiresReview = true; return }
+        resumeQueue()
     }
 
     func acknowledgeReview(id: UUID) {
         guard let index = entries.firstIndex(where: { $0.id == id && $0.status == .needsReview }) else { return }
         entries[index].reviewedAt = Date()
         entries[index].updatedAt = Date()
-        persistOrPause()
+        if persistOrPause() { resumeQueue() }
     }
 
     func cancelQueued(id: UUID) {
@@ -167,7 +186,7 @@ final class DevicePromptSession {
     }
 
     private func startNext() {
-        guard !retired, !isRunning, !queuePaused, !hasUnreviewedRuns,
+        guard !retired, !isRunning, !queuePaused, !queueRequiresReview,
               let entry = entries.first(where: { $0.status == .queued }), let runner = visualRunner else { return }
         let id = entry.id
         let prompt = entry.prompt
@@ -190,7 +209,7 @@ final class DevicePromptSession {
             do {
                 // Overlap model warm-up with the first capture.
                 self.onVisualStart?()
-                let progress: (String) -> Void = { message in
+                let progress: @MainActor (String) -> Void = { message in
                     self.update(id, status: .running, message: message)
                 }
                 let record: (PhoneVisionStep) -> Void = { step in
@@ -217,6 +236,15 @@ final class DevicePromptSession {
                             guard !self.retired else { throw CancellationError() }
                             guard let index = self.entries.firstIndex(where: { $0.id == id }) else { return }
                             self.entries[index].submission = checkpoint
+                            self.entries[index].updatedAt = Date()
+                            try self.persist()
+                        }, onTransactionPlan: { plan in
+                            guard !self.retired, let index = self.entries.firstIndex(where: { $0.id == id }) else { throw CancellationError() }
+                            self.entries[index].transactionPlan = plan
+                            try self.persist()
+                        }, onTransactionCheckpoint: { checkpoint in
+                            guard !self.retired, let index = self.entries.firstIndex(where: { $0.id == id }) else { throw CancellationError() }
+                            self.entries[index].transactionCheckpoint = checkpoint
                             self.entries[index].updatedAt = Date()
                             try self.persist()
                         }, onProgress: progress, onStep: record)
@@ -274,7 +302,7 @@ final class DevicePromptSession {
     private func persist() throws {
         guard !retired else { throw CancellationError() }
         guard journalLoaded else { throw DeviceRunJournal.JournalError.invalidData }
-        try journal?.save(entries)
+        try journal?.save(entries, restartRequiresReview: restartRequiresReview)
         persistenceError = nil
     }
 
@@ -291,12 +319,12 @@ final class DevicePromptSession {
 
     private func update(_ id: UUID, status: DevicePromptStatus, message: String) {
         guard !retired, let index = entries.firstIndex(where: { $0.id == id }) else { return }
-        let unconfirmed = entries[index].submission.map { $0.state == .submitting || $0.state == .uncertain } ?? false
+        let unconfirmed = entries[index].submission?.requiresReview == true || entries[index].transactionCheckpoint?.requiresReview == true
         entries[index].status = !status.isActive && status != .queued && unconfirmed ? .needsReview : status
         entries[index].message = unconfirmed && !status.isActive
-            ? message + " Submission may already have succeeded. Check the phone; do not retry automatically." : message
+            ? message + " An input may already have taken effect. Check the phone before retrying." : message
         entries[index].updatedAt = Date()
-        if hasUnreviewedRuns { queuePaused = true }
+        if entries.contains(where: { $0.status == .needsReview && $0.reviewedAt == nil }) { queuePaused = true }
         if [.failed, .needsInput, .needsReview, .cancelled].contains(entries[index].status), queuedCount > 0 { queuePaused = true }
         trimHistory()
         persistOrPause()

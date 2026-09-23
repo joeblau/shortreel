@@ -51,15 +51,6 @@ enum DeviceWorkflow: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// A separate completion review can return another input when cleanup is incomplete.
-    static let cleanupCompletionReview = """
-        COMPLETION REVIEW: Independently check the current image and observed navigation against the entire goal above. Require exactly one visible Home page, an empty grid, and only the four allowed apps in the Dock. Confirm both page boundaries after the last layout change. The Search pill, one empty screenshot, unchanged pixels, or earlier planner claims alone do not establish page count. If anything is unverified or another page has content, return ONE next action to inspect or clean it, not finished. Return finished only with evidence of the single-page result; never guess.
-        """
-
-    static let cleanupStallRecovery = """
-        NAVIGATION RECOVERY: The proposed input has already left the screen unchanged twice. Choose a different input grounded in this screenshot. On an empty Home page, inspect adjacent pages: swipe LEFT to reach the page to the right/App Library, RIGHT to go back. At a boundary reverse direction. Do not repeat the stalled action or wait on a static page. Verify one empty page before finishing.
-        """
-
     var limits: PhoneRunLimits { .init(maximumSteps: 300, maximumDuration: 3_600) }
 }
 

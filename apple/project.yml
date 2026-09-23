@@ -32,6 +32,8 @@ targets:
       # runtime (contract TASK-5/6, issue #16).
       - path: Contracts/warmup-tasks.json
         buildPhase: resources
+      - path: Contracts/tiktok-watch.json
+        buildPhase: resources
       - path: ThirdParty
         type: folder
         buildPhase: resources

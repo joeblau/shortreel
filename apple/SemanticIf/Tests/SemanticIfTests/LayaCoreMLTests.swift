@@ -4,6 +4,21 @@ import XCTest
 @testable import SemanticIf
 
 final class LayaCoreMLTests: XCTestCase {
+    func testTikTokWatchTransitionsWithNativeModel() async throws {
+        guard let path = ProcessInfo.processInfo.environment["SHORTREEL_LAYA_MODEL_DIR"] else {
+            throw XCTSkip("Set SHORTREEL_LAYA_MODEL_DIR for native workflow checks.")
+        }
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "tiktok-watch-transitions", withExtension: "json", subdirectory: "Fixtures"))
+        let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        let model = try await LayaCoreMLModel(modelDirectory: URL(fileURLWithPath: path))
+        for var fixture in rows {
+            let expected = try XCTUnwrap(fixture.removeValue(forKey: "expected") as? String)
+            let json = String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
+            let row = try SemanticIfRow(SemanticIfDecision(json: SemanticIfJSON.parse(json)))
+            let result = try await model.score(row)
+            XCTAssertEqual(result.decision, .option(expected), "\(row.id): \(result.probabilities)")
+        }
+    }
     struct Reference: Decodable { let modelRevision: String; let cases: [Case] }
     struct Case: Decodable {
         let id: String
@@ -112,4 +127,102 @@ final class LayaCoreMLTests: XCTestCase {
             }
         }
     }
+    /// Actual Codex inspection and OCR from the reported empty-grid Home Screen.
+    /// Its Dock icons have no labels: both routing and launch must recognize them.
+    func testHomeScreenLaunchWithNativeModel() async throws {
+        guard let path = ProcessInfo.processInfo.environment["SHORTREEL_LAYA_MODEL_DIR"] else {
+            throw XCTSkip("Set SHORTREEL_LAYA_MODEL_DIR to run screenshot classification fixtures.")
+        }
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "home-screen-launch", withExtension: "json", subdirectory: "Fixtures"))
+        let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        let model = try await LayaCoreMLModel(modelDirectory: URL(fileURLWithPath: path))
+        for (fixture, expected) in zip(rows, ["home", "present"]) {
+            let json = String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
+            let row = try SemanticIfRow(SemanticIfDecision(json: SemanticIfJSON.parse(json)))
+            let result = try await model.score(row)
+            XCTAssertEqual(result.decision, .option(expected), "\(row.id): \(result.probabilities)")
+        }
+        let alternatives: [(Int, String, String)] = [
+            (0, "The iPhone is locked. Enter Passcode and a numeric keypad are visible.", "blocked"),
+            (0, "TikTok is open showing a playing video, For You and Following tabs, creator @sam, and Home, Friends, Inbox, and Profile navigation.", "app"),
+            (0, "Safari browser is in the foreground.", "app"),
+            (1, "The TikTok app icon is not visible on this Home Screen.", "absent")
+        ]
+        for (index, evidence, expected) in alternatives {
+            var fixture = rows[index]
+            fixture["state"] = evidence
+            let json = String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
+            let row = try SemanticIfRow(SemanticIfDecision(json: SemanticIfJSON.parse(json)))
+            let result = try await model.score(row)
+            XCTAssertEqual(result.decision, .option(expected), "\(evidence): \(result.probabilities)")
+        }
+
+    }
+
+    func testWarmUpLaunchWithNativeModel() async throws {
+        guard let path = ProcessInfo.processInfo.environment["SHORTREEL_LAYA_MODEL_DIR"] else {
+            throw XCTSkip("Set SHORTREEL_LAYA_MODEL_DIR to run screenshot classification fixtures.")
+        }
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "warmup-home-launch", withExtension: "json", subdirectory: "Fixtures"))
+        let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        let model = try await LayaCoreMLModel(modelDirectory: URL(fileURLWithPath: path))
+        for (fixture, expected) in zip(rows, ["home", "present"]) {
+            let json = String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
+            let row = try SemanticIfRow(SemanticIfDecision(json: SemanticIfJSON.parse(json)))
+            let result = try await model.score(row)
+            XCTAssertEqual(result.decision, .option(expected), "\(row.id): \(result.probabilities)")
+        }
+        // All three observations from the failed run, including the OCR noise
+        // that is absent from a prose-only screen description.
+        let observations = [
+            "The iPhone Home screen has an empty grid. A Search pill sits above the Dock. The Dock contains YouTube, TikTok, and Instagram icons.",
+            "The iPhone Home screen has an empty grid and a Search pill above the Dock. The Dock contains YouTube, TikTok, and Instagram icons.",
+            "The iPhone Home Screen has an empty grid and a Search control above the Dock. The Dock contains YouTube, TikTok, and Instagram icons."
+        ]
+        for observation in observations {
+            for ocr in ["", "9:41\nQ Search", "9:41\\\nQ Search"] {
+                var fixture = rows[0]
+                fixture["state"] = observation + (ocr.isEmpty ? "" : "\nOCR:\n" + ocr)
+                let json = String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
+                let row = try SemanticIfRow(SemanticIfDecision(json: SemanticIfJSON.parse(json)))
+                let result = try await model.score(row)
+                XCTAssertEqual(result.decision, .option("home"), "\(observation) / \(ocr): \(result.probabilities)")
+            }
+        }
+        for (evidence, expected) in [
+            ("The iPhone is locked. Enter Passcode and a numeric keypad are visible.", "blocked"),
+            ("TikTok is open showing a playing video, For You and Following tabs, creator @sam, and Home, Friends, Inbox, and Profile navigation.", "app"),
+            ("Safari browser is in the foreground.", "app"),
+            ("The screen is unreadable and cannot be identified.", "unknown")
+        ] {
+            var fixture = rows[0]
+            fixture["state"] = evidence
+            let json = String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
+            let row = try SemanticIfRow(SemanticIfDecision(json: SemanticIfJSON.parse(json)))
+            let result = try await model.score(row)
+            XCTAssertEqual(result.decision, .option(expected), "\(evidence): \(result.probabilities)")
+        }
+    }
+
+    func testTransactionConditionsWithNativeModel() async throws {
+        guard let path = ProcessInfo.processInfo.environment["SHORTREEL_LAYA_MODEL_DIR"] else {
+            throw XCTSkip("Set SHORTREEL_LAYA_MODEL_DIR to run transaction classification fixtures.")
+        }
+        let model = try await LayaCoreMLModel(modelDirectory: URL(fileURLWithPath: path))
+        let options: [SemanticIfDecision.Option] = [
+            .init(id: "confirmed", description: "The comment is visible under the post, attributed to @sam."),
+            .init(id: "pending", description: "The expected result is not yet visible, or is ambiguous."),
+            .init(id: "failed", description: "The input failed or an error or unexpected screen is visible.")]
+        let fixtures: [(String, String)] = [
+            ("Screen: Comments under a post. OCR: @sam: Great explanation! Just now. Reply. Add comment.", "confirmed"),
+            ("Screen: Error dialog. OCR: Could not send comment. Try again. Cancel.", "failed"),
+            ("Screen: Comment composer. OCR: Sending comment… Please wait.", "pending")]
+        for (evidence, expected) in fixtures {
+            let row = SemanticIfRow(id: "transaction.verify", state: .string(evidence),
+                question: "Which condition is clearly supported by the current screen evidence?", options: options)
+            let result = try await model.score(row)
+            XCTAssertEqual(result.decision, .option(expected), "\(evidence): \(result.probabilities)")
+        }
+    }
+
 }

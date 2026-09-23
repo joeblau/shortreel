@@ -66,7 +66,14 @@ enum PhonePlannerResponse {
             "Fraction of the CURRENT image, 0 to 1, with (0,0) at the top-left. Never pixels or percent."]
         var properties: [String: Any] = ["screen": object([
             "state": ["type": "string", "enum": ["home", "homeEditing", "appSwitcher", "foregroundApp", "spotlight", "assistiveTouch", "dialog", "unknown"]],
-            "appCardsVisible": ["type": "boolean"], "evidence": text
+            "appCardsVisible": ["type": "boolean"], "evidence": text,
+            "checkEvidence": ["type": ["string", "null"], "maxLength": 180],
+            "video": ["anyOf": [object([
+                "creator": text, "caption": text,
+                "progress": ["type": ["number", "null"], "minimum": 0, "maximum": 1],
+                "durationSeconds": ["type": ["number", "null"]],
+                "playing": ["type": ["boolean", "null"]]
+            ]), ["type": "null"]]]
         ])]
         if !inspectOnly {
             // The Bluetooth Home gesture is unsupported by this visual
@@ -148,10 +155,13 @@ enum PhonePlannerResponse {
     }
 
     private static func screen(_ value: Any?) throws -> PhoneScreenObservation {
-        guard let value = value as? [String: Any], Set(value.keys) == ["state", "appCardsVisible", "evidence"],
+        guard let value = value as? [String: Any],
+              Set(value.keys).isSubset(of: ["state", "appCardsVisible", "evidence", "checkEvidence", "video"]),
               let screen = try? JSONDecoder().decode(PhoneScreenObservation.self, from: JSONSerialization.data(withJSONObject: value)),
               !screen.evidence.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, screen.evidence.count <= 600,
-              screen.appCardsVisible == (screen.state == .appSwitcher) else {
+              screen.appCardsVisible == (screen.state == .appSwitcher),
+              screen.checkEvidence.map({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.count <= 180 }) ?? true,
+              screen.video?.isValid ?? true else {
             throw invalid("a consistent screen observation with visible evidence")
         }
         return screen

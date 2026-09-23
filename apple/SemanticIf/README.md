@@ -37,21 +37,32 @@ reported by this adapter.
 
 ## Account and failure-mode decisions
 
-Laya classifies the account screen as `profile`, `signed-out`, or `unknown`.
-Swift then compares the expected username exactly, ignoring case and a leading
+Laya classifies the account screen as `profile`, `signed-out`, or `unknown`, using
+the current screenshot's focused UI description. OCR is the fallback when that
+description is unavailable; unrelated bios and empty-profile upload prompts are
+not mixed into visual classification. Swift then compares the OCR username exactly, ignoring case and a leading
 `@`, using OCR with confidence at least 0.6. Conflicting handles, no handle,
 an unknown screen, or an uncertain classification produce `unreadable`.
-A sign-in classification takes precedence over any visible username.
+Visible sign-in controls take precedence over any username. A sign-in prediction
+without corresponding readable controls is treated as unreadable rather than
+telling a signed-in user to log in again.
 
 This division is deliberate: direct four-way account questions performed poorly
 with both the multilingual and specialized typed-decision checkpoints. The
 surface classifier plus exact identifier check passes all 16 existing account
 fixtures. Its probabilities describe screen type, not username equality.
 
-Other warm-up steps ask Laya which contract failure mode is supported, preserving
-all option IDs and recovery branches. Success criteria are context. Uncertain
-failure classifications remain with the screenshot planner. Live phone behavior
-and general task accuracy are not established by the fixture tests.
+Other warm-up steps ask Laya which contract failure mode is supported. A detected
+mode selects the saved branch with that exact ID, subject to its fixed recovery
+budget; a missing branch or terminal failure stops. Uncertain classification
+permits bounded observation only, never a planner-chosen input.
+
+All Agent and Stage transitions also use Laya to classify explicit conditions
+from current OCR and visual evidence. Commands and their postconditions are
+compiled and saved before execution. The fixture tests cover account surfaces
+and representative command results; they do not establish general task accuracy
+or live-phone reliability. Execution is deterministic for a saved program and
+a sequence of classification results; ML perception itself is probabilistic.
 
 ## Validation
 

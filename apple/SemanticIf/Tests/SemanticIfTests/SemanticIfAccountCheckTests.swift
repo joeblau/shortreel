@@ -23,6 +23,7 @@ final class SemanticIfAccountCheckTests: XCTestCase {
         let handle: String
         let outcome: String
         let regions: [Region]
+        let visualEvidence: String?
     }
 
     /// apple/, from this file at apple/SemanticIf/Tests/SemanticIfTests/.
@@ -45,11 +46,13 @@ final class SemanticIfAccountCheckTests: XCTestCase {
             let fixture = try JSONDecoder().decode(Fixture.self,
                 from: Data(contentsOf: fixturesURL.appending(path: name)))
             let row = LayaAccountPrompt.row(platform: fixture.platform,
-                ocrText: fixture.regions.sorted { ($0.y, $0.x) < ($1.y, $1.x) }.map(\.text))
+                ocrText: fixture.regions.sorted { ($0.y, $0.x) < ($1.y, $1.x) }.map(\.text),
+                visualEvidence: fixture.visualEvidence)
             let result = try await scorer.score(row)
             let handles = fixture.regions.filter { $0.confidence >= 0.6 }.flatMap { LayaAccountPrompt.handles(in: $0.text) }
             XCTAssertEqual(LayaAccountPrompt.outcome(surface: result.decision,
-                expectedHandle: fixture.handle, observedHandles: handles), fixture.outcome,
+                expectedHandle: fixture.handle, observedHandles: handles,
+                signInControlsVisible: LayaAccountPrompt.hasSignInControls(fixture.regions.filter { $0.confidence >= 0.6 }.map(\.text))), fixture.outcome,
                 "\(name): probabilities \(result.probabilities), margin \(result.margin)")
         }
     }

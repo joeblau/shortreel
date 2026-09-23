@@ -90,8 +90,8 @@ struct WarmUpAccountDecision: Codable, Equatable, Sendable {
 /// The local failure-mode verdict for one warm-up step (contract TASK-5,
 /// issue #16): the SemanticIf scorer's decision on the current frame scored
 /// against the step's contract failureModes. `failureModeID == nil` means no
-/// failure was detected (or the margin was too close to call) and the planner
-/// decides as before. `Codable` so `DeviceRunJournal` persists it with the step.
+/// failure was detected (or the margin was too close to call). Uncertain
+/// classification cannot authorize an input. `Codable` so `DeviceRunJournal` persists it with the step.
 struct WarmUpFailureDecision: Codable, Equatable, Sendable {
     var stepID: String
     /// The detected contract `failureModes[].id`; nil for none/uncertain.
@@ -174,12 +174,35 @@ enum PhoneVisionError: LocalizedError {
 
 
 struct PhoneScreenObservation: Decodable, Sendable, Equatable {
-    enum State: String, Decodable, Sendable {
+    enum State: String, Codable, Sendable {
         case home, homeEditing, appSwitcher, foregroundApp, spotlight, assistiveTouch, dialog, unknown
     }
     let state: State
     let appCardsVisible: Bool
     let evidence: String
+
+    /// A short description of UI controls/layout, without video content or
+    /// navigation history. Small local classifiers should not see unrelated OCR.
+    var checkEvidence: String? = nil
+    struct Video: Decodable, Sendable, Equatable {
+        let creator: String
+        let caption: String
+        let progress: Double?
+        let durationSeconds: Double?
+        let playing: Bool?
+
+        var isValid: Bool {
+            creator.count <= 100 && caption.count <= 300 &&
+            (progress.map { $0.isFinite && (0...1).contains($0) } ?? true) &&
+            (durationSeconds.map { $0.isFinite && (3...21_600).contains($0) } ?? true)
+        }
+        var identity: Set<String> {
+            guard !creator.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+            return ["creator:" + creator.lowercased(), "caption:" + caption.lowercased()]
+        }
+    }
+    var video: Video? = nil
 
     var summary: String { "Screen classification: \(state.rawValue). App preview cards visible: \(appCardsVisible). Evidence: \(evidence)" }
 

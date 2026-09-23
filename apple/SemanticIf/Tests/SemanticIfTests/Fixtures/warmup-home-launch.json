@@ -1,0 +1,44 @@
+[
+  {
+    "id": "start",
+    "state": "The iPhone Home screen has an empty grid with a Search control near the bottom. The Dock contains YouTube, TikTok, and Instagram icons.\nOCR:\n9:41\\\nQ Search",
+    "options": [
+      {
+        "description": "The iPhone Home Screen is visible.",
+        "id": "home"
+      },
+      {
+        "id": "app",
+        "description": "An app or App Switcher is open."
+      },
+      {
+        "id": "blocked",
+        "description": "A passcode keypad, lock screen, or system authentication prompt is visible."
+      },
+      {
+        "id": "unknown",
+        "description": "None of the listed conditions is clearly supported by the current evidence."
+      }
+    ],
+    "question": "Which screen is visible on the iPhone?"
+  },
+  {
+    "question": "Is the TikTok app icon visible on the Home Screen or in its Dock?",
+    "id": "launcher",
+    "options": [
+      {
+        "id": "present",
+        "description": "TikTok icon present"
+      },
+      {
+        "id": "absent",
+        "description": "TikTok icon absent"
+      },
+      {
+        "id": "unknown",
+        "description": "None of the listed conditions is clearly supported by the current evidence."
+      }
+    ],
+    "state": "Home Screen has an empty grid and a Search control above the Dock. The Dock contains YouTube on the left, TikTok in the center, and Instagram on the right. The TikTok app icon is clearly visible in the Dock.\nOCR:\n9:41\\\nQ Search"
+  }
+]

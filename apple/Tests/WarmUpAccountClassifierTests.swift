@@ -22,6 +22,7 @@ enum WarmUpAccountClassifierTests {
         let handle: String
         let outcome: String
         let regions: [Region]
+        let visualEvidence: String?
 
         var textRegions: [PhoneSubmissionGuard.TextRegion] {
             regions.map {
@@ -64,7 +65,8 @@ enum WarmUpAccountClassifierTests {
         try await unknownOptionThrows()
         try observedHandleNormalization()
         try await exactIdentityGuards()
-        print("Warm-up account classifier tests passed (6 scenarios, 16 golden fixtures)")
+        try await emptyProfileUsesVisualEvidence()
+        print("Warm-up account classifier tests passed (including the reported empty TikTok profile)")
     }
 
     /// Every platform × outcome fixture classifies to its golden verdict, from
@@ -158,7 +160,9 @@ enum WarmUpAccountClassifierTests {
             ([region("@JANEDOE")], "profile", WarmUpAccountDecision.Outcome.matches),
             ([region("@janedoe", 0.59)], "profile", .unreadable),
             ([region("@janedoe"), region("@someoneelse")], "profile", .unreadable),
-            ([region("@janedoe")], "signed-out", .signedOut),
+            ([region("@janedoe")], "signed-out", .unreadable),
+            ([region("@janedoe"), region("Log in")], "signed-out", .signedOut),
+            ([region("@janedoe"), region("Log in")], "profile", .signedOut),
             ([region("@janedoe")], "unknown", .unreadable),
             ([region("@janedoe2")], "profile", .mismatch),
         ] {
@@ -167,6 +171,28 @@ enum WarmUpAccountClassifierTests {
             try expect(result.outcome == expected, "Exact identity guard failed: \(result.outcome) != \(expected)")
         }
         try expect(LayaAccountPrompt.handles(in: "mail@janedoe.com").isEmpty, "Email address became a handle")
+    }
+
+    static func emptyProfileUsesVisualEvidence() async throws {
+        let fixture = try loadFixture("tiktok-empty-profile")
+        let scorer = StubScorer(winner: "profile")
+        let observation = PhoneScreenObservation(state: .foregroundApp, appCardsVisible: false,
+            evidence: "A profile with an Upload prompt and zero posts.", checkEvidence: fixture.visualEvidence)
+        let result = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
+            platform: fixture.platform, accountLocation: "own profile header", handle: "@" + fixture.handle,
+            scorer: scorer, observation: observation)
+        try expect(result.outcome == .matches, "Empty profile did not pass the exact handle check")
+        try expect(scorer.rows.first?.state == .string(fixture.visualEvidence!), "Account classification discarded the current visual evidence")
+        try expect(!result.evidence.contains("@@"), "Account messages duplicated the @ prefix")
+        for handle in ["someoneelse", "toptopnonstop9"] {
+            let mismatch = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
+                platform: fixture.platform, accountLocation: "own profile header", handle: handle,
+                scorer: scorer, observation: observation)
+            try expect(mismatch.outcome == .mismatch, "Visual profile evidence bypassed the exact handle comparison")
+        }
+        let missing = try await WarmUpAccountClassifier.classify(regions: [], platform: fixture.platform,
+            accountLocation: "own profile header", handle: fixture.handle, scorer: scorer, observation: observation)
+        try expect(missing.outcome == .unreadable, "A visual description invented the OCR handle")
     }
 
     static func loadFixture(_ name: String) throws -> Fixture {

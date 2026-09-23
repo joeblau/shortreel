@@ -9,44 +9,13 @@ import Foundation
 /// plus each `failureModes[].id` with its `detection` text as the description —
 /// with an explicit failure-classification question and success criteria as context.
 ///
-/// A nil verdict from the caller (no scorer loaded, contract unavailable, or a
-/// scoring error) keeps the run on exactly the planner-only path of today.
+/// Unavailable or uncertain classification never authorizes an input. The
+/// transaction runner selects the saved branch named by a detected mode ID.
 enum WarmUpFailureClassifier {
     static let question = "Which failure mode, if any, is supported by the current screen and playback evidence? Choose none if no listed failure mode is supported."
     enum ClassifierError: Error, Equatable {
         /// The scorer returned an option the step's contract never declared.
         case unknownOption(String)
-    }
-
-    /// The recovery branch one contract `failureMode.id` maps to in
-    /// `PhoneVisualRunner`. Terminal modes — and non-terminal modes whose
-    /// recovery attempts are spent — always end in `needsInput`.
-    enum RecoveryBranch: Equatable, Sendable {
-        /// Stop the run with the contract's recovery message; no input is sent.
-        case needsInput
-        /// The runner owns one canonical, coordinate-free recovery input.
-        case perform(PhonePromptAction)
-        /// Wait once and re-observe (no input); a repeated detection stops.
-        case reobserve
-        /// One planner decision with the contract's recovery text injected as
-        /// an explicit directive; every normal guard still applies to it.
-        case plannerDirective
-    }
-
-    /// `terminal: true` modes are handled by the caller; this maps each
-    /// non-terminal contract failure mode to its one recovery branch. Modes
-    /// without a runner-owned gesture fall back to a guided planner decision.
-    static func recoveryBranch(for modeID: String) -> RecoveryBranch {
-        switch modeID {
-        // consume: the contract's long-video skip is one runner-owned swipe up;
-        // the cursor's didPerform jumps to advance without counting the item.
-        case "too-long": return .perform(.swipe(.up))
-        // suggestion: the contract's no-suggestions recovery is one enter press.
-        case "no-suggestions": return .perform(.press(.enter))
-        // advance: wait 1 s and re-observe once; never a second swipe.
-        case "same-item": return .reobserve
-        default: return .plannerDirective
-        }
     }
 
     /// How many times one step visit may attempt a non-terminal recovery before
@@ -57,17 +26,6 @@ enum WarmUpFailureClassifier {
         case "search-not-focused": return 2
         default: return 1
         }
-    }
-
-    /// The single-decision directive appended to the planner's goal for a
-    /// `.plannerDirective` recovery. stalled-wait-loop's contract recovery is
-    /// the playback completion review, so it is injected verbatim.
-    static func directive(modeID: String, detection: String, recovery: String) -> String {
-        var text = "RECOVERY for failure mode '\(modeID)' — detected on the CURRENT frame: \(detection). Named recovery: \(recovery). Choose ONE input from the CURRENT frame that performs exactly this recovery; every step rule and forbidden action still applies. If the recovery cannot be performed from this screen, return needsInput with what you see."
-        if modeID == "stalled-wait-loop" {
-            text += "\n" + PhoneSearchGuidance.playbackCompletionReview
-        }
-        return text
     }
 
     /// The decision options for one step: `none` plus each contract failure
@@ -109,8 +67,7 @@ enum WarmUpFailureClassifier {
     /// Score already-recognized regions. A captured frame is a foreground app
     /// screen, so `screenState` reads `foregroundApp`. `.uncertain` (margin
     /// below the tuned threshold) is never an assertive branch: the verdict
-    /// carries no failure mode and the runner leaves the decision to the
-    /// planner, exactly as with a `none` verdict.
+    /// carries no failure mode; the runner reobserves within a bounded budget.
     static func classify(regions: [PhoneSubmissionGuard.TextRegion], scriptIdentifier: String, platform: String,
                          step: WarmUpStepContract, playbackSummary: String?, screenState: String = "foregroundApp",
                          scorer: any SemanticIfScoring) async throws -> WarmUpFailureDecision {
@@ -128,7 +85,7 @@ enum WarmUpFailureClassifier {
         case .uncertain:
             return WarmUpFailureDecision(stepID: step.id, failureModeID: nil, uncertain: true,
                 terminal: false, detection: "", recovery: "",
-                evidence: "Local failure-mode check for \(step.title) was too close to call; the planner decides from the same frame.",
+                evidence: "Local failure-mode check for \(step.title) was too close to call; no input is authorized.",
                 probabilities: result.probabilities, margin: result.margin,
                 threshold: result.threshold, promptHash: result.score.promptHash)
         case .option(let id):
@@ -170,7 +127,7 @@ struct WarmUpStepContract: Equatable, Sendable {
 /// The bundled warm-up contract, keyed for runner lookups:
 /// script identifier → step id → step contract. `WarmUpTasksContractTests`
 /// pins this JSON to the Swift registry, so a lookup miss means an unknown
-/// script version and the runner keeps its planner-only defaults.
+/// script version and the runner stops before sending input.
 struct WarmUpContractStore: Equatable, Sendable {
     private let stepsByScript: [String: [String: WarmUpStepContract]]
 

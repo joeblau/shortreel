@@ -28,6 +28,11 @@ This regenerates the Xcode project (when XcodeGen is installed), builds `ShortRe
 
 Grant the app Bluetooth and Camera permissions when macOS asks — the phone screen arrives as a camera source.
 
+To hide the floating accessibility button, turn off **Settings → Accessibility →
+Touch → AssistiveTouch → Always Show Menu** on the iPhone. Keep **AssistiveTouch**
+enabled. The button stays hidden while a pointer device is connected, and
+Bluetooth taps and drags still work.
+
 Codex is the default screenshot planner. Bluetooth/AssistiveTouch sends inputs and
 USB supplies screenshots; this setup needs no iPhone runner or Developer Mode.
 Existing installations retain their saved planner choice; select **Codex** in Agent.
@@ -63,16 +68,38 @@ swiftc ShortReel/Services/BluetoothHID/HIDServiceRecord.swift Tests/HIDServiceRe
 
 ## Local classification with Laya Core ML
 
-Warm-up account and failure-mode checks use Laya directly through Apple's Core ML
-runtime. Select **Agent → Load Local Checks Model…** to download and load it;
-a warm-up run also requests loading when needed. The first load downloads about
-680 MB and compiles the model. Later loads work from the local cache. The app
-needs no Python installation, MLX, CUDA, or package-plugin approval.
+TikTok Watch uses a fixed account → search → suggestions → Videos → watch/advance
+workflow. Codex or Claude supplies only the niche query. Laya classifies focused
+UI evidence; Swift checks exact query text, heart thresholds, playback progress,
+and one swipe between verified views. Visible progress bars work when timers are
+hidden. The full two-video regression exports the actual classifier questions
+for native Laya testing.
 
-Laya recognizes account screen types; Swift compares readable usernames exactly.
-Low-confidence or ambiguous account checks stay on the existing unreadable
-recovery path. Inference failures and uncertain failure-mode checks fall back to
-the screenshot planner. See [classifier setup and tests](SemanticIf/README.md).
+Agent and Stage both run saved, bounded transactions. Codex or Claude compiles the
+request before any device input; simple app-opening requests use a built-in
+program. Warm-up prepares phases concurrently and reports progress. Laya selects among the program's declared
+conditions; a visual model locates coordinates only for a predetermined command.
+Commands cannot be replaced during execution, and each result must be verified
+from a fresh screen before the next transition. Missing classification stops the
+run; uncertain evidence permits at most three observations, with no planner fallback.
+
+Select **Agent → Load Local Checks Model…** to download and load Laya. Every run
+waits for it to be ready. The first load downloads about 680 MB and compiles the
+model; later loads use the local cache. No Python, MLX, CUDA, or package-plugin
+approval is needed. Classification is required and cannot be disabled.
+
+Plans and command checkpoints are written to device history before input.
+Interrupted or unverified commands require review and are never replayed
+implicitly. Restart clears conversation history and queued requests, retaining
+only a review notice if previous input needs checking. Warm-up retains exact account checks, step budgets, item counts,
+measured video replay evidence, named recovery limits, and single-submit guards.
+See [transaction execution](docs/phone-transactions.md) and
+[classifier setup and tests](SemanticIf/README.md).
+
+```sh
+# From the repository root:
+apple/Tests/run-transactions.sh
+```
 
 ## Codex and Claude
 
@@ -80,7 +107,7 @@ To use **Codex**, install a current [Codex CLI](https://learn.chatgpt.com/docs/c
 run `codex login`, and select **Codex** in the Agent planner menu. It uses
 `gpt-6-astra` through your existing CLI authentication. Screenshots and task
 context are sent to OpenAI; ShortReel performs each validated phone input and
-captures a new screen before asking for another action. Each phone request has
+captures a new screen before classifying the next declared condition. Each phone request has
 separate temporary files and history. Codex also handles **Test App Switcher**
 and does not need the UI-TARS model service. The planner choice applies to all
 phones and is saved between app launches; Codex is the default for new installations.

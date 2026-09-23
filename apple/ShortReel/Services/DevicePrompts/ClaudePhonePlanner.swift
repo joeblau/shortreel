@@ -55,13 +55,14 @@ enum ClaudePhonePlanner {
             imageSize: CGSize(width: frame.pixelWidth, height: frame.pixelHeight))
     }
 
-    static func inspectScreen(frame: PhoneScreenFrame, model: String = defaultModel) async throws -> PhoneScreenObservation {
-        try await inspectScreen(frame: frame, configuration: configuration(model: model))
+    static func inspectScreen(frame: PhoneScreenFrame, model: String = defaultModel, question: String? = nil) async throws -> PhoneScreenObservation {
+        try await inspectScreen(frame: frame, configuration: configuration(model: model), question: question)
     }
 
-    static func inspectScreen(frame: PhoneScreenFrame, configuration: Configuration) async throws -> PhoneScreenObservation {
-        let data = try await request(prompt: PhonePlannerContext.inspectionPrompt,
-            frame: frame, history: [], schema: PhonePlannerResponse.schema(inspectOnly: true), configuration: configuration)
+    static func inspectScreen(frame: PhoneScreenFrame, configuration: Configuration, question: String? = nil) async throws -> PhoneScreenObservation {
+        let data = try await request(prompt: PhonePlannerContext.inspectionPrompt + (question.map { "\nVisual question: " + $0 } ?? ""),
+            frame: frame, history: [], schema: PhonePlannerResponse.schema(inspectOnly: true), configuration: configuration,
+            instructionText: PhonePlannerContext.inspectionInstructions)
         return try PhonePlannerResponse.observation(from: data)
     }
 
@@ -115,6 +116,14 @@ enum ClaudePhonePlanner {
 
     private static func invalidResponse() -> PhoneVisionError {
         .invalidDecision("Claude returned no valid final phone decision. Check ‘claude auth status’ and access to the selected model; a current Claude Code CLI is required.")
+    }
+
+    static func locateInput(request prompt: String, frame: PhoneScreenFrame, model: String = defaultModel) async throws -> PhoneVisionDecision {
+        let data = try await request(prompt: prompt, frame: frame, history: [],
+            schema: PhonePlannerResponse.schema(inspectOnly: false), configuration: configuration(model: model),
+            instructionText: PhonePlannerContext.locationInstructions)
+        return try PhonePlannerResponse.decision(from: data, goal: prompt,
+            imageSize: CGSize(width: frame.pixelWidth, height: frame.pixelHeight))
     }
 
     static func textResponse(prompt: String, instructions: String, schema: Data, model: String = defaultModel) async throws -> Data {

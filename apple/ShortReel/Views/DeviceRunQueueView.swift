@@ -13,13 +13,17 @@ struct DeviceRunQueueView: View {
                     Spacer()
                     if session.queuePaused && session.queuedCount > 0 {
                         Button("Resume") { session.resumeQueue() }
-                            .disabled(session.hasUnreviewedRuns || session.isRunning)
+                            .disabled(session.queueRequiresReview || session.isRunning)
                     }
                 }
                 if let error = session.persistenceError {
                     Text(error).font(.caption).foregroundStyle(.red)
                 }
-                if session.hasUnreviewedRuns {
+                if session.restartRequiresReview {
+                    Text("An earlier run needs review before starting Comment, Post, or an Agent request. Watch can start from the current screen.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("I checked the phone") { session.acknowledgeRestartReview() }
+                } else if session.hasUnreviewedRuns {
                     Text("Check interrupted runs on the phone before resuming. Acknowledging a result does not retry it.")
                         .font(.caption).foregroundStyle(.secondary)
                 } else if session.queuePaused {

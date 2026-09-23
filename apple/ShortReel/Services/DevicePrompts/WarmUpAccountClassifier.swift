@@ -4,8 +4,7 @@ import Foundation
 /// CURRENT frame's OCR text, the persona handle, and the platform's
 /// accountLocation identify the check. Laya classifies the screen surface;
 /// an exact username comparison finishes the step or stops the run before
-/// any engagement input. A nil verdict from the caller means no scorer is loaded
-/// and the run takes exactly the planner-only path of today.
+/// any engagement input. Missing or failed scoring stops the transaction.
 ///
 /// The contract strings below are the single Swift copy of the account step's
 /// success criteria and failure-mode detection text; `WarmUpTasksContractTests`
@@ -66,32 +65,36 @@ enum WarmUpAccountClassifier {
     /// classification. Contract metadata remains owned by the warm-up runner.
     static func row(platform: String, accountLocation: String, handle: String, ocrText: [String],
                     successCriteria: String = Self.successCriteria,
-                    failureModes: [FailureMode] = Self.failureModes) throws -> SemanticIfRow {
+                    failureModes: [FailureMode] = Self.failureModes, visualEvidence: String? = nil) throws -> SemanticIfRow {
         _ = try options(successCriteria: successCriteria, failureModes: failureModes)
-        return LayaAccountPrompt.row(platform: platform, ocrText: ocrText)
+        return LayaAccountPrompt.row(platform: platform, ocrText: ocrText, visualEvidence: visualEvidence)
     }
 
     /// OCR the current frame with the submission guard's recognizer and score
     /// it. An OCR failure reads as no regions: the scorer sees empty evidence
     /// and the contract's unreadable recovery applies.
     static func classify(frame: PhoneScreenFrame, platform: String, accountLocation: String,
-                         handle: String, scorer: any SemanticIfScoring) async throws -> WarmUpAccountDecision {
+                         handle: String, scorer: any SemanticIfScoring,
+                         observation: PhoneScreenObservation? = nil) async throws -> WarmUpAccountDecision {
         let regions = (try? await PhoneSubmissionGuard.recognizeText(in: frame)) ?? []
         return try await classify(regions: regions, platform: platform, accountLocation: accountLocation,
-            handle: handle, scorer: scorer)
+            handle: handle, scorer: scorer, observation: observation)
     }
 
     /// Score already-recognized regions. `.uncertain` (margin below the tuned
-    /// threshold) is the contract's unreadable path; the runner applies the
-    /// one-Home-plus-reopen recovery before needsInput.
+    /// threshold) is unreadable; only a saved navigation branch may run, and
+    /// unreadable evidence can never complete the account phase.
     static func classify(regions: [PhoneSubmissionGuard.TextRegion], platform: String, accountLocation: String,
-                         handle: String, scorer: any SemanticIfScoring) async throws -> WarmUpAccountDecision {
+                         handle: String, scorer: any SemanticIfScoring,
+                         observation: PhoneScreenObservation? = nil) async throws -> WarmUpAccountDecision {
+        let handle = String(handle.trimmingCharacters(in: .whitespacesAndNewlines).drop(while: { $0 == "@" }))
         let ordered = regions.sorted { ($0.bounds.minY, $0.bounds.minX) < ($1.bounds.minY, $1.bounds.minX) }
         let row = try row(platform: platform, accountLocation: accountLocation,
-            handle: handle, ocrText: ordered.map(\.text))
+            handle: handle, ocrText: ordered.map(\.text), visualEvidence: observation?.checkEvidence ?? observation?.evidence)
         let result = try await scorer.score(row)
         guard let selected = LayaAccountPrompt.outcome(surface: result.decision,
-            expectedHandle: handle, observedHandles: readableHandles(in: ordered)),
+            expectedHandle: handle, observedHandles: readableHandles(in: ordered),
+            signInControlsVisible: LayaAccountPrompt.hasSignInControls(ordered.filter { $0.confidence >= 0.6 }.map(\.text))),
             let outcome = WarmUpAccountDecision.Outcome(rawValue: selected) else {
             throw ClassifierError.unknownOption(result.argmaxOptionID)
         }
