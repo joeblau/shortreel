@@ -200,6 +200,45 @@ final class PhoneVisualRunner {
             try onTransactionCheckpoint(.init(phase: plan.phases[phaseIndex].id, state: stateID,
                 branch: branch, status: status, input: input ?? (status == .verifying ? pendingInput : nil), visits: visits))
         }
+        var restarts = 0
+        func restart(after error: Error, number: Int, frame: PhoneScreenFrame) async throws {
+            guard var active = cursor, restarts < Self.maximumRestarts, submission == nil, !active.submissionSent,
+                  ![.prepareSubmission, .submit, .verifySubmission].contains(active.step.id),
+                  plan.phases.first?.id == WarmUpScript.StepID.account.rawValue else { throw error }
+            restarts += 1
+            onProgress("Restarting from Home…")
+            pendingInput = PhonePromptAction.home.modelInputDescription
+            try checkpoint(.dispatching, branch: "restart", input: pendingInput)
+            onStep(.init(id: UUID(), number: number, action: "Restarting from Home",
+                detail: "Recovery \(restarts) of \(Self.maximumRestarts) after: \(error.localizedDescription) Completed items are kept.",
+                capturedAt: frame.capturedAt, input: .home, decisionSource: "Semantic If recovery"))
+            try await beforeDeadline(deadline) { [self] in try await perform(.home) }
+            active.restart()
+            cursor = active
+            try onScriptCheckpoint(active.checkpoint)
+            phaseIndex = 0
+            stateID = plan.phases[0].entry
+            pending = nil
+            pendingInput = nil
+            pendingEvidence = ""
+            pendingIdentity = []
+            advanceVerified = false
+            verificationAttempts = 0
+            uncertainAttempts = 0
+            visits = [:]
+            recoveryAttempts = [:]
+            phaseVisits = 0
+            phaseStarted = ContinuousClock.now
+            reused = nil
+            previousInput = nil
+            previousPixels = nil
+            repeatedInputs = 0
+            playback.reset()
+            visualPlayback.reset()
+            sawReplay = false
+            try checkpoint(.observing)
+            after = Date()
+        }
         for number in 1...limit {
             try checkAvailability(deadline: deadline)
             let phase = plan.phases[phaseIndex]
@@ -256,7 +295,9 @@ final class PhoneVisualRunner {
             if pending == nil, let screens = state.requiredScreens, !screens.contains(observation.state) {
                 onStep(.init(id: UUID(), number: number, action: "Unexpected screen",
                     detail: "Observed: \(observation.evidence)", capturedAt: frame.capturedAt))
-                throw PhonePromptPlanningError.needsClarification("The screen changed before this workflow step. No input was sent. " + observation.evidence)
+                try await restart(after: PhonePromptPlanningError.needsClarification(
+                    "The screen changed before this workflow step. No input was sent. " + observation.evidence), number: number, frame: frame)
+                continue
             }
             var context = evidence
             var playbackEvidence: PhonePlaybackEvidence?
@@ -312,7 +353,10 @@ final class PhoneVisualRunner {
             } else {
                 let key = "\(phase.id).\(state.id)"
                 visits[key, default: 0] += 1
-                guard visits[key, default: 0] <= state.maximumVisits else { throw PhoneVisionError.limitReached }
+                guard visits[key, default: 0] <= state.maximumVisits else {
+                    try await restart(after: PhoneVisionError.limitReached, number: number, frame: frame)
+                    continue
+                }
                 // Laya matches words, not negation ("not the Home Screen" scores as home, "signed-in" as login),
                 // so only offer branches the structured screen state and on-screen sign-in controls allow.
                 let signInVisible = LayaAccountPrompt.hasSignInControls(text.regions.filter { $0.confidence >= 0.6 }.map(\.text))
@@ -320,7 +364,10 @@ final class PhoneVisualRunner {
                     ($0.requiredScreens?.contains(observation.state) ?? true)
                         && (plan.watchQuery == nil || $0.id != "login" || signInVisible)
                 }
-                guard !branches.isEmpty else { throw PhoneTransactionError.uncertain }
+                guard !branches.isEmpty else {
+                    try await restart(after: PhoneTransactionError.uncertain, number: number, frame: frame)
+                    continue
+                }
                 question = .init(id: key, evidence: context,
                     options: branches.map { .init(id: $0.id, description: $0.condition) }
                         + [.init(id: "unknown", description: "None of the listed conditions is clearly supported by the current evidence.")],
@@ -341,6 +388,10 @@ final class PhoneVisualRunner {
                let visualQuestion = PhoneWatchChecks.question(id: question.id, check: .playback, evidence: evidence) {
                 question = visualQuestion
             }
+            if plan.watchQuery != nil, observation.video != nil, question.options.contains(where: { $0.id == "player" }) {
+                question = .init(id: question.id, evidence: question.evidence,
+                    options: question.options.filter { !["results", "profile"].contains($0.id) }, question: question.question)
+            }
             onProgress("Checking the current screen…")
             var selected: String?
             if pending == nil, state.accountGate == true {
@@ -360,6 +411,7 @@ final class PhoneVisualRunner {
             } else {
                 let currentQuestion = question
                 selected = try await beforeDeadline(operationDeadline) { try await classify(currentQuestion) }
+                if let answer = selected, !currentQuestion.options.contains(where: { $0.id == answer }) { selected = nil }
             }
             if pending == nil, let check = state.check {
                 selected = PhoneWatchChecks.branch(for: selected, check: check, evidence: observation.evidence,
@@ -401,7 +453,10 @@ final class PhoneVisualRunner {
                         after = Date()
                         continue
                     }
-                    guard selected != "failed", verificationAttempts < 3 else { throw PhoneTransactionError.uncertain }
+                    guard selected != "failed", verificationAttempts < 3 else {
+                        try await restart(after: PhoneTransactionError.uncertain, number: number, frame: frame)
+                        continue
+                    }
                     try await beforeDeadline(operationDeadline) { try await Task.sleep(for: .seconds(1)) }
                     after = Date()
                     continue
@@ -415,7 +470,10 @@ final class PhoneVisualRunner {
                 guard let selected, selected != "unknown" else {
                     recordUnverifiedObservation()
                     uncertainAttempts += 1
-                    guard uncertainAttempts < 3 else { throw PhoneTransactionError.uncertain }
+                    guard uncertainAttempts < 3 else {
+                        try await restart(after: PhoneTransactionError.uncertain, number: number, frame: frame)
+                        continue
+                    }
                     try await beforeDeadline(operationDeadline) { try await Task.sleep(for: .seconds(1)) }
                     after = Date()
                     continue
@@ -423,7 +481,8 @@ final class PhoneVisualRunner {
                 guard let chosen = state.branches.first(where: { $0.id == selected }) else { throw PhoneTransactionError.invalidPlan }
                 guard chosen.requiredScreens?.contains(observation.state) ?? true else {
                     recordUnverifiedObservation()
-                    throw PhoneTransactionError.uncertain
+                    try await restart(after: PhoneTransactionError.uncertain, number: number, frame: frame)
+                    continue
                 }
                 branch = chosen
                 uncertainAttempts = 0
@@ -542,6 +601,8 @@ final class PhoneVisualRunner {
         }
         throw PhoneVisionError.limitReached
     }
+
+    static let maximumRestarts = 2
 
     private func checkAvailability(deadline: ContinuousClock.Instant) throws {
         try Task.checkCancellation()

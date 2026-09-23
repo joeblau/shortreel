@@ -242,7 +242,7 @@ import Foundation
             if question.id.hasSuffix(".verify") { return "confirmed" }
             switch question.id {
             case "account.start":
-                try T.expect(question.options.map(\.id) == ["home", "blocked", "unknown"],
+                try T.expect(question.options.map(\.id) == ["home", "unknown"],
                     "Offered a branch the observed Home screen state cannot satisfy")
                 try T.expect(!question.evidence.contains("OCR:"), "Empty OCR diluted the visual screen evidence")
                 return "home"
@@ -277,13 +277,38 @@ import Foundation
         try T.expect(deferred.actions == [.home, .home] && deferred.questions.contains { $0.id == "account.launcher" },
             "A Home gesture swallowed by the app stopped the run instead of being resent once")
 
+        let recovered = T.Rig(); recovered.plan = plan(account)
+        var searchUncertain = 0
+        recovered.observeOverride = { _, _ in
+            let home = recovered.actions.last.map { $0 == .home } ?? true
+            return .init(state: home ? .home : .foregroundApp, appCardsVisible: false,
+                evidence: home ? "Home Screen with TikTok in the Dock." : "TikTok is open.")
+        }
+        recovered.classifyOverride = { question in
+            if question.id.hasSuffix(".verify") { return "confirmed" }
+            switch question.id {
+            case "account.start": return "home"
+            case "account.launcher": return "present"
+            case "account.profile": return "profile"
+            case "search.start":
+                searchUncertain += 1
+                return searchUncertain <= 3 ? "unknown" : "go"
+            default: return "go"
+            }
+        }
+        try await T.rejects { _ = try await recovered.run(workflow: .warmUp, script: script) }
+        try T.expect(recovered.actions.prefix(3) == [.tap(0.5, 0.5), .tap(0.5, 0.5), .home] && recovered.accountCalls == 2
+            && recovered.questions.contains { $0.id == "suggestion.start" },
+            "An uncertain search did not restart from Home, re-verify the account, and continue past search")
+
         let failedSearch = T.Rig(); failedSearch.plan = plan(account); failedSearch.accountOutcome = .unreadable
         failedSearch.classifyOverride = { question in
             if question.id.hasSuffix(".verify") { return "confirmed" }
             return question.id == "account.start" ? "home" : "absent"
         }
         try await T.rejects { _ = try await failedSearch.run(workflow: .warmUp, script: script) }
-        try T.expect(failedSearch.actions == [.press(.search)], "Unopened Spotlight allowed typing or resent Search")
+        try T.expect(failedSearch.actions == [.press(.search), .home, .press(.search), .home, .press(.search)],
+            "Unopened Spotlight allowed typing, resent Search without restarting, or restarted more than twice")
 
         let closedSearch = T.Rig(); closedSearch.plan = plan(account); closedSearch.accountOutcome = .unreadable
         var queryCapture: Int?
@@ -295,13 +320,23 @@ import Foundation
             .init(state: closedSearch.captures == 3 ? .spotlight : .home, appCardsVisible: false, evidence: "Current screen")
         }
         try await T.rejects { _ = try await closedSearch.run(workflow: .warmUp, script: script) }
-        try T.expect(queryCapture == 3 && closedSearch.actions == [.press(.search), .typeText("TikTok")],
-            "Query did not act on the verified post-input Spotlight frame")
-        try T.expect(closedSearch.captures == 6, "Typing was not verified on fresh frames")
+        try T.expect(queryCapture == 3 && Array(closedSearch.actions.prefix(3)) == [.press(.search), .typeText("TikTok"), .home]
+            && closedSearch.actions.filter { $0 == .typeText("TikTok") }.count == 1,
+            "Query did not act on the verified Spotlight frame, or retyped instead of restarting from Home")
+
+        let locked = T.Rig(); locked.plan = plan(account)
+        locked.observeOverride = { _, _ in .init(state: .unknown, appCardsVisible: false, evidence: "A passcode keypad is visible.") }
+        locked.classifyOverride = { question in
+            try T.expect(question.options.contains { $0.id == "blocked" }, "Lock screen was not offered the blocked stop")
+            return "blocked"
+        }
+        try await T.rejects { _ = try await locked.run(workflow: .warmUp, script: script) }
+        try T.expect(locked.actions.isEmpty, "A lock screen received input or a recovery Home gesture")
 
         let wrongSurface = T.Rig(); wrongSurface.plan = plan(account)
         wrongSurface.classifyOverride = { _ in "app" }
         try await T.rejects { _ = try await wrongSurface.run(workflow: .warmUp, script: script) }
-        try T.expect(wrongSurface.actions.isEmpty, "Classifier overrode the Home Screen evidence and dispatched an app-only command")
+        try T.expect(wrongSurface.actions == [.home, .home],
+            "Classifier overrode the Home Screen evidence and dispatched an app-only command instead of only recovering")
     }
 }

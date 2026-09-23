@@ -253,6 +253,13 @@ struct WarmUpScriptCursor: Sendable {
         }
     }
 
+    mutating func restart() {
+        guard !submissionSent else { return }
+        index = 0
+        advanceSent = false
+        isComplete = false
+    }
+
     mutating func finishStep() throws {
         try script.validate()
         guard !isComplete else { return }

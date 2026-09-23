@@ -8,10 +8,6 @@
         "id" : "home"
       },
       {
-        "description" : "A passcode keypad, lock screen, or system authentication prompt is visible.",
-        "id" : "blocked"
-      },
-      {
         "description" : "None of the listed conditions is clearly supported by the current evidence.",
         "id" : "unknown"
       }
@@ -436,10 +432,6 @@
         "id" : "player"
       },
       {
-        "description" : "A grid of video search results.",
-        "id" : "results"
-      },
-      {
         "description" : "A different or unreadable screen.",
         "id" : "unknown"
       }
@@ -454,10 +446,6 @@
       {
         "description" : "A full-screen video player.",
         "id" : "player"
-      },
-      {
-        "description" : "A grid of video search results.",
-        "id" : "results"
       },
       {
         "description" : "A different or unreadable screen.",

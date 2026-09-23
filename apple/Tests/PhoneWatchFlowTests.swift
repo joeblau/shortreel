@@ -144,7 +144,9 @@ import Foundation
             return try await observe(frame, question)
         }
         try await T.rejects { _ = try await rig.run(workflow: .warmUp, script: script) }
-        try T.expect(rig.actions.last == .typeText("swing trading") && !rig.actions.contains(.swipe(.up)), "Missing query allowed browsing")
+        let afterTyping = rig.actions.drop { $0 != .typeText("swing trading") }.dropFirst()
+        try T.expect(rig.actions.filter { $0 == .typeText("swing trading") }.count == 1 && !rig.actions.contains(.swipe(.up))
+            && !afterTyping.isEmpty && afterTyping.allSatisfy { $0 == .home }, "Missing query allowed browsing instead of restarting from Home")
         rig.actions = []; rig.captures = 0; rig.locatorCalls = 0; asked = 0
         rig.readTextOverride = { frame, platform in
             .init(sourceID: frame.sourceID, capturedAt: frame.capturedAt, platform: platform,
@@ -162,7 +164,9 @@ import Foundation
             question.id == "advance.player.verify" ? "player" : nextScreen().selected
         }
         try await T.rejects { _ = try await rig.run(workflow: .warmUp, script: script) }
-        try T.expect(rig.actions.filter { $0 == .swipe(.up) }.count == 1 && rig.captures == advanceVerify + 2,
+        let afterSwipe = rig.actions.drop { $0 != .swipe(.up) }.dropFirst()
+        try T.expect(rig.actions.filter { $0 == .swipe(.up) }.count == 1 && rig.captures > advanceVerify + 2
+            && afterSwipe.first == .home && afterSwipe.allSatisfy { $0 == .home },
             "An unchanged item was counted or caused a second swipe")
         print("TikTok watch flow passed: account → search → suggestion → results → two watched videos, one swipe")
     }

@@ -293,7 +293,7 @@ extension PhoneTransactionCompiler {
             .init(id: "start", maximumVisits: 3, branches: [
                 branch("home", "The iPhone Home Screen is visible.", nil, "", "launcher", requiredScreens: [.home]),
                 branch("app", "An app or App Switcher is open.", command(.home), "The Home Screen and Dock are visible.", "launcher", expectedScreen: .home, requiredScreens: [.foregroundApp, .appSwitcher]),
-                branch("blocked", "A passcode keypad, lock screen, or system authentication prompt is visible.", nil, "", "$stop")],
+                branch("blocked", "A passcode keypad, lock screen, or system authentication prompt is visible.", nil, "", "$stop", requiredScreens: [.unknown, .dialog])],
                 question: "Which screen is visible on the iPhone?"),
             .init(id: "launcher", maximumVisits: 3, branches: [
                 branch("present", "\(app) icon present", launch, opened, "$done", expectedScreen: .foregroundApp),
