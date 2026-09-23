@@ -51,24 +51,24 @@ enum WarmUpPlaybook {
             [
                 WarmUpPhasePlan(
                     title: "Days 1–3", firstDay: 1, lastDay: 3,
-                    activities: [.scrollFeed, .search, .like, .follow],
-                    maxLikes: 8, maxFollows: 5, maxComments: 0, maxPosts: 0,
+                    activities: [.scrollFeed, .search],
+                    maxLikes: 0, maxFollows: 0, maxComments: 0, maxPosts: 0,
                     allowsDirectMessages: false,
-                    guidance: "Watch each video to completion, then swipe up once to the next video. Search the niche a few times so the feed starts matching it. Like sparingly and follow only a few real accounts. Do not post."
+                    guidance: "Watch only: search the niche, watch each video to completion, then swipe up once to the next video. No likes, follows, comments, or posts."
                 ),
                 WarmUpPhasePlan(
                     title: "Days 4–7", firstDay: 4, lastDay: 7,
-                    activities: [.scrollFeed, .search, .like, .comment, .follow],
-                    maxLikes: 15, maxFollows: 8, maxComments: 3, maxPosts: 1,
+                    activities: [.scrollFeed, .search, .like, .comment],
+                    maxLikes: 15, maxFollows: 0, maxComments: 3, maxPosts: 1,
                     allowsDirectMessages: false,
-                    guidance: "Keep watching most of the session. Add a few genuine comments and more niche follows. If posting, the first video must feel native: vertical, relevant sound, not a hard sell."
+                    guidance: "Keep watching most of the session. Like videos you watched to completion and add a few genuine comments. No follows yet. If posting, the first video must feel native: vertical, relevant sound, not a hard sell."
                 ),
                 WarmUpPhasePlan(
                     title: "Week 2+", firstDay: 8, lastDay: nil,
                     activities: [.scrollFeed, .search, .like, .comment, .follow],
                     maxLikes: 25, maxFollows: 12, maxComments: 6, maxPosts: 2,
                     allowsDirectMessages: false,
-                    guidance: "Look like someone who both watches and creates: keep watching and engaging daily around any posting."
+                    guidance: "Look like someone who both watches and creates: keep watching, liking, commenting, and following real niche accounts daily around any posting."
                 ),
             ]
         case .instagram:
@@ -149,13 +149,16 @@ struct WarmUpConfiguration: Sendable {
     var sessionMinutes = 20
     var itemsToView = 10
     var niche = ""
+    var likeLimit = 0
+    var followLimit = 0
 
     var hasProfile: Bool { !trim(profileName).isEmpty }
 
     var script: WarmUpScript? {
         guard let network = WarmUpScript.Network(rawValue: platform.displayName) else { return nil }
         return try? WarmUpScriptRegistry.script(network: network, activity: activity,
-            itemLimit: activity == .watch ? itemsToView : 1, duration: Double(sessionMinutes) * 60)
+            itemLimit: activity == .watch ? itemsToView : 1, duration: Double(sessionMinutes) * 60,
+            likeLimit: activity == .watch ? likeLimit : 0, followLimit: activity == .watch ? followLimit : 0)
     }
 
     var scriptBrief: String {
@@ -163,10 +166,15 @@ struct WarmUpConfiguration: Sendable {
         Persona: \(trim(profileName)) (@\(normalizedHandle)). \(trim(profileNarrative))
         Platform: \(platform.displayName)
         Account check: \(WarmUpPlaybook.accountLocation(for: platform)) Verify exactly @\(normalizedHandle), ignoring case. Stop on missing/mismatched handle or sign-in. Never sign in, sign out, switch accounts, or enter credentials.
-        Niche: \(trim(niche)). Phase: \(phase.title). Activity: \(activity.title) only. Limit: \(sessionMinutes) minutes, \(activity == .watch ? itemsToView : 1) items. No messages, links, likes, or follows.
+        Niche: \(trim(niche)). Phase: \(phase.title). Activity: \(activity.title) only. Limit: \(sessionMinutes) minutes, \(activity == .watch ? itemsToView : 1) items. \(engagementRule)
         \(activity == .watch ? "Do not comment or publish." : "Publish at most ONE \(activity == .comment ? "comment; do not publish a post" : "post; do not comment").")
         \(contentInstructions.isEmpty ? "" : "\(activity.title) instructions: \(trim(contentInstructions))")
         """
+    }
+
+    private var engagementRule: String {
+        guard activity == .watch, likeLimit + followLimit > 0 else { return "No messages, links, likes, or follows." }
+        return "No messages or links. Only the runner's like and follow steps may engage: at most \(likeLimit) likes and \(followLimit) follows."
     }
 
     var normalizedHandle: String {
@@ -255,5 +263,57 @@ struct WarmUpConfiguration: Sendable {
 
     private func trim(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+struct WarmUpDailySession: Sendable {
+    struct Run: Equatable, Sendable {
+        let activity: WarmUpActivity
+        let script: WarmUpScript
+        let brief: String
+    }
+
+    let day: Int
+    let phase: WarmUpPhasePlan
+    let runs: [Run]
+    let notes: [String]
+
+    static let maximumPostsPerDay = 1
+
+    static func build(_ base: WarmUpConfiguration, day: Int, postInstructions: String = "") -> WarmUpDailySession {
+        var configuration = base
+        configuration.phaseIndex = WarmUpPlaybook.phaseIndex(for: base.platform, day: max(day, 1))
+        let phase = configuration.phase
+        let engages = base.platform == .tikTok
+        configuration.likeLimit = engages ? phase.maxLikes : 0
+        configuration.followLimit = engages ? phase.maxFollows : 0
+        var runs: [Run] = []
+        var notes: [String] = []
+        func add(_ activity: WarmUpActivity, instructions: String = "") {
+            var run = configuration
+            run.activity = activity
+            run.contentInstructions = instructions
+            if let reason = run.validationMessage {
+                notes.append("\(activity.title): \(reason)")
+            } else if let script = run.script {
+                runs.append(.init(activity: activity, script: script, brief: run.scriptBrief))
+            }
+        }
+        add(.watch)
+        for _ in 0..<phase.maxComments { add(.comment) }
+        if phase.allowsPosting {
+            let post = postInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
+            if post.isEmpty {
+                notes.append("Post: add post instructions and media to publish today.")
+            } else {
+                for _ in 0..<min(phase.maxPosts, maximumPostsPerDay) { add(.post, instructions: post) }
+            }
+        }
+        if phase.maxLikes > 0, !engages { notes.append("Likes (up to \(phase.maxLikes)): not automated on \(base.platform.displayName) yet.") }
+        if phase.maxFollows > 0, !engages { notes.append("Follows (up to \(phase.maxFollows)): not automated on \(base.platform.displayName) yet.") }
+        if engages, phase.maxLikes + phase.maxFollows > 0 {
+            notes.append("Watch likes every other finished video (up to \(phase.maxLikes)) and follows every third creator (up to \(phase.maxFollows)).")
+        }
+        return .init(day: max(day, 1), phase: phase, runs: runs, notes: notes)
     }
 }

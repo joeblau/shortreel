@@ -18,7 +18,7 @@ struct WarmUpScript: Codable, Equatable, Sendable {
         case tikTok = "TikTok", instagram = "Instagram", youtube = "YouTube", x = "X"
     }
     enum StepID: String, Codable, Sendable {
-        case account, search, suggestion, open, consume, advance
+        case account, search, suggestion, open, consume, like, follow, advance
         case prepareSubmission, submit, verifySubmission
     }
     struct Step: Identifiable, Codable, Equatable, Sendable {
@@ -32,13 +32,18 @@ struct WarmUpScript: Codable, Equatable, Sendable {
     let activity: WarmUpActivity
     let itemLimit: Int
     let duration: TimeInterval
+    var likeLimit = 0
+    var followLimit = 0
 
-    init(network: Network, activity: WarmUpActivity, itemLimit: Int, duration: TimeInterval, version: Int? = nil) {
+    init(network: Network, activity: WarmUpActivity, itemLimit: Int, duration: TimeInterval, version: Int? = nil,
+         likeLimit: Int = 0, followLimit: Int = 0) {
         self.version = version ?? Self.currentVersion(network: network, activity: activity)
         self.network = network
         self.activity = activity
         self.itemLimit = itemLimit
         self.duration = duration
+        self.likeLimit = likeLimit
+        self.followLimit = followLimit
     }
 
     var identifier: String { "warmup.\(network.rawValue.lowercased()).\(activity.rawValue)" }
@@ -69,9 +74,13 @@ struct WarmUpScript: Codable, Equatable, Sendable {
         guard duration.isFinite, duration > 0, duration <= 3_600 else {
             throw PhonePromptPlanningError.needsClarification("Warm-up duration must be positive and no longer than one hour.")
         }
+        guard (0...50).contains(likeLimit), (0...50).contains(followLimit),
+              likeLimit + followLimit == 0 || (network == .tikTok && activity == .watch) else {
+            throw PhonePromptPlanningError.needsClarification("Likes and follows are available only in TikTok Watch, up to 50 each.")
+        }
     }
 
-    enum CodingKeys: String, CodingKey { case version, network, activity, itemLimit, duration }
+    enum CodingKeys: String, CodingKey { case version, network, activity, itemLimit, duration, likeLimit, followLimit }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         version = try values.decode(Int.self, forKey: .version)
@@ -79,8 +88,23 @@ struct WarmUpScript: Codable, Equatable, Sendable {
         activity = try values.decode(WarmUpActivity.self, forKey: .activity)
         itemLimit = try values.decode(Int.self, forKey: .itemLimit)
         duration = try values.decode(TimeInterval.self, forKey: .duration)
+        likeLimit = try values.decodeIfPresent(Int.self, forKey: .likeLimit) ?? 0
+        followLimit = try values.decodeIfPresent(Int.self, forKey: .followLimit) ?? 0
         try validate()
     }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(version, forKey: .version)
+        try values.encode(network, forKey: .network)
+        try values.encode(activity, forKey: .activity)
+        try values.encode(itemLimit, forKey: .itemLimit)
+        try values.encode(duration, forKey: .duration)
+        if likeLimit > 0 { try values.encode(likeLimit, forKey: .likeLimit) }
+        if followLimit > 0 { try values.encode(followLimit, forKey: .followLimit) }
+    }
+
+    var engages: Bool { likeLimit + followLimit > 0 }
 
     var title: String { "\(network.rawValue) · \(activity.title)" }
     var usesVideo: Bool { network != .x }
@@ -134,6 +158,14 @@ struct WarmUpScript: Codable, Equatable, Sendable {
         if activity == .comment {
             result += submissionSteps
         } else {
+            if likeLimit > 0 {
+                result.append(Step(id: .like, title: "Like video", instruction:
+                    "Tap the outlined heart on the watched video EXACTLY ONCE, then verify it is filled red. Never tap a filled heart or double-tap the video."))
+            }
+            if followLimit > 0 {
+                result.append(Step(id: .follow, title: "Follow creator", instruction:
+                    "Tap the plus badge under the creator's avatar EXACTLY ONCE, then verify it is gone or shows a checkmark. Never open the profile."))
+            }
             result.append(Step(id: .advance, title: usesVideo ? "Next video" : "Next post", instruction: advance))
         }
         return result
@@ -166,6 +198,12 @@ struct WarmUpScriptCursor: Sendable {
     private(set) var advanceSent = false
     private(set) var submissionSent = false
     private(set) var isComplete = false
+    private(set) var likesSent = 0
+    private(set) var followsSent = 0
+    private(set) var engagementSent = false
+
+    var likeDue: Bool { likesSent < script.likeLimit && itemsCompleted % 2 == 1 }
+    var followDue: Bool { followsSent < script.followLimit && itemsCompleted % 3 == 1 }
     var step: WarmUpScript.Step { script.steps[index] }
     var progress: String {
         "\(script.title) · \(isComplete ? "Complete" : step.title)"
@@ -179,7 +217,7 @@ struct WarmUpScriptCursor: Sendable {
         ACTIVE SCRIPT: \(script.title) (\(script.identifier) v\(script.version)). Step \(index + 1)/\(script.steps.count): \(step.title). \(itemsCompleted)/\(script.itemLimit) items completed.
         Execute ONLY this step: \(step.instruction)
         Return finished with visible evidence when THIS STEP is verified, not when the entire session finishes. The runner owns step transitions and item counts. Do not execute future steps. Account verification remains valid after its step; stop if the app changes account or requests sign-in.
-        \(script.activity == .watch ? "Watch only: no likes, follows, comments, messages, or publishing." : "Only the selected activity is authorized: no unrelated engagement, messages, likes, or follows. Publish at most one \(script.activity == .post ? "post" : "comment") in this run.")
+        \(script.activity == .watch ? (script.engages ? "Watch with at most \(script.likeLimit) likes and \(script.followLimit) follows, only in their steps; no comments, messages, or publishing." : "Watch only: no likes, follows, comments, messages, or publishing.") : "Only the selected activity is authorized: no unrelated engagement, messages, likes, or follows. Publish at most one \(script.activity == .post ? "post" : "comment") in this run.")
         \(advanceSent ? "The advance gesture was already sent. Verify the new item now; do not send another gesture. If the transition failed, request input." : "")
         \(step.id == .advance && !advanceSent ? "The previous viewing is already complete. Send action swipe with direction up now; do not tap to pause/resume or mark this step finished before sending the swipe." : "")
         """
@@ -219,6 +257,11 @@ struct WarmUpScriptCursor: Sendable {
         if step.id == .verifySubmission {
             throw PhonePromptPlanningError.needsClarification("Submission was sent. Verify the result without further input; never resubmit an uncertain publication.")
         }
+        if step.id == .like || step.id == .follow {
+            guard !engagementSent, case .tap = action else {
+                throw PhonePromptPlanningError.needsClarification("Engagement sends exactly one tap per item, then verifies it without tapping again.")
+            }
+        }
         if step.id == .advance {
             guard !advanceSent, action == .swipe(.up) else {
                 throw PhonePromptPlanningError.needsClarification("The script needs one upward swipe followed by verification of the next item.")
@@ -247,8 +290,27 @@ struct WarmUpScriptCursor: Sendable {
             return
         }
         if step.id == .advance, action == .swipe(.up) { advanceSent = true }
+        if step.id == .like || step.id == .follow, !engagementSent, case .tap = action {
+            engagementSent = true
+            if step.id == .like { likesSent += 1 } else { followsSent += 1 }
+        }
         if step.id == .submit, !submissionSent, case .tap = action {
             submissionSent = true
+            index += 1
+        }
+    }
+
+    mutating func restart() {
+        guard !submissionSent else { return }
+        index = 0
+        advanceSent = false
+        engagementSent = false
+        isComplete = false
+    }
+
+    private mutating func skipUnscheduledEngagement() {
+        while index < script.steps.count - 1,
+              (step.id == .like && !likeDue) || (step.id == .follow && !followDue) {
             index += 1
         }
     }
@@ -277,8 +339,12 @@ struct WarmUpScriptCursor: Sendable {
                 return
             }
         }
+        engagementSent = false
         if index == script.steps.count - 1 { isComplete = true }
-        else { index += 1 }
+        else {
+            index += 1
+            skipUnscheduledEngagement()
+        }
     }
 }
 
@@ -312,8 +378,10 @@ enum WarmUpScriptRegistry {
     }
 
     static func script(network: WarmUpScript.Network, activity: WarmUpActivity,
-                       itemLimit: Int, duration: TimeInterval, version: Int? = nil) throws -> WarmUpScript {
-        let script = WarmUpScript(network: network, activity: activity, itemLimit: itemLimit, duration: duration, version: version)
+                       itemLimit: Int, duration: TimeInterval, version: Int? = nil,
+                       likeLimit: Int = 0, followLimit: Int = 0) throws -> WarmUpScript {
+        let script = WarmUpScript(network: network, activity: activity, itemLimit: itemLimit, duration: duration, version: version,
+            likeLimit: likeLimit, followLimit: followLimit)
         try script.validate()
         return script
     }

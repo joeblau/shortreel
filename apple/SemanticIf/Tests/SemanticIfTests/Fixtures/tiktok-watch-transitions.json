@@ -8,14 +8,6 @@
         "id" : "home"
       },
       {
-        "description" : "An app or App Switcher is open.",
-        "id" : "app"
-      },
-      {
-        "description" : "A passcode keypad, lock screen, or system authentication prompt is visible.",
-        "id" : "blocked"
-      },
-      {
         "description" : "None of the listed conditions is clearly supported by the current evidence.",
         "id" : "unknown"
       }
@@ -61,7 +53,7 @@
       }
     ],
     "question" : "Which condition is clearly supported by the current screen evidence?",
-    "state" : "TikTok is open in the foreground."
+    "state" : "TikTok’s interface is visible with the For You tab selected."
   },
   {
     "expected" : "profile",
@@ -97,7 +89,7 @@
       }
     ],
     "question" : "Which condition is clearly supported by the current screen evidence?",
-    "state" : "The signed-in account's profile header and @fixture handle are visible."
+    "state" : "TikTok profile page with username and followers."
   },
   {
     "expected" : "profile",
@@ -116,16 +108,12 @@
         "id" : "search"
       },
       {
-        "description" : "A login or sign-up screen.",
-        "id" : "login"
-      },
-      {
         "description" : "None of the listed conditions is clearly supported by the current evidence.",
         "id" : "unknown"
       }
     ],
     "question" : "What kind of screen is this?",
-    "state" : "TikTok profile page with username and followers."
+    "state" : "The signed-in account's profile page is shown with bottom navigation and Profile selected."
   },
   {
     "expected" : "confirmed",
@@ -145,7 +133,7 @@
       }
     ],
     "question" : "Which condition is clearly supported by the current screen evidence?",
-    "state" : "The TikTok video feed is visible."
+    "state" : "TikTok video feed with For You selected and a Search button."
   },
   {
     "expected" : "feed",
@@ -154,10 +142,6 @@
       {
         "description" : "A full-screen video feed.",
         "id" : "feed"
-      },
-      {
-        "description" : "A login or sign-up screen.",
-        "id" : "login"
       },
       {
         "description" : "None of the listed conditions is clearly supported by the current evidence.",
@@ -185,23 +169,19 @@
       }
     ],
     "question" : "Which condition is clearly supported by the current screen evidence?",
-    "state" : "The TikTok search field is visible."
+    "state" : "The TikTok search page shows an empty focused search field with the keyboard visible."
   },
   {
     "expected" : "empty",
     "id" : "search.field",
     "options" : [
       {
-        "description" : "Empty search field with the keyboard visible.",
+        "description" : "Focused search field with only gray placeholder text, keyboard open.",
         "id" : "empty"
       },
       {
-        "description" : "Search field containing text with the keyboard visible.",
+        "description" : "Focused search field containing a typed query, keyboard open.",
         "id" : "text"
-      },
-      {
-        "description" : "Search field with the keyboard hidden.",
-        "id" : "unfocused"
       },
       {
         "description" : "None of the listed conditions is clearly supported by the current evidence.",
@@ -209,7 +189,7 @@
       }
     ],
     "question" : "What is the state of the search field?",
-    "state" : "Empty focused search field with the keyboard visible."
+    "state" : "The TikTok search page shows an empty focused search field with the keyboard visible."
   },
   {
     "expected" : "confirmed",
@@ -229,7 +209,7 @@
       }
     ],
     "question" : "Which condition is clearly supported by the current screen evidence?",
-    "state" : "The search field contains swing trading and suggested searches are visible."
+    "state" : "The search field contains swing trading and search suggestions are listed below it."
   },
   {
     "expected" : "suggestions",
@@ -253,7 +233,7 @@
       }
     ],
     "question" : "What is below the search field?",
-    "state" : "Search suggestions are listed below the search field."
+    "state" : "The search field contains swing trading and search suggestions are listed below it."
   },
   {
     "expected" : "confirmed",
@@ -273,7 +253,7 @@
       }
     ],
     "question" : "Which condition is clearly supported by the current screen evidence?",
-    "state" : "Search results for the selected suggestion are visible."
+    "state" : "Search results for the selected suggestion with the Top tab selected."
   },
   {
     "expected" : "top",
@@ -297,7 +277,7 @@
       }
     ],
     "question" : "What search results are visible?",
-    "state" : "Search results with the Top tab selected."
+    "state" : "Search results for the selected suggestion with the Top tab selected."
   },
   {
     "expected" : "confirmed",
@@ -333,7 +313,7 @@
       }
     ],
     "question" : "What kind of screen is this?",
-    "state" : "A grid of video search results."
+    "state" : "A grid of video search results with the Videos tab selected."
   },
   {
     "expected" : "confirmed",
@@ -448,10 +428,6 @@
         "id" : "player"
       },
       {
-        "description" : "A grid of video search results.",
-        "id" : "results"
-      },
-      {
         "description" : "A different or unreadable screen.",
         "id" : "unknown"
       }
@@ -466,10 +442,6 @@
       {
         "description" : "A full-screen video player.",
         "id" : "player"
-      },
-      {
-        "description" : "A grid of video search results.",
-        "id" : "results"
       },
       {
         "description" : "A different or unreadable screen.",

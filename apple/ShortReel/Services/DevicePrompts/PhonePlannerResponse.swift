@@ -63,11 +63,14 @@ enum PhonePlannerResponse {
             "state": ["type": "string", "enum": ["home", "homeEditing", "appSwitcher", "foregroundApp", "spotlight", "assistiveTouch", "dialog", "unknown"]],
             "appCardsVisible": ["type": "boolean"], "evidence": text,
             "checkEvidence": ["type": ["string", "null"], "maxLength": 180],
+            "keyboardVisible": ["type": ["boolean", "null"]],
             "video": ["anyOf": [object([
                 "creator": text, "caption": text,
                 "progress": ["type": ["number", "null"], "minimum": 0, "maximum": 1],
                 "durationSeconds": ["type": ["number", "null"]],
-                "playing": ["type": ["boolean", "null"]]
+                "playing": ["type": ["boolean", "null"]],
+                "liked": ["type": ["boolean", "null"]],
+                "followButtonVisible": ["type": ["boolean", "null"]]
             ]), ["type": "null"]]]
         ])]
         if !inspectOnly {
@@ -147,7 +150,7 @@ enum PhonePlannerResponse {
 
     private static func screen(_ value: Any?) throws -> PhoneScreenObservation {
         guard let value = value as? [String: Any],
-              Set(value.keys).isSubset(of: ["state", "appCardsVisible", "evidence", "checkEvidence", "video"]),
+              Set(value.keys).isSubset(of: ["state", "appCardsVisible", "evidence", "checkEvidence", "keyboardVisible", "video"]),
               let screen = try? JSONDecoder().decode(PhoneScreenObservation.self, from: JSONSerialization.data(withJSONObject: value)),
               !screen.evidence.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, screen.evidence.count <= 600,
               screen.appCardsVisible == (screen.state == .appSwitcher),

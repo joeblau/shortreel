@@ -231,6 +231,13 @@ final class BluetoothHIDHost: DeviceHost {
     }
 
     private func goHome(on device: DeviceDescriptor) async throws {
+        // Apps that defer the bottom edge (TikTok) treat the first swipe as revealing the home indicator.
+        try await homeSwipe(on: device)
+        try await Task.sleep(for: .milliseconds(250))
+        try await homeSwipe(on: device)
+    }
+
+    private func homeSwipe(on device: DeviceDescriptor) async throws {
         try Task.checkCancellation()
         let start = NormalizedPoint(x: 0.5, y: 0.99)
         let end = NormalizedPoint(x: 0.5, y: 0.01)

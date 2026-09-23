@@ -68,9 +68,10 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
         let next: String
         var expectedScreen: PhoneScreenObservation.State? = nil
         var requiredScreens: [PhoneScreenObservation.State]? = nil
+        var keyboard: Bool? = nil
     }
     struct State: Codable, Equatable, Sendable {
-        enum Check: String, Codable, Sendable { case query, popularVideo, playback, advance }
+        enum Check: String, Codable, Sendable { case query, popularVideo, playback, advance, like, follow }
         let id: String
         let maximumVisits: Int
         let branches: [Branch]
@@ -265,7 +266,9 @@ extension PhoneTransactionCompiler {
         let text = String(decoding: template, as: UTF8.self).replacingOccurrences(of: "{{query}}", with: query)
         let prepared = try JSONDecoder().decode(PhoneTransactionPlan.self, from: Data(text.utf8))
         let plan = PhoneTransactionPlan(version: 1,
-            phases: [try accountPhase(script: script)] + prepared.phases, watchQuery: query)
+            phases: [try accountPhase(script: script)] + prepared.phases.filter { phase in
+                script.steps.contains { $0.id.rawValue == phase.id }
+            }, watchQuery: query)
         try plan.validate(script: script)
         return plan
     }
@@ -293,7 +296,7 @@ extension PhoneTransactionCompiler {
             .init(id: "start", maximumVisits: 3, branches: [
                 branch("home", "The iPhone Home Screen is visible.", nil, "", "launcher", requiredScreens: [.home]),
                 branch("app", "An app or App Switcher is open.", command(.home), "The Home Screen and Dock are visible.", "launcher", expectedScreen: .home, requiredScreens: [.foregroundApp, .appSwitcher]),
-                branch("blocked", "A passcode keypad, lock screen, or system authentication prompt is visible.", nil, "", "$stop")],
+                branch("blocked", "A passcode keypad, lock screen, or system authentication prompt is visible.", nil, "", "$stop", requiredScreens: [.unknown, .dialog])],
                 question: "Which screen is visible on the iPhone?"),
             .init(id: "launcher", maximumVisits: 3, branches: [
                 branch("present", "\(app) icon present", launch, opened, "$done", expectedScreen: .foregroundApp),

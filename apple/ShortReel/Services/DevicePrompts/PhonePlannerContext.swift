@@ -27,10 +27,15 @@ enum PhonePlannerContext {
         Also supply checkEvidence: one short factual sentence (at most 180 characters) answering the
         visual question using the app's UI layout and controls. Omit video subjects, creators, captions,
         engagement counts, OCR transcripts, and task history from checkEvidence. Do not choose a branch.
+        Set keyboardVisible true when the on-screen iOS keyboard is open, false when it is not, null if unsure.
+        State only what IS visible in checkEvidence; never name absent screens or elements (no "not the Home Screen").
         Keep requested numeric readings such as "Heart count: 25.4K" in evidence instead.
         If a full-screen video player is visible, supply video with the exact creator and caption,
         the observed playhead fraction along its progress bar (0...1), readable total duration in seconds,
-        and whether a play/pause control indicates playing. Use null for an unobservable measurement;
+        and whether a play/pause control indicates playing. Set liked true only when the heart button is
+        filled red and false when it is an outlined white heart. Set followButtonVisible true only when a
+        plus (+) follow badge sits under the creator's avatar on the right rail, false when it is absent or a
+        checkmark. Use null for an unobservable measurement;
         never estimate progress from video content or elapsed time. Use empty strings for unreadable
         creator/caption and null video outside a full-screen player. Do not invent timers or identities.
         """

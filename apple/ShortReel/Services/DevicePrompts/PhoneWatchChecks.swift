@@ -4,7 +4,7 @@ enum PhoneWatchChecks {
     static func question(id: String, check: PhoneTransactionPlan.State.Check, evidence: String) -> PhoneTransactionQuestion? {
         let options: [(String, String)]
         switch check {
-        case .query: return nil
+        case .query, .like, .follow: return nil
         case .popularVideo:
             options = [("player", "A full-screen video player."), ("ad", "An advertisement."),
                        ("profile", "A social media profile page."), ("unknown", "A different or unreadable screen.")]
@@ -22,7 +22,7 @@ enum PhoneWatchChecks {
     static func branch(for selected: String?, check: PhoneTransactionPlan.State.Check,
                        evidence: String, duration: Int?, replay: Bool, advanceSent: Bool) -> String? {
         switch check {
-        case .query: return selected
+        case .query, .like, .follow: return selected
         case .popularVideo:
             if selected == "ad" || selected == "profile" { return "opened-account-or-ad" }
             guard selected == "player" else { return nil }
@@ -51,6 +51,14 @@ enum PhoneWatchChecks {
         return value * multiplier
     }
 
+    /// The on-screen keyboard's letter keys, read by local OCR in the lower half of the screen.
+    static func keyboardVisible(in text: PhonePlaybackTracker.Observation) -> Bool {
+        let keys = Set(text.regions.filter { $0.confidence >= 0.5 && $0.bounds.minY >= 0.5 }
+            .flatMap { $0.text.uppercased().split(whereSeparator: \.isWhitespace) }
+            .filter { $0.count == 1 && "QWERTYUIOPASDFGHJKLZXCVBNM".contains($0) })
+        return keys.count >= 8
+    }
+
     static func queryVisible(_ query: String, in text: PhonePlaybackTracker.Observation) -> Bool {
         text.regions.contains {
             $0.confidence >= 0.6 && $0.bounds.minY < 0.25 &&
@@ -67,6 +75,26 @@ enum PhoneWatchChecks {
                   value.hasPrefix("@") || value.split(separator: " ").count >= 3 else { return nil }
             return value
         })
+    }
+}
+
+/// Completion by continuous viewing of one video, for players that show no timer or progress bar.
+struct PhoneWatchDwell {
+    private var identity: Set<String> = []
+    private var since: Date?
+
+    mutating func reset() { identity = []; since = nil }
+
+    /// True once the same video has played continuously for its readable duration, or past `limit` when unreadable.
+    mutating func observe(identity current: Set<String>, playing: Bool?, at date: Date, duration: Int?, limit: Int) -> Bool {
+        guard current.count >= 2 else { reset(); return false }
+        guard current == identity, let since, playing != false else {
+            identity = current
+            since = date
+            return false
+        }
+        let required = Double(duration.map { min($0, limit) } ?? limit) + 2
+        return date.timeIntervalSince(since) >= required
     }
 }
 

@@ -168,8 +168,27 @@ final class PhoneVisualRunner {
         var repeatedInputs = 0
         var playback = PhonePlaybackTracker()
         var visualPlayback = PhoneVideoProgressTracker()
+        var dwell = PhoneWatchDwell()
         var sawReplay = false
         var submission: PhoneSubmissionCheckpoint?
+        var upcoming: (phase: Int, state: String)?
+        var reused: (frame: PhoneScreenFrame, observation: PhoneScreenObservation, text: PhonePlaybackTracker.Observation)?
+        func stateFocus(_ state: PhoneTransactionPlan.State) -> String {
+            state.question ?? "Describe the visible facts relevant to these conditions:\n" + state.branches.map(\.condition).joined(separator: "\n")
+        }
+        func reuseTarget(after branch: PhoneTransactionPlan.Branch) -> (phase: Int, state: String)? {
+            let target: (phase: Int, state: String)
+            if plan.phases[phaseIndex].states.contains(where: { $0.id == branch.next }) {
+                target = (phaseIndex, branch.next)
+            } else if branch.next == "$done", phaseIndex + 1 < plan.phases.count {
+                target = (phaseIndex + 1, plan.phases[phaseIndex + 1].entry)
+            } else { return nil }
+            let next = plan.phases[target.phase]
+            guard !["consume", "advance"].contains(next.id),
+                  let state = next.states.first(where: { $0.id == target.state }),
+                  state.check == nil || state.check == .query else { return nil }
+            return target
+        }
         func recordSubmission(_ status: PhoneSubmissionCheckpoint.State) throws {
             let checkpoint = PhoneSubmissionCheckpoint(state: status,
                 activity: warmUpScript?.activity.rawValue ?? "", updatedAt: Date(),
@@ -181,6 +200,80 @@ final class PhoneVisualRunner {
         func checkpoint(_ status: PhoneTransactionCheckpoint.Status, branch: String? = nil, input: String? = nil) throws {
             try onTransactionCheckpoint(.init(phase: plan.phases[phaseIndex].id, state: stateID,
                 branch: branch, status: status, input: input ?? (status == .verifying ? pendingInput : nil), visits: visits))
+        }
+        var restarts = 0
+        func resetPhase() {
+            stateID = plan.phases[phaseIndex].entry
+            pending = nil
+            pendingInput = nil
+            pendingEvidence = ""
+            pendingIdentity = []
+            verificationAttempts = 0
+            uncertainAttempts = 0
+            visits = [:]
+            recoveryAttempts = [:]
+            phaseVisits = 0
+            phaseStarted = ContinuousClock.now
+            reused = nil
+            playback.reset()
+            visualPlayback.reset()
+            dwell.reset()
+            sawReplay = false
+            after = Date()
+        }
+        func restart(after error: Error, number: Int, frame: PhoneScreenFrame) async throws {
+            if var active = cursor, active.step.id == .like || active.step.id == .follow {
+                let skipped = active.step.title
+                try active.finishStep()
+                cursor = active
+                try onScriptCheckpoint(active.checkpoint)
+                guard !active.isComplete,
+                      let next = plan.phases.firstIndex(where: { $0.id == active.step.id.rawValue }) else { throw error }
+                onStep(.init(id: UUID(), number: number, action: "Skipped \(skipped.lowercased())",
+                    detail: "Engagement is optional and never retapped: \(error.localizedDescription)",
+                    capturedAt: frame.capturedAt, decisionSource: "Semantic If recovery"))
+                phaseIndex = next
+                resetPhase()
+                try checkpoint(.observing)
+                return
+            }
+            guard var active = cursor, restarts < Self.maximumRestarts, submission == nil, !active.submissionSent,
+                  ![.prepareSubmission, .submit, .verifySubmission].contains(active.step.id),
+                  plan.phases.first?.id == WarmUpScript.StepID.account.rawValue else { throw error }
+            restarts += 1
+            onProgress("Restarting from Home…")
+            pendingInput = PhonePromptAction.home.modelInputDescription
+            try checkpoint(.dispatching, branch: "restart", input: pendingInput)
+            onStep(.init(id: UUID(), number: number, action: "Restarting from Home",
+                detail: "Recovery \(restarts) of \(Self.maximumRestarts) after: \(error.localizedDescription) Completed items are kept.",
+                capturedAt: frame.capturedAt, input: .home, decisionSource: "Semantic If recovery"))
+            try await beforeDeadline(deadline) { [self] in try await perform(.home) }
+            active.restart()
+            cursor = active
+            try onScriptCheckpoint(active.checkpoint)
+            phaseIndex = 0
+            stateID = plan.phases[0].entry
+            pending = nil
+            pendingInput = nil
+            pendingEvidence = ""
+            pendingIdentity = []
+            advanceVerified = false
+            verificationAttempts = 0
+            uncertainAttempts = 0
+            visits = [:]
+            recoveryAttempts = [:]
+            phaseVisits = 0
+            phaseStarted = ContinuousClock.now
+            reused = nil
+            previousInput = nil
+            previousPixels = nil
+            repeatedInputs = 0
+            playback.reset()
+            visualPlayback.reset()
+            dwell.reset()
+            sawReplay = false
+            try checkpoint(.observing)
+            after = Date()
         }
         for number in 1...limit {
             try checkAvailability(deadline: deadline)
@@ -196,20 +289,32 @@ final class PhoneVisualRunner {
             }
             try checkAvailability(deadline: operationDeadline)
             try checkpoint(pending == nil ? .observing : .verifying, branch: pending?.id)
-            let requestedAfter = after
-            let frame = try await beforeDeadline(operationDeadline) { [self] in try await capture(requestedAfter) }
-            try validate(frame: frame, after: after, sourceID: source, usedIDs: used)
-            source = frame.sourceID
-            used.insert(frame.id)
-            onProgress(pending == nil ? "Reading the iPhone screen…" : "Checking the result on the iPhone…")
-            let focus = pending.map { "Describe the current evidence for this expected result: \($0.expected)" }
-                ?? (state.question ?? "Describe the visible facts relevant to these conditions:\n" + state.branches.map(\.condition).joined(separator: "\n"))
-            let observation = try await beforeDeadline(operationDeadline) { [self] in
-                if let observe { return try await observe(frame, focus) }
-                return try await inspect(frame)
+            upcoming = pending.flatMap(reuseTarget)
+            var focus = pending.map { "Describe the current evidence for this expected result: \($0.expected)" } ?? stateFocus(state)
+            if let upcoming, let next = plan.phases[upcoming.phase].states.first(where: { $0.id == upcoming.state }) {
+                focus += "\nAlso answer the next check on this same screen, in evidence and checkEvidence: " + stateFocus(next)
             }
-            let platform = warmUpScript?.network.rawValue ?? ""
-            let text = try await beforeDeadline(operationDeadline) { [self] in await readText(frame, platform) }
+            let frame: PhoneScreenFrame
+            let observation: PhoneScreenObservation
+            let text: PhonePlaybackTracker.Observation
+            if let reuse = reused {
+                reused = nil
+                (frame, observation, text) = reuse
+            } else {
+                let requestedAfter = after
+                frame = try await beforeDeadline(operationDeadline) { [self] in try await capture(requestedAfter) }
+                try validate(frame: frame, after: after, sourceID: source, usedIDs: used)
+                source = frame.sourceID
+                used.insert(frame.id)
+                onProgress(pending == nil ? "Reading the iPhone screen…" : "Checking the result on the iPhone…")
+                let request = focus
+                observation = try await beforeDeadline(operationDeadline) { [self] in
+                    if let observe { return try await observe(frame, request) }
+                    return try await inspect(frame)
+                }
+                let platform = warmUpScript?.network.rawValue ?? ""
+                text = try await beforeDeadline(operationDeadline) { [self] in await readText(frame, platform) }
+            }
             try checkAvailability(deadline: operationDeadline)
             try checkFrameAge(frame)
             if let last = steps.indices.last, steps[last].input != nil, steps[last].screenChanged == nil {
@@ -226,7 +331,9 @@ final class PhoneVisualRunner {
             if pending == nil, let screens = state.requiredScreens, !screens.contains(observation.state) {
                 onStep(.init(id: UUID(), number: number, action: "Unexpected screen",
                     detail: "Observed: \(observation.evidence)", capturedAt: frame.capturedAt))
-                throw PhonePromptPlanningError.needsClarification("The screen changed before this workflow step. No input was sent. " + observation.evidence)
+                try await restart(after: PhonePromptPlanningError.needsClarification(
+                    "The screen changed before this workflow step. No input was sent. " + observation.evidence), number: number, frame: frame)
+                continue
             }
             var context = evidence
             var playbackEvidence: PhonePlaybackEvidence?
@@ -241,6 +348,12 @@ final class PhoneVisualRunner {
                     : measured
                 playbackEvidence = result
                 sawReplay = sawReplay || result.replayCandidate
+                if let limit = cursor?.script.maximumVideoDurationSeconds,
+                   dwell.observe(identity: observation.video?.identity ?? PhoneWatchChecks.identity(in: text),
+                       playing: observation.video?.playing, at: frame.capturedAt, duration: result.durationSeconds, limit: limit) {
+                    sawReplay = true
+                    context += "\nPlayback: the same video played continuously past its full length."
+                }
                 context += "\nPlayback: \(result.summary)\nMeasured replay in this step: \(sawReplay)."
             }
             var account: WarmUpAccountDecision?
@@ -282,9 +395,28 @@ final class PhoneVisualRunner {
             } else {
                 let key = "\(phase.id).\(state.id)"
                 visits[key, default: 0] += 1
-                guard visits[key, default: 0] <= state.maximumVisits else { throw PhoneVisionError.limitReached }
+                guard visits[key, default: 0] <= state.maximumVisits else {
+                    try await restart(after: PhoneVisionError.limitReached, number: number, frame: frame)
+                    continue
+                }
+                // Laya matches words, not negation ("not the Home Screen" scores as home, "signed-in" as login),
+                // so only offer branches the structured screen state and on-screen sign-in controls allow.
+                let signInVisible = LayaAccountPrompt.hasSignInControls(text.regions.filter { $0.confidence >= 0.6 }.map(\.text))
+                let engagementState = Self.engagementBranch(check: state.check, video: observation.video)
+                let keyboard = observation.keyboardVisible ?? (PhoneWatchChecks.keyboardVisible(in: text) ? true : nil)
+                let branches = state.branches.filter { branch in
+                    (branch.requiredScreens?.contains(observation.state) ?? true)
+                        && (branch.keyboard == nil || keyboard == nil || branch.keyboard == keyboard)
+                        && (plan.watchQuery == nil || branch.id != "login" || signInVisible)
+                        && (engagementState.map { $0 == branch.id } ?? true)
+                }
+                // Taps toggle likes and follows, so engage only on Codex's explicit structured reading.
+                guard !branches.isEmpty, engagementState != nil || (state.check != .like && state.check != .follow) else {
+                    try await restart(after: PhoneTransactionError.uncertain, number: number, frame: frame)
+                    continue
+                }
                 question = .init(id: key, evidence: context,
-                    options: state.branches.map { .init(id: $0.id, description: $0.condition) }
+                    options: branches.map { .init(id: $0.id, description: $0.condition) }
                         + [.init(id: "unknown", description: "None of the listed conditions is clearly supported by the current evidence.")],
                     question: state.question ?? "Which condition is clearly supported by the current screen evidence?")
             }
@@ -302,6 +434,10 @@ final class PhoneVisualRunner {
             if verifyingWatchPlayback,
                let visualQuestion = PhoneWatchChecks.question(id: question.id, check: .playback, evidence: evidence) {
                 question = visualQuestion
+            }
+            if plan.watchQuery != nil, observation.video != nil, question.options.contains(where: { $0.id == "player" }) {
+                question = .init(id: question.id, evidence: question.evidence,
+                    options: question.options.filter { !["results", "profile"].contains($0.id) }, question: question.question)
             }
             onProgress("Checking the current screen…")
             var selected: String?
@@ -322,6 +458,7 @@ final class PhoneVisualRunner {
             } else {
                 let currentQuestion = question
                 selected = try await beforeDeadline(operationDeadline) { try await classify(currentQuestion) }
+                if let answer = selected, !currentQuestion.options.contains(where: { $0.id == answer }) { selected = nil }
             }
             if pending == nil, let check = state.check {
                 selected = PhoneWatchChecks.branch(for: selected, check: check, evidence: observation.evidence,
@@ -341,6 +478,7 @@ final class PhoneVisualRunner {
                 onStep(step)
             }
             let branch: PhoneTransactionPlan.Branch
+            var verified = false
             if let awaiting = pending {
                 if let query = plan.watchQuery, awaiting.command?.kind == .typeText,
                    awaiting.command?.value == query, !PhoneWatchChecks.queryVisible(query, in: text) {
@@ -353,16 +491,26 @@ final class PhoneVisualRunner {
                         selected = nil
                     } else if selected == "confirmed" { advanceVerified = true }
                 }
+                if Self.engagementBranch(check: state.check, video: observation.video) == awaiting.id { selected = nil }
                 guard selected == "confirmed",
                       awaiting.expectedScreen == nil || awaiting.expectedScreen == observation.state else {
                     recordUnverifiedObservation()
                     verificationAttempts += 1
-                    guard selected != "failed", verificationAttempts < 3 else { throw PhoneTransactionError.uncertain }
+                    if awaiting.command?.kind == .home, observation.state != .home, verificationAttempts < 3 {
+                        try await beforeDeadline(operationDeadline) { [self] in try await perform(.home) }
+                        after = Date()
+                        continue
+                    }
+                    guard selected != "failed", verificationAttempts < 3 else {
+                        try await restart(after: PhoneTransactionError.uncertain, number: number, frame: frame)
+                        continue
+                    }
                     try await beforeDeadline(operationDeadline) { try await Task.sleep(for: .seconds(1)) }
                     after = Date()
                     continue
                 }
                 branch = awaiting
+                verified = true
                 pending = nil
                 pendingInput = nil
                 verificationAttempts = 0
@@ -370,7 +518,10 @@ final class PhoneVisualRunner {
                 guard let selected, selected != "unknown" else {
                     recordUnverifiedObservation()
                     uncertainAttempts += 1
-                    guard uncertainAttempts < 3 else { throw PhoneTransactionError.uncertain }
+                    guard uncertainAttempts < 3 else {
+                        try await restart(after: PhoneTransactionError.uncertain, number: number, frame: frame)
+                        continue
+                    }
                     try await beforeDeadline(operationDeadline) { try await Task.sleep(for: .seconds(1)) }
                     after = Date()
                     continue
@@ -378,7 +529,8 @@ final class PhoneVisualRunner {
                 guard let chosen = state.branches.first(where: { $0.id == selected }) else { throw PhoneTransactionError.invalidPlan }
                 guard chosen.requiredScreens?.contains(observation.state) ?? true else {
                     recordUnverifiedObservation()
-                    throw PhoneTransactionError.uncertain
+                    try await restart(after: PhoneTransactionError.uncertain, number: number, frame: frame)
+                    continue
                 }
                 branch = chosen
                 uncertainAttempts = 0
@@ -389,7 +541,25 @@ final class PhoneVisualRunner {
                             try await decide(command.locatorRequest, frame, [])
                         }
                     }
-                    let action = try command.resolved(using: decision)
+                    let action: PhonePromptAction?
+                    do { action = try command.resolved(using: decision) }
+                    catch {
+                        if state.check == .like || state.check == .follow {
+                            try await restart(after: error, number: number, frame: frame)
+                            continue
+                        }
+                        // The target may not be on screen yet (a splash or loading frame): retry on a fresh frame.
+                        guard error is PhonePromptPlanningError || (error as? PhoneTransactionError) == .invalidLocation else { throw error }
+                        recordUnverifiedObservation()
+                        uncertainAttempts += 1
+                        guard uncertainAttempts < 3 else {
+                            try await restart(after: error, number: number, frame: frame)
+                            continue
+                        }
+                        try await beforeDeadline(operationDeadline) { try await Task.sleep(for: .seconds(1)) }
+                        after = Date()
+                        continue
+                    }
                     try checkAvailability(deadline: operationDeadline)
                     try checkFrameAge(frame)
                     if var action {
@@ -440,6 +610,7 @@ final class PhoneVisualRunner {
                         steps.append(capturedStep)
                         playback.reset()
                         visualPlayback.reset()
+                        dwell.reset()
                         sawReplay = false
                     } else {
                         try await beforeDeadline(operationDeadline) { try await Task.sleep(for: .seconds(command.seconds)) }
@@ -487,12 +658,27 @@ final class PhoneVisualRunner {
                 if cursor?.step.id == .consume { advanceVerified = false }
                 playback.reset()
                 visualPlayback.reset()
+                dwell.reset()
                 sawReplay = false
             } else { stateID = branch.next }
+            if verified, let upcoming, upcoming == (phaseIndex, stateID) {
+                reused = (frame, observation, text)
+            }
             try checkpoint(.observing)
             after = Date()
         }
         throw PhoneVisionError.limitReached
+    }
+
+    static let maximumRestarts = 2
+
+    /// The branch a like/follow state must take according to Codex's structured video fields, if reported.
+    static func engagementBranch(check: PhoneTransactionPlan.State.Check?, video: PhoneScreenObservation.Video?) -> String? {
+        switch check {
+        case .like: video?.liked.map { $0 ? "liked" : "unliked" }
+        case .follow: video?.followButtonVisible.map { $0 ? "available" : "following" }
+        default: nil
+        }
     }
 
     private func checkAvailability(deadline: ContinuousClock.Instant) throws {
