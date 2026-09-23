@@ -14,10 +14,11 @@ enum WarmUpConfigurationTests {
         try everyPlatformNamesWhereTheHandleIs()
         try goalRequiresTheCheckBeforeEngagement()
         try activityLimits()
+        try dailySessionFollowsTheSchedule()
         var generatedPersonality = valid()
         generatedPersonality.profileNarrative = String(repeating: "a", count: 1_000)
         try expect(generatedPersonality.validationMessage == nil, "Playback guidance crowds out a typical generated personality")
-        print("Warm-up configuration tests passed (6 scenarios)")
+        print("Warm-up configuration tests passed (7 scenarios)")
     }
 
     static func activityLimits() throws {
@@ -43,6 +44,34 @@ enum WarmUpConfigurationTests {
         config = valid()
         config.sessionMinutes = 0
         try expect(config.validationMessage != nil, "Zero duration accepted")
+    }
+
+    static func dailySessionFollowsTheSchedule() throws {
+        let base = valid()
+        for day in 1...3 {
+            let session = WarmUpDailySession.build(base, day: day, postInstructions: "Use the Shoot 1 video.")
+            try expect(session.runs.map(\.activity) == [.watch] && session.notes.isEmpty,
+                "TikTok day \(day) should be watch only")
+        }
+        for day in 4...7 {
+            let session = WarmUpDailySession.build(base, day: day, postInstructions: "Use the Shoot 1 video.")
+            try expect(session.runs.map(\.activity) == [.watch, .comment, .comment, .comment, .post],
+                "TikTok day \(day) should watch, comment, then post")
+            try expect(session.phase.maxFollows == 0 && session.notes.contains { $0.hasPrefix("Likes") }
+                && !session.notes.contains { $0.hasPrefix("Follows") }, "Days 4–7 allow likes but not follows")
+        }
+        let later = WarmUpDailySession.build(base, day: 12)
+        try expect(later.runs.first?.activity == .watch && later.runs.filter { $0.activity == .post }.isEmpty
+            && later.notes.contains { $0.hasPrefix("Post:") } && later.notes.contains { $0.hasPrefix("Follows") },
+            "Week 2+ adds follows, and skips posting without instructions")
+        try expect(WarmUpDailySession.build(base, day: 12, postInstructions: "Use the Shoot 2 video.").runs
+            .filter { $0.activity == .post }.count == WarmUpDailySession.maximumPostsPerDay, "More than one post per day")
+        try expect(later.runs.allSatisfy { $0.brief.contains("@maya.shoots") && $0.brief.contains("Phase: Week 2+") },
+            "Daily runs lost the persona handle or phase")
+        var incomplete = base
+        incomplete.niche = ""
+        let blocked = WarmUpDailySession.build(incomplete, day: 5)
+        try expect(blocked.runs.isEmpty && blocked.notes.contains { $0.hasPrefix("Watch:") }, "Invalid configuration queued runs")
     }
 
     static func valid() -> WarmUpConfiguration {

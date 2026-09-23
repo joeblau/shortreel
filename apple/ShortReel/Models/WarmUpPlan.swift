@@ -8,6 +8,8 @@ final class WarmUpPlan {
     var startDate: Date
     var lastSessionMinutes: Int
     var lastItemsToView: Int
+    var postInstructions: String = ""
+    var lastDailySessionAt: Date?
     var persona: Persona?
 
     init(
@@ -28,6 +30,10 @@ final class WarmUpPlan {
 
     var dayIndex: Int {
         max(Calendar.current.dateComponents([.day], from: startDate, to: .now).day ?? 0, 0) + 1
+    }
+
+    var dailySessionQueuedToday: Bool {
+        lastDailySessionAt.map { Calendar.current.isDateInToday($0) } ?? false
     }
 
     var currentPhaseIndex: Int {

@@ -13,6 +13,8 @@ struct DeviceStageView: View {
     @State private var warmUp = WarmUpConfiguration()
     @State private var warmUpPersona: Persona?
     @State private var showAddWarmUpPersona = false
+    @State private var dailySession = false
+    @State private var postInstructions = ""
     @State private var contentType: ContentCreationType = .slideshow
     @State private var slideshow = SlideshowConfiguration()
 
@@ -26,9 +28,16 @@ struct DeviceStageView: View {
                             Label("Warm Up", systemImage: "2.circle")
                                 .font(.headline)
                                 .padding(.horizontal, 12)
+                            stageButton("Today's Session", symbol: "calendar", session: session) {
+                                warmUpActivity = .watch
+                                dailySession = true
+                                editingWorkflow = .warmUp
+                            }
+                            .help("Queue every warm-up run scheduled for this account's day.")
                             ForEach(WarmUpActivity.allCases) { activity in
                                 stageButton(activity.title, symbol: activity.symbol, session: session) {
                                     warmUpActivity = activity
+                                    dailySession = false
                                     editingWorkflow = .warmUp
                                 }
                             }
@@ -101,7 +110,8 @@ struct DeviceStageView: View {
             case .createContent:
                 contentConfiguration(session: session)
             case .warmUp:
-                warmUpConfiguration(session: session)
+                if dailySession { dailySessionConfiguration(session: session) }
+                else { warmUpConfiguration(session: session) }
             case .clearHomeScreen:
                 EmptyView()
             }
@@ -164,6 +174,7 @@ struct DeviceStageView: View {
         warmUp.profileName = persona.displayName
         warmUp.profileHandle = persona.handle
         warmUp.profileNarrative = persona.narrative
+        postInstructions = warmUpPlan(for: persona, platform: warmUp.platform)?.postInstructions ?? ""
         if let plan = warmUpPlan(for: persona, platform: warmUp.platform) {
             warmUp.phaseIndex = plan.currentPhaseIndex
             warmUp.sessionMinutes = plan.lastSessionMinutes
@@ -194,22 +205,7 @@ struct DeviceStageView: View {
             .padding(24)
 
             Form {
-                Section("Agent profile") {
-                    Picker("Profile", selection: $warmUpPersona) {
-                        Text("None").tag(Persona?.none)
-                        ForEach(personas.filter { $0.isLive && $0.isActive }, id: \.persistentModelID) { persona in
-                            Text("\(persona.displayName) (@\(persona.handle))").tag(Persona?.some(persona))
-                        }
-                    }
-                    .onChange(of: warmUpPersona) { _, _ in applyWarmUpDefaults() }
-                    Button("Add Persona…") { showAddWarmUpPersona = true }
-                    if let persona = warmUpPersona {
-                        Text(persona.narrative)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(3)
-                    }
-                }
+                agentProfileSection
 
                 Section {
                     Picker("Platform", selection: $warmUp.platform) {
@@ -323,21 +319,128 @@ struct DeviceStageView: View {
         }
     }
 
-    private func saveWarmUpPlan(for persona: Persona) {
-        if let plan = warmUpPlan(for: persona, platform: warmUp.platform) {
-            plan.niche = warmUp.niche
-            plan.lastSessionMinutes = warmUp.sessionMinutes
-            plan.lastItemsToView = warmUp.itemsToView
-        } else {
-            modelContext.insert(WarmUpPlan(
-                platform: warmUp.platform,
-                niche: warmUp.niche,
-                lastSessionMinutes: warmUp.sessionMinutes,
-                lastItemsToView: warmUp.itemsToView,
-                persona: persona
-            ))
+    private var agentProfileSection: some View {
+        Section("Agent profile") {
+            Picker("Profile", selection: $warmUpPersona) {
+                Text("None").tag(Persona?.none)
+                ForEach(personas.filter { $0.isLive && $0.isActive }, id: \.persistentModelID) { persona in
+                    Text("\(persona.displayName) (@\(persona.handle))").tag(Persona?.some(persona))
+                }
+            }
+            .onChange(of: warmUpPersona) { _, _ in applyWarmUpDefaults() }
+            Button("Add Persona…") { showAddWarmUpPersona = true }
+            if let persona = warmUpPersona {
+                Text(persona.narrative)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
         }
+    }
+
+    private var dailyPlan: WarmUpDailySession {
+        let day = warmUpPersona.flatMap { warmUpPlan(for: $0, platform: warmUp.platform) }?.dayIndex ?? 1
+        return WarmUpDailySession.build(warmUp, day: day, postInstructions: postInstructions)
+    }
+
+    private func dailySessionConfiguration(session: DevicePromptSession) -> some View {
+        let daily = dailyPlan
+        let queuedToday = warmUpPersona.flatMap { warmUpPlan(for: $0, platform: warmUp.platform) }?.dailySessionQueuedToday ?? false
+        return VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Today's Session").font(.title2.bold())
+                Text("Day \(daily.day) · \(daily.phase.title) on \(device.name).")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(24)
+
+            Form {
+                agentProfileSection
+                Section("Session") {
+                    Stepper(value: $warmUp.sessionMinutes, in: 5...60, step: 5) {
+                        LabeledContent("Watch minutes", value: "\(warmUp.sessionMinutes)").monospacedDigit()
+                    }
+                    Stepper(value: $warmUp.itemsToView, in: 3...50) {
+                        LabeledContent("Videos to watch", value: "\(warmUp.itemsToView)").monospacedDigit()
+                    }
+                    TextField("Niche", text: $warmUp.niche,
+                              prompt: Text("What this persona browses, e.g. street photography"))
+                    if daily.phase.allowsPosting {
+                        TextField("Post instructions and media", text: $postInstructions, axis: .vertical)
+                            .lineLimit(2...4)
+                        Text("Used for one post, then cleared so the same media is never posted twice.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Section {
+                    ForEach(Array(daily.runs.enumerated()), id: \.offset) { index, run in
+                        Label(run.script.title, systemImage: "\(index + 1).circle").font(.callout)
+                    }
+                    ForEach(daily.notes, id: \.self) { note in
+                        Text(note).font(.caption).foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Label("Runs", systemImage: "list.number")
+                } footer: {
+                    Text(daily.phase.guidance)
+                }
+            }
+            .formStyle(.grouped)
+
+            Divider()
+            VStack(alignment: .leading, spacing: 12) {
+                if queuedToday {
+                    Text("Today's session was already queued for this persona.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if let reason = unavailableReason(session) {
+                    Text(reason).font(.caption).foregroundStyle(.secondary)
+                }
+                HStack {
+                    Button("Cancel", role: .cancel) { editingWorkflow = nil }
+                        .keyboardShortcut(.cancelAction)
+                    Spacer()
+                    Button("Queue \(daily.runs.count) run\(daily.runs.count == 1 ? "" : "s")\(queuedToday ? " again" : "")") {
+                        guard !daily.runs.isEmpty, unavailableReason(session) == nil, let persona = warmUpPersona else { return }
+                        let plan = saveWarmUpPlan(for: persona)
+                        deviceManager.prepareVisionProvider()
+                        for run in daily.runs {
+                            session.submit(workflow: .warmUp, details: run.brief, warmUpScript: run.script)
+                        }
+                        plan.lastDailySessionAt = .now
+                        if daily.runs.contains(where: { $0.activity == .post }) { plan.postInstructions = "" }
+                        try? modelContext.save()
+                        editingWorkflow = nil
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(daily.runs.isEmpty || unavailableReason(session) != nil)
+                }
+            }
+            .padding(24)
+        }
+        .frame(width: 540, height: 660)
+        .onAppear(perform: prepareWarmUp)
+        .sheet(isPresented: $showAddWarmUpPersona) {
+            AddPersonaView { persona in
+                warmUpPersona = persona
+                applyWarmUpDefaults()
+            }
+        }
+    }
+
+    @discardableResult
+    private func saveWarmUpPlan(for persona: Persona) -> WarmUpPlan {
+        let plan = warmUpPlan(for: persona, platform: warmUp.platform) ?? {
+            let plan = WarmUpPlan(platform: warmUp.platform, persona: persona)
+            modelContext.insert(plan)
+            return plan
+        }()
+        plan.niche = warmUp.niche
+        plan.lastSessionMinutes = warmUp.sessionMinutes
+        plan.lastItemsToView = warmUp.itemsToView
+        if dailySession { plan.postInstructions = postInstructions }
         try? modelContext.save()
+        return plan
     }
 
     private func contentConfiguration(session: DevicePromptSession) -> some View {
