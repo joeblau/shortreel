@@ -78,6 +78,26 @@ enum PhoneWatchChecks {
     }
 }
 
+/// Completion by continuous viewing of one video, for players that show no timer or progress bar.
+struct PhoneWatchDwell {
+    private var identity: Set<String> = []
+    private var since: Date?
+
+    mutating func reset() { identity = []; since = nil }
+
+    /// True once the same video has played continuously for its readable duration, or past `limit` when unreadable.
+    mutating func observe(identity current: Set<String>, playing: Bool?, at date: Date, duration: Int?, limit: Int) -> Bool {
+        guard current.count >= 2 else { reset(); return false }
+        guard current == identity, let since, playing != false else {
+            identity = current
+            since = date
+            return false
+        }
+        let required = Double(duration.map { min($0, limit) } ?? limit) + 2
+        return date.timeIntervalSince(since) >= required
+    }
+}
+
 struct PhoneVideoProgressTracker {
     private var previous: (video: PhoneScreenObservation.Video, date: Date)?
     private var advanced = false

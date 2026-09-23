@@ -301,6 +301,50 @@ import Foundation
             && recovered.questions.contains { $0.id == "suggestion.start" },
             "An uncertain search did not restart from Home, re-verify the account, and continue past search")
 
+        let splash = T.Rig(); splash.plan = plan(account)
+        splash.observeOverride = { _, _ in
+            let home = splash.actions.isEmpty
+            return .init(state: home ? .home : .foregroundApp, appCardsVisible: false,
+                evidence: home ? "Home Screen with TikTok in the Dock." : "TikTok is open.")
+        }
+        var profileLookups = 0
+        splash.locate = { request, _, _ in
+            guard request.contains("Profile tab") else { return .action(.tap(0.5, 0.5), reason: "Located") }
+            profileLookups += 1
+            return profileLookups == 1 ? .needsInput("The Profile tab is not visible; the screen shows the TikTok splash logo.")
+                : .action(.tap(0.9, 0.95), reason: "Located")
+        }
+        splash.classifyOverride = { question in
+            if question.id.hasSuffix(".verify") { return "confirmed" }
+            switch question.id {
+            case "account.start": return "home"
+            case "account.launcher": return "present"
+            case "account.profile": return "profile"
+            default: throw CancellationError()
+            }
+        }
+        try await T.rejects { _ = try await splash.run(workflow: .warmUp, script: script) }
+        try T.expect(profileLookups == 2 && splash.actions.prefix(2) == [.tap(0.5, 0.5), .tap(0.9, 0.95)]
+            && splash.questions.contains { $0.id == "search.start" },
+            "A locator miss on a splash frame stopped the run instead of retrying on a fresh frame")
+
+        var dwell = PhoneWatchDwell()
+        let start = Date(), video: Set = ["creator:@one", "caption:setup"]
+        try T.expect(!dwell.observe(identity: video, playing: true, at: start, duration: nil, limit: 60)
+            && !dwell.observe(identity: video, playing: true, at: start + 40, duration: nil, limit: 60)
+            && dwell.observe(identity: video, playing: true, at: start + 63, duration: nil, limit: 60),
+            "An unmeasurable video was not completed after playing past the duration limit")
+        dwell.reset()
+        _ = dwell.observe(identity: video, playing: true, at: start, duration: 15, limit: 60)
+        try T.expect(dwell.observe(identity: video, playing: true, at: start + 18, duration: 15, limit: 60),
+            "A readable 15-second video was not completed after 18 seconds")
+        dwell.reset()
+        _ = dwell.observe(identity: video, playing: true, at: start, duration: nil, limit: 60)
+        _ = dwell.observe(identity: video, playing: false, at: start + 30, duration: nil, limit: 60)
+        try T.expect(!dwell.observe(identity: video, playing: true, at: start + 63, duration: nil, limit: 60)
+            && !dwell.observe(identity: ["creator:@two", "caption:other"], playing: true, at: start + 200, duration: nil, limit: 60),
+            "Paused time or a different video counted toward completion")
+
         let failedSearch = T.Rig(); failedSearch.plan = plan(account); failedSearch.accountOutcome = .unreadable
         failedSearch.classifyOverride = { question in
             if question.id.hasSuffix(".verify") { return "confirmed" }

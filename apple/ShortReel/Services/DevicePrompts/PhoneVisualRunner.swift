@@ -168,6 +168,7 @@ final class PhoneVisualRunner {
         var repeatedInputs = 0
         var playback = PhonePlaybackTracker()
         var visualPlayback = PhoneVideoProgressTracker()
+        var dwell = PhoneWatchDwell()
         var sawReplay = false
         var submission: PhoneSubmissionCheckpoint?
         var upcoming: (phase: Int, state: String)?
@@ -216,6 +217,7 @@ final class PhoneVisualRunner {
             reused = nil
             playback.reset()
             visualPlayback.reset()
+            dwell.reset()
             sawReplay = false
             after = Date()
         }
@@ -268,6 +270,7 @@ final class PhoneVisualRunner {
             repeatedInputs = 0
             playback.reset()
             visualPlayback.reset()
+            dwell.reset()
             sawReplay = false
             try checkpoint(.observing)
             after = Date()
@@ -345,6 +348,12 @@ final class PhoneVisualRunner {
                     : measured
                 playbackEvidence = result
                 sawReplay = sawReplay || result.replayCandidate
+                if let limit = cursor?.script.maximumVideoDurationSeconds,
+                   dwell.observe(identity: observation.video?.identity ?? PhoneWatchChecks.identity(in: text),
+                       playing: observation.video?.playing, at: frame.capturedAt, duration: result.durationSeconds, limit: limit) {
+                    sawReplay = true
+                    context += "\nPlayback: the same video played continuously past its full length."
+                }
                 context += "\nPlayback: \(result.summary)\nMeasured replay in this step: \(sawReplay)."
             }
             var account: WarmUpAccountDecision?
@@ -535,8 +544,20 @@ final class PhoneVisualRunner {
                     let action: PhonePromptAction?
                     do { action = try command.resolved(using: decision) }
                     catch {
-                        guard state.check == .like || state.check == .follow else { throw error }
-                        try await restart(after: error, number: number, frame: frame)
+                        if state.check == .like || state.check == .follow {
+                            try await restart(after: error, number: number, frame: frame)
+                            continue
+                        }
+                        // The target may not be on screen yet (a splash or loading frame): retry on a fresh frame.
+                        guard error is PhonePromptPlanningError || (error as? PhoneTransactionError) == .invalidLocation else { throw error }
+                        recordUnverifiedObservation()
+                        uncertainAttempts += 1
+                        guard uncertainAttempts < 3 else {
+                            try await restart(after: error, number: number, frame: frame)
+                            continue
+                        }
+                        try await beforeDeadline(operationDeadline) { try await Task.sleep(for: .seconds(1)) }
+                        after = Date()
                         continue
                     }
                     try checkAvailability(deadline: operationDeadline)
@@ -589,6 +610,7 @@ final class PhoneVisualRunner {
                         steps.append(capturedStep)
                         playback.reset()
                         visualPlayback.reset()
+                        dwell.reset()
                         sawReplay = false
                     } else {
                         try await beforeDeadline(operationDeadline) { try await Task.sleep(for: .seconds(command.seconds)) }
@@ -636,6 +658,7 @@ final class PhoneVisualRunner {
                 if cursor?.step.id == .consume { advanceVerified = false }
                 playback.reset()
                 visualPlayback.reset()
+                dwell.reset()
                 sawReplay = false
             } else { stateID = branch.next }
             if verified, let upcoming, upcoming == (phaseIndex, stateID) {
