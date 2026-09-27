@@ -2,86 +2,79 @@
  "platform": "Instagram",
  "handle": "janedoe",
  "outcome": "unreadable",
+ "ownProfile": true,
  "regions": [
+  {
+   "text": "9:41",
+   "confidence": 0.95,
+   "x": 0.11,
+   "y": 0.02,
+   "width": 0.1,
+   "height": 0.019
+  },
+  {
+   "text": "jan3do3 ⌄",
+   "confidence": 0.41,
+   "x": 0.3,
+   "y": 0.065,
+   "width": 0.25,
+   "height": 0.03
+  },
   {
    "text": "Jane Doe",
    "confidence": 0.95,
    "x": 0.3,
-   "y": 0.2,
-   "width": 0.3,
-   "height": 0.03
-  },
-  {
-   "text": "Edit profile",
-   "confidence": 0.95,
-   "x": 0.28,
-   "y": 0.34,
-   "width": 0.3,
-   "height": 0.03
-  },
-  {
-   "text": "Jane  Doe",
-   "confidence": 0.95,
-   "x": 0.31,
-   "y": 0.165,
+   "y": 0.13,
    "width": 0.3,
    "height": 0.03
   },
   {
    "text": "12 posts",
    "confidence": 0.95,
-   "x": 0.16,
-   "y": 0.27,
-   "width": 0.3,
+   "x": 0.3,
+   "y": 0.17,
+   "width": 0.12,
    "height": 0.03
   },
   {
    "text": "348 followers",
    "confidence": 0.95,
-   "x": 0.42,
-   "y": 0.27,
-   "width": 0.3,
+   "x": 0.46,
+   "y": 0.17,
+   "width": 0.2,
    "height": 0.03
   },
   {
    "text": "121 following",
    "confidence": 0.95,
-   "x": 0.68,
-   "y": 0.27,
-   "width": 0.3,
+   "x": 0.7,
+   "y": 0.17,
+   "width": 0.2,
+   "height": 0.03
+  },
+  {
+   "text": "Coffee, film, and long walks",
+   "confidence": 0.95,
+   "x": 0.05,
+   "y": 0.24,
+   "width": 0.6,
+   "height": 0.03
+  },
+  {
+   "text": "Edit profile",
+   "confidence": 0.95,
+   "x": 0.1,
+   "y": 0.3,
+   "width": 0.35,
    "height": 0.03
   },
   {
    "text": "Share profile",
    "confidence": 0.95,
-   "x": 0.62,
-   "y": 0.34,
-   "width": 0.3,
+   "x": 0.52,
+   "y": 0.3,
+   "width": 0.35,
    "height": 0.03
-  },
-  {
-   "text": "Home",
-   "confidence": 0.95,
-   "x": 0.06,
-   "y": 0.94,
-   "width": 0.12,
-   "height": 0.025
-  },
-  {
-   "text": "Reels",
-   "confidence": 0.95,
-   "x": 0.45,
-   "y": 0.94,
-   "width": 0.12,
-   "height": 0.025
-  },
-  {
-   "text": "Profile",
-   "confidence": 0.95,
-   "x": 0.88,
-   "y": 0.94,
-   "width": 0.12,
-   "height": 0.025
   }
  ]
 }

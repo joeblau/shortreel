@@ -1,0 +1,358 @@
+[
+  {
+    "id": "account.launcher.verify",
+    "state": "TikTok displays its For You video feed, with engagement controls on the right and Home, Friends, create, Inbox, and Profile navigation below.",
+    "question": "Which condition is clearly supported by the current screen evidence?",
+    "options": [
+      {
+        "description": "The TikTok app is open in the foreground.",
+        "id": "confirmed"
+      },
+      {
+        "description": "The expected result is not yet visible, or is ambiguous.",
+        "id": "pending"
+      },
+      {
+        "description": "The input failed or an error or unexpected screen is visible.",
+        "id": "failed"
+      }
+    ],
+    "expected": "confirmed",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-031658-920-warmup.tiktok.watch/0003.json"
+  },
+  {
+    "id": "search.feed.verify",
+    "state": "The search page has a top search field with a visible insertion caret and an open iOS keyboard, indicating the field is focused.",
+    "question": "Which condition is clearly supported by the current screen evidence?",
+    "options": [
+      {
+        "description": "A search page with a search field at the top.",
+        "id": "confirmed"
+      },
+      {
+        "description": "The expected result is not yet visible, or is ambiguous.",
+        "id": "pending"
+      },
+      {
+        "description": "The input failed or an error or unexpected screen is visible.",
+        "id": "failed"
+      }
+    ],
+    "expected": "confirmed",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034014-376-warmup.tiktok.watch/0007.json"
+  },
+  {
+    "id": "account.profile.verify",
+    "state": "TikTok shows a focused search field, recent-search rows with remove controls, a recommendation section, and the open iOS keyboard.",
+    "question": "Which condition is clearly supported by the current screen evidence?",
+    "options": [
+      {
+        "description": "Another TikTok page is visible.",
+        "id": "confirmed"
+      },
+      {
+        "description": "The expected result is not yet visible, or is ambiguous.",
+        "id": "pending"
+      },
+      {
+        "description": "The input failed or an error or unexpected screen is visible.",
+        "id": "failed"
+      }
+    ],
+    "expected": "confirmed",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034014-376-warmup.tiktok.watch/0016.json"
+  },
+  {
+    "id": "account.profile.verify",
+    "state": "TikTok's For You feed shows a full-screen video, right-side engagement controls, and bottom navigation with Home selected.",
+    "question": "Which condition is clearly supported by the current screen evidence?",
+    "options": [
+      {
+        "description": "Another TikTok page is visible.",
+        "id": "confirmed"
+      },
+      {
+        "description": "The expected result is not yet visible, or is ambiguous.",
+        "id": "pending"
+      },
+      {
+        "description": "The input failed or an error or unexpected screen is visible.",
+        "id": "failed"
+      }
+    ],
+    "expected": "confirmed",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034014-376-warmup.tiktok.watch/0018.json"
+  },
+  {
+    "id": "search.feed.verify",
+    "state": "The search page has a top search field with a visible insertion caret and the iOS keyboard open, indicating the field is focused.",
+    "question": "Which condition is clearly supported by the current screen evidence?",
+    "options": [
+      {
+        "description": "A search page with a search field at the top.",
+        "id": "confirmed"
+      },
+      {
+        "description": "The expected result is not yet visible, or is ambiguous.",
+        "id": "pending"
+      },
+      {
+        "description": "The input failed or an error or unexpected screen is visible.",
+        "id": "failed"
+      }
+    ],
+    "expected": "confirmed",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034014-376-warmup.tiktok.watch/0025.json"
+  },
+  {
+    "id": "account.profile.verify",
+    "state": "TikTok shows a focused search field, search-history rows, a You may like section, Voice and Ask Tako controls, and the open iOS keyboard.",
+    "question": "Which condition is clearly supported by the current screen evidence?",
+    "options": [
+      {
+        "description": "Another TikTok page is visible.",
+        "id": "confirmed"
+      },
+      {
+        "description": "The expected result is not yet visible, or is ambiguous.",
+        "id": "pending"
+      },
+      {
+        "description": "The input failed or an error or unexpected screen is visible.",
+        "id": "failed"
+      }
+    ],
+    "expected": "confirmed",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034014-376-warmup.tiktok.watch/0034.json"
+  },
+  {
+    "id": "account.profile.verify",
+    "state": "TikTok shows the For You video feed with top category tabs, a right-side interaction rail, and bottom navigation with Home selected.",
+    "question": "Which condition is clearly supported by the current screen evidence?",
+    "options": [
+      {
+        "description": "Another TikTok page is visible.",
+        "id": "confirmed"
+      },
+      {
+        "description": "The expected result is not yet visible, or is ambiguous.",
+        "id": "pending"
+      },
+      {
+        "description": "The input failed or an error or unexpected screen is visible.",
+        "id": "failed"
+      }
+    ],
+    "expected": "confirmed",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034014-376-warmup.tiktok.watch/0036.json"
+  },
+  {
+    "id": "search.feed.verify",
+    "state": "The search page has a search field at the top with a visible insertion caret and the iOS keyboard open, indicating the field is focused.",
+    "question": "Which condition is clearly supported by the current screen evidence?",
+    "options": [
+      {
+        "description": "A search page with a search field at the top.",
+        "id": "confirmed"
+      },
+      {
+        "description": "The expected result is not yet visible, or is ambiguous.",
+        "id": "pending"
+      },
+      {
+        "description": "The input failed or an error or unexpected screen is visible.",
+        "id": "failed"
+      }
+    ],
+    "expected": "confirmed",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034014-376-warmup.tiktok.watch/0043.json"
+  },
+  {
+    "id": "account.profile.verify",
+    "state": "TikTok shows a focused search field, recent-search rows, a You may like section, Voice and Ask Tako controls, and the open iOS keyboard.",
+    "question": "Which condition is clearly supported by the current screen evidence?",
+    "options": [
+      {
+        "description": "Another TikTok page is visible.",
+        "id": "confirmed"
+      },
+      {
+        "description": "The expected result is not yet visible, or is ambiguous.",
+        "id": "pending"
+      },
+      {
+        "description": "The input failed or an error or unexpected screen is visible.",
+        "id": "failed"
+      }
+    ],
+    "expected": "confirmed",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034649-177-warmup.tiktok.watch/0003.json"
+  },
+  {
+    "id": "account.profile.verify",
+    "state": "TikTok’s For You feed displays a full-screen video, right-side interaction controls, and bottom navigation with Home selected.",
+    "question": "Which condition is clearly supported by the current screen evidence?",
+    "options": [
+      {
+        "description": "Another TikTok page is visible.",
+        "id": "confirmed"
+      },
+      {
+        "description": "The expected result is not yet visible, or is ambiguous.",
+        "id": "pending"
+      },
+      {
+        "description": "The input failed or an error or unexpected screen is visible.",
+        "id": "failed"
+      }
+    ],
+    "expected": "confirmed",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034649-177-warmup.tiktok.watch/0005.json"
+  },
+  {
+    "id": "search.feed.verify",
+    "state": "The search page has a search field at the top. A visible insertion caret in the field and the open iOS keyboard show it is focused.",
+    "question": "Which condition is clearly supported by the current screen evidence?",
+    "options": [
+      {
+        "description": "A search page with a search field at the top.",
+        "id": "confirmed"
+      },
+      {
+        "description": "The expected result is not yet visible, or is ambiguous.",
+        "id": "pending"
+      },
+      {
+        "description": "The input failed or an error or unexpected screen is visible.",
+        "id": "failed"
+      }
+    ],
+    "expected": "confirmed",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034649-177-warmup.tiktok.watch/0012.json"
+  },
+  {
+    "id": "suggestion.suggestions",
+    "state": "Below the search field is a vertical list of suggested searches with history or magnifying-glass icons; the iOS keyboard is open underneath.",
+    "question": "What is below the search field?",
+    "options": [
+      {
+        "description": "Rows of suggested searches.",
+        "id": "suggestions"
+      },
+      {
+        "description": "A spinner or loading indicator.",
+        "id": "spinner"
+      },
+      {
+        "description": "An empty white area.",
+        "id": "empty"
+      },
+      {
+        "description": "None of the listed conditions is clearly supported by the current evidence.",
+        "id": "unknown"
+      }
+    ],
+    "expected": "suggestions",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034649-177-warmup.tiktok.watch/0017.json"
+  },
+  {
+    "id": "open.player0",
+    "state": "A video player is open with a right-side engagement rail, creator follow badge, search bar, and bottom comment field.",
+    "question": "What is visible on the screen?",
+    "options": [
+      {
+        "description": "A full-screen video player.",
+        "id": "player"
+      },
+      {
+        "description": "An advertisement.",
+        "id": "ad"
+      },
+      {
+        "description": "A LIVE stream with viewers and gifts.",
+        "id": "live"
+      },
+      {
+        "description": "A different or unreadable screen.",
+        "id": "unknown"
+      }
+    ],
+    "expected": "player",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034649-177-warmup.tiktok.watch/0024.json"
+  },
+  {
+    "id": "open.player1",
+    "state": "A full-screen video is open with a right-side heart, comment, bookmark, and share rail and a bottom comment field.",
+    "question": "What is visible on the screen?",
+    "options": [
+      {
+        "description": "A full-screen video player.",
+        "id": "player"
+      },
+      {
+        "description": "An advertisement.",
+        "id": "ad"
+      },
+      {
+        "description": "A LIVE stream with viewers and gifts.",
+        "id": "live"
+      },
+      {
+        "description": "A different or unreadable screen.",
+        "id": "unknown"
+      }
+    ],
+    "expected": "player",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034649-177-warmup.tiktok.watch/0028.json"
+  },
+  {
+    "id": "open.player2",
+    "state": "A full-screen video is open with a right-side avatar, heart, comment, bookmark, and share rail, plus a bottom comment field.",
+    "question": "What is visible on the screen?",
+    "options": [
+      {
+        "description": "A full-screen video player.",
+        "id": "player"
+      },
+      {
+        "description": "An advertisement.",
+        "id": "ad"
+      },
+      {
+        "description": "A LIVE stream with viewers and gifts.",
+        "id": "live"
+      },
+      {
+        "description": "A different or unreadable screen.",
+        "id": "unknown"
+      }
+    ],
+    "expected": "player",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034649-177-warmup.tiktok.watch/0032.json"
+  },
+  {
+    "id": "open.player3",
+    "state": "A full-screen video is open with a right-side heart, comment, bookmark, and share rail, a bottom progress bar, and an Add comment field.",
+    "question": "What is visible on the screen?",
+    "options": [
+      {
+        "description": "A full-screen video player.",
+        "id": "player"
+      },
+      {
+        "description": "An advertisement.",
+        "id": "ad"
+      },
+      {
+        "description": "A LIVE stream with viewers and gifts.",
+        "id": "live"
+      },
+      {
+        "description": "A different or unreadable screen.",
+        "id": "unknown"
+      }
+    ],
+    "expected": "player",
+    "note": "live SR1 @toptopnonstop99 2026-09-27 20260927-034649-177-warmup.tiktok.watch/0037.json"
+  }
+]

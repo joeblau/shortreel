@@ -2,6 +2,7 @@
  "platform": "YouTube",
  "handle": "janedoe",
  "outcome": "matches",
+ "ownProfile": true,
  "regions": [
   {
    "text": "Jane Doe",

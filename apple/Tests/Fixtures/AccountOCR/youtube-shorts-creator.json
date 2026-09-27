@@ -1,0 +1,120 @@
+{
+ "platform": "YouTube",
+ "handle": "janedoe",
+ "outcome": "unreadable",
+ "ownProfile": false,
+ "regions": [
+  {
+   "text": "9:41",
+   "confidence": 0.95,
+   "x": 0.11,
+   "y": 0.02,
+   "width": 0.1,
+   "height": 0.019
+  },
+  {
+   "text": "12K",
+   "confidence": 0.95,
+   "x": 0.87,
+   "y": 0.5,
+   "width": 0.08,
+   "height": 0.03
+  },
+  {
+   "text": "Dislike",
+   "confidence": 0.95,
+   "x": 0.85,
+   "y": 0.58,
+   "width": 0.12,
+   "height": 0.03
+  },
+  {
+   "text": "184",
+   "confidence": 0.95,
+   "x": 0.87,
+   "y": 0.66,
+   "width": 0.08,
+   "height": 0.03
+  },
+  {
+   "text": "Share",
+   "confidence": 0.95,
+   "x": 0.86,
+   "y": 0.74,
+   "width": 0.1,
+   "height": 0.03
+  },
+  {
+   "text": "Remix",
+   "confidence": 0.95,
+   "x": 0.86,
+   "y": 0.8,
+   "width": 0.1,
+   "height": 0.03
+  },
+  {
+   "text": "@streeteats",
+   "confidence": 0.95,
+   "x": 0.12,
+   "y": 0.8,
+   "width": 0.25,
+   "height": 0.03
+  },
+  {
+   "text": "Subscribe",
+   "confidence": 0.95,
+   "x": 0.4,
+   "y": 0.8,
+   "width": 0.18,
+   "height": 0.03
+  },
+  {
+   "text": "Crispy pork belly at the night market #shorts",
+   "confidence": 0.95,
+   "x": 0.04,
+   "y": 0.84,
+   "width": 0.7,
+   "height": 0.03
+  },
+  {
+   "text": "Original sound - Street Eats",
+   "confidence": 0.95,
+   "x": 0.08,
+   "y": 0.88,
+   "width": 0.5,
+   "height": 0.03
+  },
+  {
+   "text": "Home",
+   "confidence": 0.95,
+   "x": 0.06,
+   "y": 0.95,
+   "width": 0.1,
+   "height": 0.012
+  },
+  {
+   "text": "Shorts",
+   "confidence": 0.95,
+   "x": 0.28,
+   "y": 0.95,
+   "width": 0.1,
+   "height": 0.012
+  },
+  {
+   "text": "Subscriptions",
+   "confidence": 0.95,
+   "x": 0.62,
+   "y": 0.95,
+   "width": 0.16,
+   "height": 0.012
+  },
+  {
+   "text": "You",
+   "confidence": 0.95,
+   "x": 0.88,
+   "y": 0.95,
+   "width": 0.06,
+   "height": 0.012
+  }
+ ]
+}

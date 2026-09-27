@@ -1,0 +1,349 @@
+{
+  "entry" : "start",
+  "id" : "account",
+  "states" : [
+    {
+      "app" : "YouTube",
+      "branches" : [
+        {
+          "condition" : "The iPhone Home Screen is visible.",
+          "expected" : "",
+          "id" : "home",
+          "next" : "launcher",
+          "requiredScreens" : [
+            "home"
+          ]
+        },
+        {
+          "condition" : "The YouTube app is open in the foreground.",
+          "expected" : "",
+          "id" : "opened",
+          "named" : true,
+          "next" : "profile",
+          "requiredScreens" : [
+            "foregroundApp"
+          ]
+        },
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "home",
+            "seconds" : 0,
+            "value" : ""
+          },
+          "condition" : "Another app is open.",
+          "expected" : "The Home Screen and Dock are visible.",
+          "expectedScreen" : "home",
+          "id" : "app",
+          "named" : false,
+          "next" : "launcher",
+          "requiredScreens" : [
+            "foregroundApp"
+          ]
+        },
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "home",
+            "seconds" : 0,
+            "value" : ""
+          },
+          "condition" : "The App Switcher is open.",
+          "expected" : "The Home Screen and Dock are visible.",
+          "expectedScreen" : "home",
+          "id" : "switcher",
+          "next" : "launcher",
+          "requiredScreens" : [
+            "appSwitcher"
+          ]
+        },
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "tap",
+            "seconds" : 0,
+            "value" : "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow"
+          },
+          "condition" : "An alert with Not now or Don't Allow buttons.",
+          "expected" : "The app or Home Screen is visible.",
+          "id" : "alert",
+          "next" : "start",
+          "requiredScreens" : [
+            "dialog"
+          ],
+          "signal" : "dismissControl"
+        },
+        {
+          "condition" : "A passcode keypad, lock screen, or system authentication prompt is visible.",
+          "expected" : "",
+          "id" : "blocked",
+          "next" : "$stop",
+          "requiredScreens" : [
+            "unknown",
+            "dialog"
+          ],
+          "signal" : "passcode"
+        }
+      ],
+      "id" : "start",
+      "maximumVisits" : 3,
+      "question" : "Which screen is visible on the iPhone?"
+    },
+    {
+      "app" : "YouTube",
+      "branches" : [
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "tap",
+            "seconds" : 0,
+            "value" : "The installed YouTube app icon in the Home Screen or Dock; Dock icons may have no text label."
+          },
+          "condition" : "YouTube icon present",
+          "expected" : "The YouTube app is open in the foreground.",
+          "id" : "present",
+          "named" : true,
+          "next" : "profile",
+          "requiredScreens" : [
+            "home"
+          ]
+        },
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "press",
+            "seconds" : 0,
+            "value" : "search"
+          },
+          "condition" : "YouTube icon absent",
+          "expected" : "System Spotlight search is visible with a focused search field.",
+          "expectedScreen" : "spotlight",
+          "id" : "absent",
+          "named" : false,
+          "next" : "query",
+          "requiredScreens" : [
+            "home"
+          ]
+        }
+      ],
+      "id" : "launcher",
+      "maximumVisits" : 3,
+      "question" : "Is the YouTube app icon visible on the Home Screen or in its Dock?",
+      "requiredScreens" : [
+        "home"
+      ]
+    },
+    {
+      "branches" : [
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "press",
+            "seconds" : 0,
+            "value" : "selectAll"
+          },
+          "condition" : "Spotlight is open with its search field.",
+          "expected" : "The Spotlight search field is focused with the keyboard open.",
+          "expectedKeyboard" : true,
+          "expectedScreen" : "spotlight",
+          "id" : "field",
+          "next" : "replace",
+          "requiredScreens" : [
+            "spotlight"
+          ]
+        }
+      ],
+      "id" : "query",
+      "maximumVisits" : 3,
+      "requiredScreens" : [
+        "spotlight"
+      ]
+    },
+    {
+      "branches" : [
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "typeText",
+            "seconds" : 0,
+            "value" : "YouTube"
+          },
+          "condition" : "The Spotlight search field is ready for typing.",
+          "expected" : "Spotlight contains the query YouTube and shows matching results.",
+          "expectedScreen" : "spotlight",
+          "id" : "selected",
+          "next" : "result",
+          "requiredScreens" : [
+            "spotlight"
+          ]
+        }
+      ],
+      "id" : "replace",
+      "maximumVisits" : 3,
+      "requiredScreens" : [
+        "spotlight"
+      ]
+    },
+    {
+      "app" : "YouTube",
+      "branches" : [
+        {
+          "absentSignal" : "appStoreResult",
+          "command" : {
+            "destination" : "",
+            "kind" : "tap",
+            "seconds" : 0,
+            "value" : "The installed YouTube app result in Spotlight, not a website or App Store suggestion."
+          },
+          "condition" : "Spotlight shows YouTube as an installed app result.",
+          "expected" : "The YouTube app is open in the foreground.",
+          "id" : "installed",
+          "named" : true,
+          "next" : "profile",
+          "requiredScreens" : [
+            "spotlight"
+          ]
+        },
+        {
+          "condition" : "Spotlight lists YouTube only as an App Store download.",
+          "expected" : "",
+          "id" : "missing",
+          "next" : "$stop",
+          "requiredScreens" : [
+            "spotlight"
+          ],
+          "signal" : "appStoreResult"
+        }
+      ],
+      "id" : "result",
+      "maximumVisits" : 3,
+      "requiredScreens" : [
+        "spotlight"
+      ]
+    },
+    {
+      "branches" : [
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "wait",
+            "seconds" : 2,
+            "value" : ""
+          },
+          "condition" : "A centered YouTube logo on a plain screen.",
+          "expected" : "YouTube is on screen.",
+          "id" : "splash",
+          "next" : "profile",
+          "requiredScreens" : [
+            "foregroundApp"
+          ],
+          "signal" : "launchScreen",
+          "video" : false
+        },
+        {
+          "absentSignal" : "ownProfile",
+          "command" : {
+            "destination" : "",
+            "kind" : "tap",
+            "seconds" : 0,
+            "value" : "The YouTube You tab at the bottom right"
+          },
+          "condition" : "Bottom tab bar with Home, Shorts, Subscriptions, and You tabs.",
+          "expected" : "The You page with the channel name and handle.",
+          "expectedScreen" : "foregroundApp",
+          "expectedSignal" : "ownProfile",
+          "id" : "tabs",
+          "next" : "verifyAccount",
+          "requiredScreens" : [
+            "foregroundApp"
+          ],
+          "signal" : "tabBar"
+        },
+        {
+          "condition" : "The You page with the channel name and View channel.",
+          "expected" : "",
+          "id" : "profile",
+          "next" : "verifyAccount",
+          "requiredScreens" : [
+            "foregroundApp"
+          ],
+          "signal" : "ownProfile"
+        },
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "tap",
+            "seconds" : 0,
+            "value" : "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow"
+          },
+          "condition" : "A sheet or alert with Not now or Don't Allow buttons.",
+          "expected" : "YouTube is on screen.",
+          "id" : "prompt",
+          "next" : "profile",
+          "requiredScreens" : [
+            "foregroundApp",
+            "dialog"
+          ],
+          "signal" : "dismissControl"
+        },
+        {
+          "absentSignal" : "tabBar",
+          "command" : {
+            "destination" : "",
+            "kind" : "tap",
+            "seconds" : 0,
+            "value" : "The back arrow at the top left of YouTube, or the close X at the top right of a LIVE stream; never a LIVE button, Follow button, or avatar"
+          },
+          "condition" : "A page with a back arrow at the top left.",
+          "expected" : "Another YouTube page is visible.",
+          "expectedScreen" : "foregroundApp",
+          "id" : "back",
+          "next" : "profile",
+          "requiredScreens" : [
+            "foregroundApp"
+          ]
+        },
+        {
+          "condition" : "A Log in or Sign up screen for YouTube.",
+          "expected" : "",
+          "id" : "login",
+          "next" : "$stop",
+          "requiredScreens" : [
+            "foregroundApp",
+            "dialog"
+          ]
+        }
+      ],
+      "id" : "profile",
+      "maximumVisits" : 8,
+      "question" : "What is on the YouTube screen?",
+      "requiredScreens" : [
+        "foregroundApp",
+        "dialog"
+      ]
+    },
+    {
+      "accountGate" : true,
+      "branches" : [
+        {
+          "condition" : "The local account check confirms the exact required handle.",
+          "expected" : "",
+          "id" : "matches",
+          "next" : "$done"
+        },
+        {
+          "condition" : "The account handle is not yet readable.",
+          "expected" : "",
+          "id" : "unreadable",
+          "next" : "profile"
+        }
+      ],
+      "id" : "verifyAccount",
+      "maximumVisits" : 3,
+      "question" : "Read the profile header and its exact @handle.",
+      "requiredScreens" : [
+        "foregroundApp"
+      ]
+    }
+  ]
+}

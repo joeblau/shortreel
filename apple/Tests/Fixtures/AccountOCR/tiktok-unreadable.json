@@ -2,6 +2,7 @@
  "platform": "TikTok",
  "handle": "janedoe",
  "outcome": "unreadable",
+ "ownProfile": true,
  "regions": [
   {
    "text": "Jane Doe",

@@ -13,7 +13,8 @@ import Foundation
         try await historyCap()
         try await restartPurgesHistory()
         try await freshWatchAfterRestart()
-        print("Device session tests passed (Agent/Stage persistence, gates, queue, cancellation, recovery, journal failures, retirement, history)")
+        try await watchTimeUp()
+        print("Device session tests passed (Agent/Stage persistence, gates, queue, cancellation, recovery, journal failures, retirement, history, watch time-up)")
     }
     static func session(_ rig: T.Rig, journal: DeviceRunJournal? = nil) -> DevicePromptSession {
         DevicePromptSession(deviceName: "Phone", journal: journal, blockedReason: { nil }, visualRunner: rig.runner())
@@ -204,7 +205,7 @@ import Foundation
             "Legacy restart gate blocked a fresh Watch or discarded submission uncertainty")
         try await T.until { !current.isRunning }
         try T.expect(rig.compileGoals == [goal], "Watch replayed the old request")
-        try T.expect(rig.captures >= 5 && rig.actions == [.tap(0.5, 0.5), .tap(0.5, 0.5)]
+        try T.expect(rig.captures >= 5 && rig.actions == [.tap(0.5, 0.5)]
             && rig.accountCalls == 1 && rig.questions.contains { $0.id == "search.start" },
             "Stage Watch did not enter the Semantic If screen loop after restart")
         try T.expect(!current.queuePaused, "Legacy review flag paused Watch after it started")
@@ -233,6 +234,37 @@ import Foundation
         try T.expect(publishingRig.compileGoals == [goal], "Acknowledgement required another Resume or replayed publication")
         protected.cancel(); publishingGate.release(); try await T.until { !protected.isRunning }
     }
+    /// Live 2026-09-27: a Watch session that used its whole time ended as a failure needing review instead of completing.
+    static func watchTimeUp() async throws {
+        let goal = "Platform: TikTok\nAccount check: Verify exactly @fixture, before browsing."
+        for activity in [WarmUpActivity.watch, .comment] {
+            let script = WarmUpScript(network: .tikTok, activity: activity, itemLimit: activity == .watch ? 3 : 1, duration: 2)
+            let rig = T.Rig()
+            let playing = PhoneTransactionPlan.Phase(id: "consume", entry: "start", states: [.init(id: "start", maximumVisits: 60, branches: [
+                .init(id: "go", condition: "A video is playing.", command: .init(kind: .wait, value: "", destination: "", seconds: 0.5),
+                    expected: "The video is still playing.", next: "start"),
+                .init(id: "done", condition: "The video ended.", command: nil, expected: "", next: "$done")])])
+            rig.plan = .init(version: 1, phases: script.steps.map { $0.id == .consume ? playing : T.plan(command: nil, phase: $0.id.rawValue).phases[0] })
+            rig.captureOverride = { after in try await Task.sleep(for: .milliseconds(200)); return try T.frame(after: after) }
+            rig.classifyOverride = { question in question.id.hasSuffix(".verify") ? "confirmed" : "go" }
+            let journal = T.journal(); defer { try? FileManager.default.removeItem(at: journal.fileURL.deletingLastPathComponent()) }
+            let current = session(rig, journal: journal)
+            current.submit(workflow: .warmUp, details: goal, warmUpScript: script)
+            try await T.until { !current.isRunning }
+            let entry = current.entries.last
+            if activity == .watch {
+                try T.expect(entry?.status == .completed && entry?.message.hasPrefix("Session time is up after verifying 0 of 3") == true
+                    && !current.hasUnreviewedRuns && entry?.transactionCheckpoint?.requiresReview == false,
+                    "A Watch session that used its time failed, needed review, or left an unsettled checkpoint: \(entry?.message ?? "-")")
+                let relaunched = session(T.Rig(), journal: journal)
+                try T.expect(relaunched.entries.last?.status == .completed && !relaunched.hasUnreviewedRuns,
+                    "A completed time-up Watch turned into a review after the session was rebuilt from its journal")
+            } else {
+                try T.expect(entry?.status != .completed, "A Comment run that ran out of time was reported as completed")
+            }
+        }
+    }
+
     static func historyCap() async throws {
         let rig = T.Rig(); rig.plan = T.plan(command: nil)
         let session = session(rig)

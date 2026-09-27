@@ -137,3 +137,62 @@ struct DeviceRunJournal {
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
     }
 }
+
+struct SemanticIfCaptureRecord: Encodable, Sendable {
+    enum Source: String, Encodable, Sendable { case laya, shortCircuit = "short-circuit", deterministic, account, failure }
+    struct Region: Encodable, Sendable {
+        let text: String
+        let confidence: Float
+        let x, y, width, height: Double
+
+        init(_ region: PhonePlaybackTracker.TextRegion) {
+            text = region.text; confidence = region.confidence
+            x = region.bounds.minX; y = region.bounds.minY; width = region.bounds.width; height = region.bounds.height
+        }
+    }
+    let run: String
+    let sequence: Int
+    let capturedAt: Date
+    let phase: String
+    let state: String
+    let pending: String?
+    let question: PhoneTransactionQuestion?
+    let source: Source
+    let selected: String?
+    let probabilities: [String: Double]?
+    let margin: Double?
+    let observation: PhoneScreenObservation
+    let regions: [Region]
+    let signals: [PhoneScreenSignal]
+
+    static func run(startedAt date: Date, script: WarmUpScript?, workflow: DeviceWorkflow?) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss-SSS"
+        return formatter.string(from: date) + "-" + (script?.identifier ?? workflow?.rawValue ?? "prompt")
+    }
+}
+
+/// Opt-in capture of every Semantic If decision for replay as fixtures. Write failures are ignored.
+struct SemanticIfCaptureJournal: Sendable {
+    static let directoryKey = "semanticIfCaptureDirectory"
+    let directory: URL
+
+    static func configured(_ defaults: UserDefaults = .standard) -> Self? {
+        guard let path = defaults.string(forKey: directoryKey)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !path.isEmpty else { return nil }
+        return .init(directory: URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true))
+    }
+
+    func write(_ record: SemanticIfCaptureRecord, jpeg: Data) {
+        let folder = directory.appendingPathComponent(record.run, isDirectory: true)
+        let name = String(format: "%04d", record.sequence)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        guard (try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)) != nil,
+              let data = try? encoder.encode(record) else { return }
+        try? data.write(to: folder.appendingPathComponent(name + ".json"), options: .atomic)
+        try? jpeg.write(to: folder.appendingPathComponent(name + ".jpg"), options: .atomic)
+    }
+}

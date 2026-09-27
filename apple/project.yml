@@ -31,6 +31,12 @@ targets:
         buildPhase: resources
       - path: Contracts/tiktok-watch.json
         buildPhase: resources
+      - path: Contracts/instagram-watch.json
+        buildPhase: resources
+      - path: Contracts/youtube-watch.json
+        buildPhase: resources
+      - path: Contracts/x-watch.json
+        buildPhase: resources
       - path: ThirdParty
         type: folder
         buildPhase: resources

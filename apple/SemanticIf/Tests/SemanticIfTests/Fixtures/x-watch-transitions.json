@@ -1,0 +1,222 @@
+[
+  {
+    "expected" : "confirmed",
+    "id" : "account.launcher.verify",
+    "options" : [
+      {
+        "description" : "System Spotlight search is visible with a focused search field.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "Spotlight search is open with an empty search field, Siri Suggestions, and the keyboard."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "account.replace.verify",
+    "options" : [
+      {
+        "description" : "Spotlight contains the query X and shows matching results.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "Spotlight lists X as the top hit app, with suggested websites below."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "account.result.verify",
+    "options" : [
+      {
+        "description" : "The X app is open in the foreground.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "X is open on the home timeline with For you and Following tabs and a round profile picture at the top left."
+  },
+  {
+    "expected" : "avatar",
+    "id" : "account.profile",
+    "options" : [
+      {
+        "description" : "A timeline or Explore page with a round avatar at the top left.",
+        "id" : "avatar"
+      },
+      {
+        "description" : "A results, post, or profile page with a back arrow.",
+        "id" : "back"
+      },
+      {
+        "description" : "None of the listed conditions is clearly supported by the current evidence.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is on the X screen?",
+    "state" : "X is open on the home timeline with For you and Following tabs and a round profile picture at the top left."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "search.start.verify",
+    "options" : [
+      {
+        "description" : "The X home timeline is visible.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "X is open on the home timeline with For you and Following tabs and a round profile picture at the top left."
+  },
+  {
+    "expected" : "tabs",
+    "id" : "search.start",
+    "options" : [
+      {
+        "description" : "A timeline with For you and Following tabs.",
+        "id" : "tabs"
+      },
+      {
+        "description" : "An Explore page with a Search field and trending topics.",
+        "id" : "explore"
+      },
+      {
+        "description" : "None of the listed conditions is clearly supported by the current evidence.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is on the X screen?",
+    "state" : "X is open on the home timeline with For you and Following tabs and a round profile picture at the top left."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "search.start.verify",
+    "options" : [
+      {
+        "description" : "The Explore page with a Search field at the top.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "The Explore page shows a Search field at the top and trending topics below, with the keyboard hidden."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "consume.read.verify",
+    "options" : [
+      {
+        "description" : "A post is on screen.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "The top post shows the author, handle, a line of text, and a photo of a latte with reply and like counts."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "consume.skim.verify",
+    "options" : [
+      {
+        "description" : "A post is on screen.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "The top post shows the author, handle, a line of text, and a photo of a latte with reply and like counts."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "consume.read.verify",
+    "options" : [
+      {
+        "description" : "A post is on screen.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "The top post shows the author, handle, a line of text, and a photo of a latte with reply and like counts."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "consume.skim.verify",
+    "options" : [
+      {
+        "description" : "A post is on screen.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "The top post shows the author, handle, a line of text, and a photo of a latte with reply and like counts."
+  }
+]

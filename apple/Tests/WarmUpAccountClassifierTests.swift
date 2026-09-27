@@ -17,6 +17,7 @@ enum WarmUpAccountClassifierTests {
         let platform: String
         let handle: String
         let outcome: String
+        let ownProfile: Bool
         let regions: [Region]
         let visualEvidence: String?
 
@@ -59,20 +60,32 @@ enum WarmUpAccountClassifierTests {
         try observedHandleNormalization()
         try await exactIdentityGuards()
         try await emptyProfileUsesVisualEvidence()
+        try await nonProfileHandlesNeverMismatch()
+        try await networkHandleLayouts()
         print("Warm-up account classifier tests passed (including the reported empty TikTok profile)")
     }
 
     static func goldenFixtures() async throws {
         let names = ["tiktok", "instagram", "x", "youtube"]
             .flatMap { platform in ["matches", "mismatch", "signed-out", "unreadable"].map { "\(platform)-\($0)" } }
+            + ["tiktok-empty-profile", "instagram-own-no-at", "youtube-hyphen"] + nonProfileFixtures
         for name in names {
             let fixture = try loadFixture(name)
+            let signal = PhoneScreenSignal.ownProfile.matches(fixture.textRegions.map {
+                .init(text: $0.text, confidence: $0.confidence, bounds: $0.bounds)
+            }, network: WarmUpScript.Network(rawValue: fixture.platform))
+            try expect(signal == fixture.ownProfile, "\(name): ownProfile signal \(signal) contradicts the fixture label")
             let surface = fixture.outcome == "signed-out" ? "signed-out" : "profile"
             let scorer = StubScorer(winner: surface)
             let decision = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
                 platform: fixture.platform, accountLocation: "test account location",
                 handle: fixture.handle, scorer: scorer)
             try expect(decision.outcome.rawValue == fixture.outcome, "\(name): verdict \(decision.outcome) != \(fixture.outcome)")
+            if fixture.ownProfile {
+                try expect(scorer.rows.isEmpty && decision.promptHash.isEmpty && decision.margin > decision.threshold,
+                    "\(name): own-profile OCR still asked Laya for the surface")
+                continue
+            }
             try expect(decision.promptHash == "stub-\(surface)", "\(name): prompt hash not journaled")
             try expect(decision.probabilities.count == 3 && decision.margin > decision.threshold,
                 "\(name): readout diagnostics missing")
@@ -96,7 +109,7 @@ enum WarmUpAccountClassifierTests {
     static func belowMarginIsUnreadable() async throws {
         let fixture = try loadFixture("tiktok-matches")
         let scorer = StubScorer(winner: "profile", winnerP: 0.34)
-        let decision = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
+        let decision = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions.filter { $0.text != "Profile" },
             platform: fixture.platform, accountLocation: "test account location",
             handle: fixture.handle, scorer: scorer)
         try expect(decision.outcome == .unreadable, "Below-margin score did not route to the unreadable recovery")
@@ -119,7 +132,7 @@ enum WarmUpAccountClassifierTests {
         let fixture = try loadFixture("tiktok-matches")
         let scorer = StubScorer(winner: "bogus")
         do {
-            _ = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
+            _ = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions.filter { $0.text != "Profile" },
                 platform: fixture.platform, accountLocation: "test account location",
                 handle: fixture.handle, scorer: scorer)
             throw Failure.assertion("An undeclared scorer option became a verdict")
@@ -138,9 +151,10 @@ enum WarmUpAccountClassifierTests {
     }
 
     static func exactIdentityGuards() async throws {
-        func region(_ text: String, _ confidence: Float = 0.95) -> PhoneSubmissionGuard.TextRegion {
-            .init(text: text, confidence: confidence, bounds: CGRect(x: 0, y: 0, width: 1, height: 0.1))
+        func region(_ text: String, _ confidence: Float = 0.95, y: Double = 0) -> PhoneSubmissionGuard.TextRegion {
+            .init(text: text, confidence: confidence, bounds: CGRect(x: 0, y: y, width: 1, height: 0.03))
         }
+        let ownProfile = [region("Following", y: 0.3), region("Followers", y: 0.3), region("Likes", y: 0.3), region("Profile", y: 0.94)]
         for (regions, surface, expected) in [
             ([region("@JANEDOE")], "profile", WarmUpAccountDecision.Outcome.matches),
             ([region("@janedoe", 0.59)], "profile", .unreadable),
@@ -149,13 +163,51 @@ enum WarmUpAccountClassifierTests {
             ([region("@janedoe"), region("Log in")], "signed-out", .signedOut),
             ([region("@janedoe"), region("Log in")], "profile", .signedOut),
             ([region("@janedoe")], "unknown", .unreadable),
-            ([region("@janedoe2")], "profile", .mismatch),
+            ([region("@janedoe2")], "profile", .unreadable),
+            ([region("@janedoe2")] + ownProfile, "profile", .mismatch),
+            ([region("@janedoe2", 0.7)] + ownProfile, "profile", .unreadable),
+            ([region("@janedoe2", y: 0.8)] + ownProfile, "profile", .unreadable),
+            ([region("@JANEDOE")] + ownProfile, "profile", .matches),
         ] {
             let result = try await WarmUpAccountClassifier.classify(regions: regions,
                 platform: "TikTok", accountLocation: "profile", handle: "janedoe", scorer: StubScorer(winner: surface))
             try expect(result.outcome == expected, "Exact identity guard failed: \(result.outcome) != \(expected)")
         }
         try expect(LayaAccountPrompt.handles(in: "mail@janedoe.com").isEmpty, "Email address became a handle")
+        try expect(LayaAccountPrompt.handles(in: "@joe-blau • View channel") == ["joe-blau"], "Hyphenated handle was truncated")
+    }
+
+    static let nonProfileFixtures = ["tiktok-feed-mention", "instagram-feed-mention", "youtube-shorts-creator", "x-timeline-one-handle"]
+
+    static func nonProfileHandlesNeverMismatch() async throws {
+        for name in nonProfileFixtures {
+            let fixture = try loadFixture(name)
+            for surface in ["profile", "unknown", "signed-out"] {
+                let result = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions, platform: fixture.platform,
+                    accountLocation: "profile", handle: fixture.handle, scorer: StubScorer(winner: surface, winnerP: 0.99))
+                try expect(result.outcome == .unreadable, "\(name) as \(surface): a feed or creator handle became \(result.outcome)")
+            }
+        }
+    }
+
+    static func networkHandleLayouts() async throws {
+        let instagram = try loadFixture("instagram-own-no-at")
+        try expect(WarmUpAccountClassifier.readableHandles(in: instagram.textRegions, platform: "Instagram") == ["janedoe"],
+            "Instagram top-bar username was not read without an @ token")
+        try expect(WarmUpAccountClassifier.readableHandles(in: instagram.textRegions, platform: "TikTok").isEmpty,
+            "A bare name was read as a handle outside Instagram")
+        let youtube = try loadFixture("youtube-hyphen")
+        let joe = try await WarmUpAccountClassifier.classify(regions: youtube.textRegions, platform: youtube.platform,
+            accountLocation: "You tab", handle: "joe", scorer: StubScorer(winner: "profile"))
+        try expect(joe.outcome == .mismatch && joe.evidence.contains("@joe-blau"), "@joe-blau matched the prefix handle @joe")
+        let live = try loadFixture("tiktok-empty-profile")
+        for handle in ["toptopnonstop99", "@TopTopNonStop99"] {
+            for surface in ["profile", "signed-out", "unknown"] {
+                let result = try await WarmUpAccountClassifier.classify(regions: live.textRegions, platform: live.platform,
+                    accountLocation: "Profile tab", handle: handle, scorer: StubScorer(winner: surface, winnerP: 0.99))
+                try expect(result.outcome == .matches, "The live TikTok profile OCR no longer matches @toptopnonstop99 when Laya reads \(surface)")
+            }
+        }
     }
 
     static func emptyProfileUsesVisualEvidence() async throws {
@@ -163,7 +215,7 @@ enum WarmUpAccountClassifierTests {
         let scorer = StubScorer(winner: "profile")
         let observation = PhoneScreenObservation(state: .foregroundApp, appCardsVisible: false,
             evidence: "A profile with an Upload prompt and zero posts.", checkEvidence: fixture.visualEvidence)
-        let result = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions,
+        let result = try await WarmUpAccountClassifier.classify(regions: fixture.textRegions.filter { $0.text != "Profile" },
             platform: fixture.platform, accountLocation: "own profile header", handle: "@" + fixture.handle,
             scorer: scorer, observation: observation)
         try expect(result.outcome == .matches, "Empty profile did not pass the exact handle check")

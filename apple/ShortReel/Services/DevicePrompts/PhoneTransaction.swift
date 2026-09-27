@@ -69,6 +69,14 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
         var expectedScreen: PhoneScreenObservation.State? = nil
         var requiredScreens: [PhoneScreenObservation.State]? = nil
         var keyboard: Bool? = nil
+        var signal: PhoneScreenSignal? = nil
+        var absentSignal: PhoneScreenSignal? = nil
+        var video: Bool? = nil
+        var expectedVideo: Bool? = nil
+        var expectedKeyboard: Bool? = nil
+        var expectedSignal: PhoneScreenSignal? = nil
+        var named: Bool? = nil
+        var expectedTab: String? = nil
     }
     struct State: Codable, Equatable, Sendable {
         enum Check: String, Codable, Sendable { case query, popularVideo, playback, advance, like, follow }
@@ -79,6 +87,7 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
         var requiredScreens: [PhoneScreenObservation.State]? = nil
         var accountGate: Bool? = nil
         var check: Check? = nil
+        var app: String? = nil
     }
     struct Phase: Codable, Equatable, Sendable {
         let id: String
@@ -95,8 +104,7 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
 
     func validate(script: WarmUpScript? = nil) throws {
         if let watchQuery {
-            guard script?.network == .tikTok, script?.activity == .watch,
-                  Self.validWatchQuery(watchQuery) else { throw PhoneTransactionError.invalidPlan }
+            guard script?.activity == .watch, Self.validWatchQuery(watchQuery) else { throw PhoneTransactionError.invalidPlan }
         }
         guard version == 1, (1...12).contains(phases.count), Set(phases.map(\.id)).count == phases.count else {
             throw PhoneTransactionError.invalidPlan
@@ -122,10 +130,12 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
                 }
                 guard name(state.id), (1...60).contains(state.maximumVisits), (1...6).contains(state.branches.count),
                       state.question == nil || (1...256).contains(state.question!.count),
+                      state.app.map({ (1...60).contains($0.count) }) ?? state.branches.allSatisfy({ $0.named == nil }),
                       Set(state.branches.map(\.id)).count == state.branches.count else { throw PhoneTransactionError.invalidPlan }
                 for branch in state.branches {
                     guard branch.requiredScreens?.isEmpty != true else { throw PhoneTransactionError.invalidPlan }
                     guard name(branch.id), branch.id != "unknown", (1...220).contains(branch.condition.count),
+                          branch.signal == nil || branch.signal != branch.absentSignal,
                           ids.contains(branch.next) || ["$done", "$stop"].contains(branch.next) else { throw PhoneTransactionError.invalidPlan }
                     if let command = branch.command {
                         try command.validate()
@@ -135,7 +145,9 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
                             if phase.id == "submit", command.kind != .tap { throw PhoneTransactionError.invalidPlan }
                             if phase.id == "advance", command.kind != .swipe || command.value != "up" { throw PhoneTransactionError.invalidPlan }
                         }
-                    } else if !branch.expected.isEmpty { throw PhoneTransactionError.invalidPlan }
+                    } else if !branch.expected.isEmpty || branch.expectedVideo != nil || branch.expectedKeyboard != nil
+                                || branch.expectedSignal != nil || branch.expectedTab != nil { throw PhoneTransactionError.invalidPlan }
+                    if let tab = branch.expectedTab, !(1...24).contains(tab.count) { throw PhoneTransactionError.invalidPlan }
                 }
             }
             var reached: Set<String> = [phase.entry]
@@ -159,7 +171,8 @@ struct PhoneTransactionCheckpoint: Codable, Equatable, Sendable {
     let status: Status
     let input: String?
     let visits: [String: Int]
-    var requiresReview: Bool { status == .dispatching || status == .verifying }
+    /// A wait sends no input, so verifying one leaves nothing on the phone to review.
+    var requiresReview: Bool { status == .dispatching || (status == .verifying && input != nil) }
 }
 
 enum PhoneTransactionError: LocalizedError {
@@ -174,12 +187,18 @@ enum PhoneTransactionError: LocalizedError {
     }
 }
 
-struct PhoneTransactionQuestion: Sendable {
-    struct Option: Sendable { let id: String; let description: String }
+struct PhoneTransactionQuestion: Encodable, Sendable {
+    struct Option: Encodable, Sendable { let id: String; let description: String }
     let id: String
     let evidence: String
     let options: [Option]
     var question = "Which condition is clearly supported by the current screen evidence?"
+}
+
+struct PhoneTransactionAnswer: Sendable {
+    let selected: String?
+    var probabilities: [String: Double]? = nil
+    var margin: Double? = nil
 }
 
 enum PhoneTransactionCompiler {
@@ -189,7 +208,11 @@ enum PhoneTransactionCompiler {
         branch conditions (max 220 characters each). Each state has a specific classification question,
         such as "Is the TikTok app icon visible?", with concise answer conditions. Name branches after
         observed facts or yes/no, not future commands: branch IDs are also read by the classifier.
-        Use concrete visible facts, never instructions as conditions. Branch IDs must be UNIQUE within
+        Use concrete visible facts, never instructions as conditions. The classifier matches words, not
+        meaning: write each condition as one short positive statement of what IS visible (at most 15 words).
+        Never use negation or exclusion in conditions (no, not, neither, nor, without, unless, except, absent,
+        missing, none); describe the other screen instead. Competing conditions in one state must not share
+        their main nouns. Branch IDs must be UNIQUE within
         each state. Combine multiple surfaces for the same failure ID into one condition and route to a
         separate recovery state to distinguish those surfaces; never repeat the failure ID in one state.
         A branch may perform ONE fixed command, then its expected visible postcondition must be verified
@@ -260,9 +283,12 @@ enum PhoneTransactionCompiler {
 }
 
 extension PhoneTransactionCompiler {
-    static func tikTokWatch(script: WarmUpScript, query: String, template: Data) throws -> PhoneTransactionPlan {
-        guard script.network == .tikTok, script.activity == .watch,
-              PhoneTransactionPlan.validWatchQuery(query) else { throw PhoneTransactionError.invalidPlan }
+    static func watchTemplateName(for network: WarmUpScript.Network) -> String {
+        network.rawValue.lowercased() + "-watch"
+    }
+
+    static func watch(script: WarmUpScript, query: String, template: Data) throws -> PhoneTransactionPlan {
+        guard script.activity == .watch, PhoneTransactionPlan.validWatchQuery(query) else { throw PhoneTransactionError.invalidPlan }
         let text = String(decoding: template, as: UTF8.self).replacingOccurrences(of: "{{query}}", with: query)
         let prepared = try JSONDecoder().decode(PhoneTransactionPlan.self, from: Data(text.utf8))
         let plan = PhoneTransactionPlan(version: 1,
@@ -276,76 +302,164 @@ extension PhoneTransactionCompiler {
     static let watchQuerySchema = Data(#"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"],"additionalProperties":false}"#.utf8)
 
     static func builtIn(goal: String, script: WarmUpScript?) throws -> PhoneTransactionPlan? {
+        if script == nil, let gesture = gesture(goal) { return try gesturePlan(gesture.direction, video: gesture.video) }
         guard script == nil, let parsed = try? DevicePromptPlanner.plan(goal), parsed.actions.count == 1,
               case .openApp(let app) = parsed.actions[0], app.count <= 60 else { return nil }
-        typealias Branch = PhoneTransactionPlan.Branch
-        typealias State = PhoneTransactionPlan.State
-        func branch(_ id: String, _ condition: String, _ command: PhoneTransactionPlan.Command? = nil,
-                    _ expected: String = "", _ next: String,
-                    expectedScreen: PhoneScreenObservation.State? = nil,
-                    requiredScreens: [PhoneScreenObservation.State]? = nil) -> Branch {
-            .init(id: id, condition: condition, command: command, expected: expected, next: next,
-                expectedScreen: expectedScreen, requiredScreens: requiredScreens)
-        }
-        func command(_ kind: PhoneTransactionPlan.Command.Kind, _ value: String = "") -> PhoneTransactionPlan.Command {
-            .init(kind: kind, value: value, destination: "", seconds: 0)
-        }
-        let opened = "The \(app) app is open in the foreground."
-        let launch = command(.tap, "The installed \(app) app icon in the Home Screen or Dock; Dock icons may have no text label.")
-        let states: [State] = [
-            .init(id: "start", maximumVisits: 3, branches: [
-                branch("home", "The iPhone Home Screen is visible.", nil, "", "launcher", requiredScreens: [.home]),
-                branch("app", "An app or App Switcher is open.", command(.home), "The Home Screen and Dock are visible.", "launcher", expectedScreen: .home, requiredScreens: [.foregroundApp, .appSwitcher]),
-                branch("blocked", "A passcode keypad, lock screen, or system authentication prompt is visible.", nil, "", "$stop", requiredScreens: [.unknown, .dialog])],
-                question: "Which screen is visible on the iPhone?"),
-            .init(id: "launcher", maximumVisits: 3, branches: [
-                branch("present", "\(app) icon present", launch, opened, "$done", expectedScreen: .foregroundApp),
-                branch("absent", "\(app) icon absent", command(.press, "search"), "System Spotlight search is visible with a focused search field.", "query", expectedScreen: .spotlight)],
-                question: "Is the \(app) app icon visible on the Home Screen or in its Dock?", requiredScreens: [.home]),
-            .init(id: "query", maximumVisits: 3, branches: [
-                branch("empty", "Spotlight is open with an empty focused search field.", command(.typeText, app), "Spotlight contains the query \(app) and shows matching results.", "result", expectedScreen: .spotlight),
-                branch("existing", "Spotlight is open with a previous search query.", command(.press, "selectAll"), "The Spotlight query text is selected.", "replace", expectedScreen: .spotlight)], requiredScreens: [.spotlight]),
-            .init(id: "replace", maximumVisits: 3, branches: [
-                branch("selected", "The previous Spotlight query text is selected.", command(.typeText, app), "Spotlight contains the query \(app) and shows matching results.", "result", expectedScreen: .spotlight)], requiredScreens: [.spotlight]),
-            .init(id: "result", maximumVisits: 3, branches: [
-                branch("installed", "Spotlight shows \(app) as an installed app result.", command(.tap, "The installed \(app) app result in Spotlight, not a website or App Store suggestion."), opened, "$done", expectedScreen: .foregroundApp),
-                branch("missing", "Spotlight has finished searching and shows no installed \(app) app result.", nil, "", "$stop")], requiredScreens: [.spotlight])]
-        let plan = PhoneTransactionPlan(version: 1, phases: [.init(id: "openApp", entry: "start", states: states)])
+        let plan = PhoneTransactionPlan(version: 1, phases: [.init(id: "openApp", entry: "start", states: launchStates(app: app, opened: "$done"))])
         try plan.validate()
         return plan
     }
 
+    /// A lone swipe, optionally with its purpose ("swipe up to show the next video"). Scrolling moves content, so it swipes opposite.
+    static func gesture(_ goal: String) -> (direction: PhoneSwipeDirection, video: Bool)? {
+        let text = goal.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let match = text.range(of: #"(?i)^(swipe|scroll)\s+(up|down|left|right)(\s+(to|for)\s+[\p{L}\p{N}' ,-]{1,80})?[.!]?$"#,
+                                     options: .regularExpression) else { return nil }
+        let words = text[match].lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
+        guard var direction = PhoneSwipeDirection(rawValue: words[1]) else { return nil }
+        if words[0] == "scroll" {
+            direction = [PhoneSwipeDirection.up: .down, .down: .up, .left: .right, .right: .left][direction]!
+        }
+        return (direction, text.range(of: #"(?i)\b(video|reel|short|clip|tiktok)s?\b"#, options: .regularExpression) != nil)
+    }
+
+    /// One swipe with no classifier question: the observed screen state decides, and a video purpose is confirmed by a playing video.
+    static func gesturePlan(_ direction: PhoneSwipeDirection, video: Bool) throws -> PhoneTransactionPlan {
+        let swipe = PhoneTransactionPlan.Branch(id: "screen", condition: "The phone screen is visible.",
+            command: .init(kind: .swipe, value: direction.rawValue, destination: "", seconds: 0),
+            expected: video ? "A video is playing." : "The screen shows different content.", next: "$done",
+            requiredScreens: [.foregroundApp, .home], expectedVideo: video ? true : nil)
+        let plan = PhoneTransactionPlan(version: 1, phases: [.init(id: "gesture", entry: "start", states: [
+            .init(id: "start", maximumVisits: 3, branches: [swipe], question: "Which screen is visible?")])])
+        try plan.validate()
+        return plan
+    }
+
+    /// Conditions an LLM wrote with negation, which the lexical classifier reads as their opposite.
+    static func negatedConditions(_ plan: PhoneTransactionPlan) -> [String] {
+        plan.phases.flatMap { phase in phase.states.flatMap { state in state.branches.compactMap { branch in
+            branch.condition.range(of: #"(?i)\b(no|not|neither|nor|without|unless|except|absent|missing|none)\b|n't\b"#,
+                options: .regularExpression) == nil ? nil : "\(phase.id).\(state.id).\(branch.id): \(branch.condition)"
+        } } }
+    }
+
+    static let dismissTarget = "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow"
+    static let interruptTarget = "The close (X), Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Cancel, Dismiss, or Got it control of the sheet, popup, or alert covering the app; never Allow, OK, Save, Continue, Turn on, a toggle or switch, a link, or anything behind it"
+
+    /// Icon presence and the Spotlight result come from exact app names, never Laya: "TikTok Studio" is not TikTok and "X" is always searched.
+    static func launchStates(app: String, opened next: String) -> [PhoneTransactionPlan.State] {
+        typealias Branch = PhoneTransactionPlan.Branch
+        func command(_ kind: PhoneTransactionPlan.Command.Kind, _ value: String = "") -> PhoneTransactionPlan.Command {
+            .init(kind: kind, value: value, destination: "", seconds: 0)
+        }
+        let opened = "The \(app) app is open in the foreground."
+        // The account phase's next state handles an app that opens behind its own permission prompt (dialog).
+        let arrived: PhoneScreenObservation.State? = next == "$done" ? .foregroundApp : nil
+        let launch = command(.tap, "The installed \(app) app icon in the Home Screen or Dock; Dock icons may have no text label.")
+        let search = Branch(id: "absent", condition: "\(app) icon absent", command: command(.press, "search"),
+            expected: "System Spotlight search is visible with a focused search field.", next: "query", expectedScreen: .spotlight,
+            requiredScreens: [.home], named: app.count > 1 ? false : nil)
+        let launcher: [Branch] = app.count > 1 ? [
+            .init(id: "present", condition: "\(app) icon present", command: launch, expected: opened, next: next,
+                expectedScreen: arrived, requiredScreens: [.home], named: true), search] : [search]
+        let leave = "The Home Screen and Dock are visible."
+        // An already open app is used as is, like a person would; only another app or the App Switcher goes Home first.
+        let opening: [Branch] = app.count > 1 ? [
+            .init(id: "opened", condition: opened, command: nil, expected: "", next: next, requiredScreens: [.foregroundApp], named: true),
+            .init(id: "app", condition: "Another app is open.", command: command(.home), expected: leave,
+                next: "launcher", expectedScreen: .home, requiredScreens: [.foregroundApp], named: false)] : [
+            .init(id: "app", condition: "An app is open.", command: command(.home), expected: leave,
+                next: "launcher", expectedScreen: .home, requiredScreens: [.foregroundApp])]
+        return [
+            .init(id: "start", maximumVisits: 3, branches: [
+                .init(id: "home", condition: "The iPhone Home Screen is visible.", command: nil, expected: "", next: "launcher", requiredScreens: [.home])]
+                + opening + [
+                .init(id: "switcher", condition: "The App Switcher is open.", command: command(.home), expected: leave,
+                    next: "launcher", expectedScreen: .home, requiredScreens: [.appSwitcher]),
+                .init(id: "alert", condition: "An alert with Not now or Don't Allow buttons.",
+                    command: command(.tap, dismissTarget),
+                    expected: "The app or Home Screen is visible.", next: "start", requiredScreens: [.dialog], signal: .dismissControl),
+                .init(id: "blocked", condition: "A passcode keypad, lock screen, or system authentication prompt is visible.", command: nil,
+                    expected: "", next: "$stop", requiredScreens: [.unknown, .dialog], signal: .passcode)],
+                question: "Which screen is visible on the iPhone?", app: app.count > 1 ? app : nil),
+            .init(id: "launcher", maximumVisits: 3, branches: launcher,
+                question: "Is the \(app) app icon visible on the Home Screen or in its Dock?", requiredScreens: [.home], app: app),
+            .init(id: "query", maximumVisits: 3, branches: [
+                .init(id: "field", condition: "Spotlight is open with its search field.", command: command(.press, "selectAll"),
+                    expected: "The Spotlight search field is focused with the keyboard open.", next: "replace", expectedScreen: .spotlight,
+                    requiredScreens: [.spotlight], expectedKeyboard: true)], requiredScreens: [.spotlight]),
+            .init(id: "replace", maximumVisits: 3, branches: [
+                .init(id: "selected", condition: "The Spotlight search field is ready for typing.", command: command(.typeText, app),
+                    expected: "Spotlight contains the query \(app) and shows matching results.", next: "result", expectedScreen: .spotlight,
+                    requiredScreens: [.spotlight])], requiredScreens: [.spotlight]),
+            .init(id: "result", maximumVisits: 3, branches: [
+                .init(id: "installed", condition: "Spotlight shows \(app) as an installed app result.",
+                    command: command(.tap, "The installed \(app) app result in Spotlight, not a website or App Store suggestion."),
+                    expected: opened, next: next, expectedScreen: arrived, requiredScreens: [.spotlight], absentSignal: .appStoreResult, named: true),
+                .init(id: "missing", condition: "Spotlight lists \(app) only as an App Store download.", command: nil, expected: "",
+                    next: "$stop", requiredScreens: [.spotlight], signal: .appStoreResult)], requiredScreens: [.spotlight], app: app)]
+    }
+
     static func accountPhase(script: WarmUpScript) throws -> PhoneTransactionPlan.Phase {
+        typealias Branch = PhoneTransactionPlan.Branch
         let app = script.network.rawValue
-        guard let launch = try builtIn(goal: "open \(app)", script: nil)?.phases.first else {
-            throw PhoneTransactionError.invalidPlan
-        }
-        let states = launch.states.map { state in
-            PhoneTransactionPlan.State(id: state.id, maximumVisits: state.maximumVisits,
-                branches: state.branches.map { branch in
-                    .init(id: branch.id, condition: branch.condition, command: branch.command,
-                        expected: branch.expected, next: branch.next == "$done" ? "profile" : branch.next,
-                        expectedScreen: branch.expectedScreen, requiredScreens: branch.requiredScreens)
-                }, question: state.question, requiredScreens: state.requiredScreens)
-        }
-        let target: String
+        func tap(_ target: String) -> PhoneTransactionPlan.Command { .init(kind: .tap, value: target, destination: "", seconds: 0) }
+        let tabs: Branch, own: Branch, back: Branch
         switch script.network {
-        case .tikTok: target = "The TikTok Profile tab at the bottom right"
-        case .instagram: target = "The Instagram profile avatar tab at the bottom right"
-        case .youtube: target = "The YouTube You tab at the bottom right"
-        case .x: target = "The signed-in X account avatar at the top left that opens the account side menu"
+        case .tikTok, .youtube:
+            let tikTok = script.network == .tikTok
+            tabs = .init(id: "tabs", condition: tikTok ? "Bottom tab bar with Home, Friends, Inbox, and Profile tabs."
+                    : "Bottom tab bar with Home, Shorts, Subscriptions, and You tabs.",
+                command: tap(tikTok ? "The TikTok Profile tab at the bottom right" : "The YouTube You tab at the bottom right"),
+                expected: tikTok ? "A profile page with Following, Followers, and Likes counts." : "The You page with the channel name and handle.",
+                next: "verifyAccount", expectedScreen: .foregroundApp, requiredScreens: [.foregroundApp],
+                signal: .tabBar, absentSignal: .ownProfile, expectedSignal: .ownProfile)
+            own = .init(id: "profile", condition: tikTok ? "A profile page with Following, Followers, and Likes counts."
+                    : "The You page with the channel name and View channel.",
+                command: nil, expected: "", next: "verifyAccount", requiredScreens: [.foregroundApp], signal: .ownProfile)
+            back = .init(id: "back", condition: "A page with a back arrow at the top left.",
+                command: tap("The back arrow at the top left of \(app), or the close X at the top right of a LIVE stream; never a LIVE button, Follow button, or avatar"),
+                expected: "Another \(app) page is visible.", next: "profile", expectedScreen: .foregroundApp,
+                requiredScreens: [.foregroundApp], absentSignal: .tabBar)
+        case .instagram:
+            tabs = .init(id: "tabs", condition: "A feed, profile, or Reels screen with bottom tab icons.",
+                command: tap("The Instagram profile avatar tab at the bottom right"),
+                expected: "A profile page with Edit profile and Share profile buttons.", next: "verifyAccount",
+                expectedScreen: .foregroundApp, requiredScreens: [.foregroundApp], absentSignal: .ownProfile, expectedSignal: .ownProfile)
+            own = .init(id: "profile", condition: "A profile page with Edit profile and Share profile buttons.",
+                command: nil, expected: "", next: "verifyAccount", requiredScreens: [.foregroundApp], signal: .ownProfile)
+            back = .init(id: "back", condition: "A page opened from search, with a back arrow.", command: tap("The back arrow at the top left of Instagram"),
+                expected: "Another Instagram page is visible.", next: "profile", expectedScreen: .foregroundApp,
+                requiredScreens: [.foregroundApp], absentSignal: .ownProfile, video: true)
+        case .x:
+            tabs = .init(id: "avatar", condition: "A timeline or Explore page with a round avatar at the top left.",
+                command: tap("The signed-in X account avatar at the top left that opens the account side menu"),
+                expected: "A side menu with Profile, Premium, Bookmarks, and Lists.", next: "verifyAccount",
+                expectedScreen: .foregroundApp, requiredScreens: [.foregroundApp], absentSignal: .ownProfile, expectedSignal: .ownProfile)
+            own = .init(id: "drawer", condition: "A side menu with Profile, Premium, Bookmarks, and Lists.",
+                command: nil, expected: "", next: "verifyAccount", requiredScreens: [.foregroundApp], signal: .ownProfile)
+            back = .init(id: "back", condition: "A results, post, or profile page with a back arrow.", command: tap("The back arrow at the top left of X"),
+                expected: "Another X page is visible.", next: "profile", expectedScreen: .foregroundApp,
+                requiredScreens: [.foregroundApp], absentSignal: .ownProfile)
         }
-        let profile = PhoneTransactionPlan.State(id: "profile", maximumVisits: 3, branches: [
-            .init(id: "profile", condition: "The \(app) app is open in the foreground.",
-                command: .init(kind: .tap, value: target, destination: "", seconds: 0),
-                expected: "The signed-in account's profile header and handle are visible.", next: "verifyAccount",
-                expectedScreen: .foregroundApp)
-        ], question: "Which app interface is visible?", requiredScreens: [.foregroundApp])
+        let profile = PhoneTransactionPlan.State(id: "profile", maximumVisits: 8, branches: [
+            .init(id: "splash", condition: "A centered \(app) logo on a plain screen.",
+                command: .init(kind: .wait, value: "", destination: "", seconds: 2), expected: "\(app) is on screen.", next: "profile",
+                requiredScreens: [.foregroundApp], signal: .launchScreen, video: false),
+            tabs, own,
+            .init(id: "prompt", condition: "A sheet or alert with Not now or Don't Allow buttons.",
+                command: tap(dismissTarget),
+                expected: "\(app) is on screen.", next: "profile", requiredScreens: [.foregroundApp, .dialog], signal: .dismissControl),
+            back,
+            .init(id: "login", condition: "A Log in or Sign up screen for \(app).", command: nil, expected: "", next: "$stop",
+                requiredScreens: [.foregroundApp, .dialog])
+        ], question: "What is on the \(app) screen?", requiredScreens: [.foregroundApp, .dialog])
         let verify = PhoneTransactionPlan.State(id: "verifyAccount", maximumVisits: 3, branches: [
             .init(id: "matches", condition: "The local account check confirms the exact required handle.", command: nil, expected: "", next: "$done"),
-            .init(id: "unreadable", condition: "The account handle is not yet readable.", command: nil, expected: "", next: "verifyAccount")
-        ], question: "Read the signed-in account's own profile header and exact handle.", requiredScreens: [.foregroundApp], accountGate: true)
-        let phase = PhoneTransactionPlan.Phase(id: "account", entry: launch.entry, states: states + [profile, verify])
+            .init(id: "unreadable", condition: "The account handle is not yet readable.", command: nil, expected: "", next: "profile")
+        ], question: "Read the profile header and its exact @handle.", requiredScreens: [.foregroundApp], accountGate: true)
+        let phase = PhoneTransactionPlan.Phase(id: "account", entry: "start",
+            states: launchStates(app: app, opened: "profile") + [profile, verify])
         try PhoneTransactionPlan(version: 1, phases: [phase]).validate()
         return phase
     }

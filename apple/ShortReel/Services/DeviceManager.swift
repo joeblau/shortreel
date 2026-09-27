@@ -184,6 +184,7 @@ final class DeviceManager {
             .flatMap(PhoneVisionProvider.init(rawValue:)) ?? .defaultProvider
         UserDefaults.standard.set(visionProvider.rawValue, forKey: PhoneVisionProvider.preferenceKey)
         self.semanticIfState = .idle
+        observeAutomation()
     }
 
     private var context: ModelContext { container.mainContext }
@@ -562,13 +563,13 @@ final class DeviceManager {
                 return try await WarmUpAccountClassifier.classify(frame: frame,
                     platform: platform.displayName, accountLocation: WarmUpPlaybook.accountLocation(for: platform),
                     handle: handle, scorer: scorer, observation: observation)
-            }, classifyFailure: { [weak self] frame, script, stepID, playbackSummary in
+            }, classifyFailure: { [weak self] frame, observation, script, stepID, playbackSummary in
                 guard let self else { throw PhoneTransactionError.unavailable }
                 let scorer = try await self.requiredSemanticIfScorer()
                 guard let step = self.warmUpContracts()?.step(scriptIdentifier: script.identifier, stepID: stepID.rawValue) else {
                     throw PhoneTransactionError.unavailable
                 }
-                return try await WarmUpFailureClassifier.classify(frame: frame,
+                return try await WarmUpFailureClassifier.classify(frame: frame, observation: observation,
                     scriptIdentifier: script.identifier, platform: script.network.rawValue,
                     step: step, playbackSummary: playbackSummary, scorer: scorer)
             }, stepBudget: { [weak self] script, stepID in
@@ -588,7 +589,7 @@ final class DeviceManager {
                     progress("Using the built-in app-opening workflow…")
                     return builtIn
                 }
-                let generate: @MainActor @Sendable (String, String, String?) async throws -> PhoneTransactionPlan = { prompt, instructions, phase in
+                let request: @MainActor @Sendable (String, String, String?) async throws -> PhoneTransactionPlan = { prompt, instructions, phase in
                     let data: Data
                     do {
                         switch provider {
@@ -605,9 +606,19 @@ final class DeviceManager {
                     }
                     return try JSONDecoder().decode(PhoneTransactionPlan.self, from: data)
                 }
+                // Negated conditions read as their opposite to the classifier, so a plan that uses them is rewritten once.
+                let generate: @MainActor @Sendable (String, String, String?) async throws -> PhoneTransactionPlan = { prompt, instructions, phase in
+                    let plan = try await request(prompt, instructions, phase)
+                    let negated = PhoneTransactionCompiler.negatedConditions(plan)
+                    guard !negated.isEmpty else { return plan }
+                    progress("Rewording the workflow's conditions…")
+                    return try await request(prompt + "\nREWRITE these conditions as positive statements of what IS visible; negation is misread:\n"
+                        + negated.joined(separator: "\n"), instructions, phase)
+                }
                 if let script {
-                    if script.network == .tikTok, script.activity == .watch {
-                        progress("Preparing TikTok search and watch workflow…")
+                    if script.activity == .watch,
+                       let url = Bundle.main.url(forResource: PhoneTransactionCompiler.watchTemplateName(for: script.network), withExtension: "json") {
+                        progress("Preparing \(script.network.rawValue) search and watch workflow…")
                         let instructions = "Extract a relevant search query from the persona's niche. Return one or two plain ASCII alphanumeric words, separated by one space, at most 32 characters. Return only the query JSON. Do not plan phone actions."
                         let data: Data
                         switch provider {
@@ -621,10 +632,7 @@ final class DeviceManager {
                         }
                         struct Query: Decodable { let query: String }
                         let query = try JSONDecoder().decode(Query.self, from: data).query
-                        guard let url = Bundle.main.url(forResource: "tiktok-watch", withExtension: "json") else {
-                            throw PhoneTransactionError.unavailable
-                        }
-                        return try PhoneTransactionCompiler.tikTokWatch(script: script, query: query, template: Data(contentsOf: url))
+                        return try PhoneTransactionCompiler.watch(script: script, query: query, template: Data(contentsOf: url))
                     }
                     guard let store = self.warmUpContracts() else { throw PhoneTransactionError.unavailable }
                     progress("Preparing warm-up: 0 of \(script.steps.count) steps ready…")
@@ -671,10 +679,11 @@ final class DeviceManager {
                     question: question.question, options:
                         question.options.map { .init(id: $0.id, description: $0.description) })
                 let result = try await scorer.score(row)
-                switch result.decision {
-                case .option(let id): return id
-                case .uncertain: return nil
-                }
+                let selected: String? = if case .option(let id) = result.decision { id } else { nil }
+                return .init(selected: selected, probabilities: result.probabilities, margin: result.margin)
+            }, recordDecision: { record, jpeg in
+                guard let journal = SemanticIfCaptureJournal.configured() else { return }
+                Task.detached(priority: .utility) { journal.write(record, jpeg: jpeg) }
             })
         let session = DevicePromptSession(deviceName: descriptor.name, deviceIdentifier: descriptor.identifier, blockedReason: blockedReason,
             visualRunner: runner, visualBlockedReason: visualBlockedReason,
@@ -932,6 +941,106 @@ final class DeviceManager {
 
     private func allDevices() -> [Device] {
         (try? context.fetch(FetchDescriptor<Device>())) ?? []
+    }
+
+    /// Opt-in local automation: queues a warm-up posted as a distributed notification whose object is a WarmUpAutomationRequest JSON string.
+    private func observeAutomation() {
+        guard UserDefaults.standard.bool(forKey: WarmUpAutomationRequest.enabledKey) else { return }
+        _ = DistributedNotificationCenter.default().addObserver(forName: WarmUpAutomationRequest.notification,
+            object: nil, queue: .main) { [weak self] note in
+            guard let json = note.object as? String else { return }
+            MainActor.assumeIsolated { self?.runAutomation(json) }
+        }
+    }
+
+    private func runAutomation(_ json: String) {
+        guard let request = try? JSONDecoder().decode(WarmUpAutomationRequest.self, from: Data(json.utf8)),
+              let platform = WarmUpPlaybook.platforms.first(where: { $0.displayName == request.platform }) else {
+            NSLog("ShortReel automation: invalid warm-up request")
+            return
+        }
+        var configuration = WarmUpConfiguration()
+        configuration.platform = platform
+        configuration.profileName = request.name
+        configuration.profileHandle = request.handle
+        configuration.profileNarrative = request.narrative
+        configuration.niche = request.niche
+        configuration.phaseIndex = request.phaseIndex
+        configuration.sessionMinutes = request.minutes
+        configuration.itemsToView = request.items
+        // The day's phase caps engagement, as in the Stage daily session; only TikTok Watch automates it.
+        configuration.likeLimit = platform == .tikTok ? min(max(request.likes, 0), configuration.phase.maxLikes) : 0
+        configuration.followLimit = platform == .tikTok ? min(max(request.follows, 0), configuration.phase.maxFollows) : 0
+        guard configuration.validationMessage == nil, let script = configuration.script else {
+            NSLog("ShortReel automation: %@", configuration.validationMessage ?? "no script")
+            return
+        }
+        start()
+        Task { [weak self] in
+            for _ in 0..<90 {
+                guard let self else { return }
+                if let device = self.allDevices().first(where: { $0.name == request.device && $0.isLive }) {
+                    let session = self.promptSession(for: device)
+                    guard !session.isRunning, session.queuedCount == 0 else {
+                        NSLog("ShortReel automation: %@ already has a warm-up queued or running", request.device)
+                        return
+                    }
+                    // Only watch navigation, which never submits content, may be acknowledged by the automation that inspected its
+                    // captures; an unverified like or follow stays for a person.
+                    if request.acknowledgeWatchReviews {
+                        for entry in session.entries where entry.status == .needsReview && entry.reviewedAt == nil
+                            && entry.warmUpScript?.activity == .watch && !["like", "follow"].contains(entry.transactionCheckpoint?.phase ?? "") {
+                            session.acknowledgeReview(id: entry.id)
+                        }
+                    }
+                    if session.unavailableReason == nil, session.screenUnavailableReason == nil {
+                        self.prepareVisionProvider()
+                        session.submit(workflow: .warmUp, details: configuration.scriptBrief, warmUpScript: script)
+                        NSLog("ShortReel automation: queued %@ on %@", script.title, request.device)
+                        return
+                    }
+                }
+                try? await Task.sleep(for: .seconds(2))
+            }
+            NSLog("ShortReel automation: %@ was not ready", request.device)
+        }
+    }
+}
+
+struct WarmUpAutomationRequest: Decodable, Sendable {
+    static let enabledKey = "warmUpAutomationEnabled"
+    static let notification = Notification.Name("com.joeblau.shortreel.automation.warmUp")
+    let device: String
+    let name: String
+    let handle: String
+    let narrative: String
+    let niche: String
+    let platform: String
+    let phaseIndex: Int
+    let minutes: Int
+    let items: Int
+    let likes: Int
+    let follows: Int
+    var acknowledgeWatchReviews = false
+
+    enum CodingKeys: String, CodingKey {
+        case device, name, handle, narrative, niche, platform, phaseIndex, minutes, items, likes, follows, acknowledgeWatchReviews
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        device = try values.decode(String.self, forKey: .device)
+        name = try values.decode(String.self, forKey: .name)
+        handle = try values.decode(String.self, forKey: .handle)
+        narrative = try values.decode(String.self, forKey: .narrative)
+        niche = try values.decode(String.self, forKey: .niche)
+        platform = try values.decode(String.self, forKey: .platform)
+        phaseIndex = try values.decode(Int.self, forKey: .phaseIndex)
+        minutes = try values.decode(Int.self, forKey: .minutes)
+        items = try values.decode(Int.self, forKey: .items)
+        likes = try values.decode(Int.self, forKey: .likes)
+        follows = try values.decode(Int.self, forKey: .follows)
+        acknowledgeWatchReviews = try values.decodeIfPresent(Bool.self, forKey: .acknowledgeWatchReviews) ?? false
     }
 }
 
