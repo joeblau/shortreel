@@ -1,0 +1,758 @@
+{
+  "version": 1,
+  "phases": [
+    {
+      "id": "search",
+      "entry": "start",
+      "states": [
+        {
+          "id": "start",
+          "question": "What is on the X screen?",
+          "branches": [
+            {
+              "id": "drawer",
+              "condition": "A side menu with Profile, Premium, Bookmarks, and Lists.",
+              "command": {
+                "kind": "tap",
+                "value": "The dimmed timeline area to the right of the open X side menu",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The X home timeline is visible.",
+              "next": "start",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "ownProfile"
+            },
+            {
+              "id": "tabs",
+              "condition": "A timeline with For you and Following tabs.",
+              "command": {
+                "kind": "tap",
+                "value": "The magnifying-glass Search tab in the X bottom tab bar",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The Explore page with a Search field at the top.",
+              "next": "field",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "absentSignal": "ownProfile"
+            },
+            {
+              "id": "explore",
+              "condition": "An Explore page with a Search field and trending topics.",
+              "expected": "",
+              "next": "field",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "absentSignal": "ownProfile"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "X is on screen.",
+              "next": "start",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            },
+            {
+              "id": "loading",
+              "condition": "A centered X logo on a plain screen.",
+              "command": {
+                "kind": "wait",
+                "value": "",
+                "destination": "",
+                "seconds": 1
+              },
+              "expected": "X is on screen.",
+              "next": "start",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "launchScreen",
+              "video": false
+            },
+            {
+              "id": "login",
+              "condition": "A Log in or Sign up screen for X.",
+              "expected": "",
+              "next": "$stop",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ]
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "field",
+          "question": "Is the search field focused?",
+          "branches": [
+            {
+              "id": "focused",
+              "condition": "A focused search field with the keyboard open.",
+              "command": {
+                "kind": "press",
+                "value": "selectAll",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The search field is focused with the keyboard open.",
+              "next": "replace",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": true,
+              "expectedKeyboard": true
+            },
+            {
+              "id": "unfocused",
+              "condition": "A search field with the keyboard hidden.",
+              "command": {
+                "kind": "tap",
+                "value": "The Search field at the top of the X Explore page",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The search field is focused and the keyboard is visible.",
+              "next": "field",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": false,
+              "expectedKeyboard": true
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "X is on screen.",
+              "next": "field",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ],
+          "check": "query"
+        },
+        {
+          "id": "replace",
+          "question": "Is the search field ready for typing?",
+          "branches": [
+            {
+              "id": "ready",
+              "condition": "A focused search field ready for typing.",
+              "command": {
+                "kind": "typeText",
+                "value": "{{query}}",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The search field contains {{query}}.",
+              "next": "typed",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp"
+          ],
+          "check": "query"
+        },
+        {
+          "id": "typed",
+          "question": "What does the search field contain?",
+          "branches": [
+            {
+              "id": "query",
+              "condition": "The typed query with suggestions below.",
+              "command": {
+                "kind": "press",
+                "value": "enter",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Search results for {{query}} with Top and Latest tabs.",
+              "next": "$done",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": true,
+              "expectedSignal": "resultsTabs"
+            },
+            {
+              "id": "results",
+              "condition": "Search results with Top and Latest tabs.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": false,
+              "signal": "resultsTabs"
+            }
+          ],
+          "maximumVisits": 4,
+          "requiredScreens": [
+            "foregroundApp"
+          ],
+          "check": "query"
+        }
+      ]
+    },
+    {
+      "id": "open",
+      "entry": "tab",
+      "states": [
+        {
+          "id": "tab",
+          "question": "Which search results tab is selected?",
+          "branches": [
+            {
+              "id": "tabs",
+              "condition": "Search results with Top, Latest, and People tabs.",
+              "command": {
+                "kind": "tap",
+                "value": "The Latest tab above the X search results",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The Latest tab is selected and latest posts for {{query}} are listed.",
+              "next": "first",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "resultsTabs",
+              "expectedSignal": "resultsTabs",
+              "expectedKeyboard": false,
+              "expectedTab": "Latest"
+            },
+            {
+              "id": "typeahead",
+              "condition": "Suggested searches listed below the search field.",
+              "command": {
+                "kind": "press",
+                "value": "enter",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Search results for {{query}} with Top and Latest tabs.",
+              "next": "tab",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": true,
+              "absentSignal": "resultsTabs",
+              "expectedSignal": "resultsTabs"
+            },
+            {
+              "id": "loading",
+              "condition": "A loading spinner below the search field.",
+              "command": {
+                "kind": "wait",
+                "value": "",
+                "destination": "",
+                "seconds": 1
+              },
+              "expected": "Search results are listed.",
+              "next": "tab",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": false,
+              "absentSignal": "resultsTabs"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "X is on screen.",
+              "next": "tab",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "first",
+          "question": "What is the first post in the results?",
+          "branches": [
+            {
+              "id": "original",
+              "condition": "A post with author name, handle, and text.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "feedPost",
+              "absentSignal": "adLabel"
+            },
+            {
+              "id": "promoted",
+              "condition": "A post labeled Promoted or Ad.",
+              "command": {
+                "kind": "swipe",
+                "value": "up",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Other posts are visible in the results feed.",
+              "next": "first",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "adLabel"
+            },
+            {
+              "id": "empty",
+              "condition": "A results page with a No results line.",
+              "expected": "",
+              "next": "$stop",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "noResults"
+            },
+            {
+              "id": "loading",
+              "condition": "A loading spinner below the search tabs.",
+              "command": {
+                "kind": "wait",
+                "value": "",
+                "destination": "",
+                "seconds": 1
+              },
+              "expected": "Search results are listed.",
+              "next": "first",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "absentSignal": "feedPost"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "X is on screen.",
+              "next": "first",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "consume",
+      "entry": "read",
+      "states": [
+        {
+          "id": "read",
+          "question": "What does the top post contain?",
+          "branches": [
+            {
+              "id": "post",
+              "condition": "A feed post with text, a photo, or a GIF.",
+              "command": {
+                "kind": "wait",
+                "value": "",
+                "destination": "",
+                "seconds": 5
+              },
+              "expected": "A post is on screen.",
+              "next": "skim",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "absentSignal": "inlineTimer"
+            },
+            {
+              "id": "video",
+              "condition": "A video with a time counter.",
+              "expected": "",
+              "next": "clip1",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "inlineTimer"
+            },
+            {
+              "id": "detail",
+              "condition": "A post page with a back arrow and replies.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the top left of the X screen",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The search results feed is visible.",
+              "next": "read",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "replyBar",
+              "expectedSignal": "resultsTabs"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "X is on screen.",
+              "next": "read",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            },
+            {
+              "id": "login",
+              "condition": "A Log in or Sign up screen for X.",
+              "expected": "",
+              "next": "$stop",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ]
+            }
+          ],
+          "maximumVisits": 4,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "skim",
+          "question": "Is the post still at the top?",
+          "branches": [
+            {
+              "id": "post",
+              "condition": "The post at the top of the results.",
+              "command": {
+                "kind": "wait",
+                "value": "",
+                "destination": "",
+                "seconds": 4
+              },
+              "expected": "A post is on screen.",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "X is on screen.",
+              "next": "skim",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 3,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "clip1",
+          "question": "What does the video in the post show?",
+          "branches": [
+            {
+              "id": "playing",
+              "condition": "A timer counting down on the video.",
+              "command": {
+                "kind": "wait",
+                "value": "",
+                "destination": "",
+                "seconds": 8
+              },
+              "expected": "A video post is on screen.",
+              "next": "clip2"
+            },
+            {
+              "id": "paused",
+              "condition": "A large play button over the video.",
+              "command": {
+                "kind": "tap",
+                "value": "The play button on the embedded video in the X post",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The video timer is counting down.",
+              "next": "clip1",
+              "expectedScreen": "foregroundApp"
+            },
+            {
+              "id": "ended",
+              "condition": "A replay arrow over the video's last frame.",
+              "expected": "",
+              "next": "$done"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "X is on screen.",
+              "next": "clip1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 4,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "clip2",
+          "question": "What does the video in the post show?",
+          "branches": [
+            {
+              "id": "playing",
+              "condition": "A timer counting down on the video.",
+              "command": {
+                "kind": "wait",
+                "value": "",
+                "destination": "",
+                "seconds": 8
+              },
+              "expected": "A video post is on screen.",
+              "next": "clip3"
+            },
+            {
+              "id": "ended",
+              "condition": "A replay arrow over the video's last frame.",
+              "expected": "",
+              "next": "$done"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "X is on screen.",
+              "next": "clip2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 3,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "clip3",
+          "question": "What does the video in the post show?",
+          "branches": [
+            {
+              "id": "playing",
+              "condition": "A timer counting down on the video.",
+              "command": {
+                "kind": "wait",
+                "value": "",
+                "destination": "",
+                "seconds": 8
+              },
+              "expected": "A video post is on screen.",
+              "next": "$done"
+            },
+            {
+              "id": "ended",
+              "condition": "A replay arrow over the video's last frame.",
+              "expected": "",
+              "next": "$done"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "X is on screen.",
+              "next": "clip3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 3,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "advance",
+      "entry": "feed",
+      "states": [
+        {
+          "id": "feed",
+          "question": "What is on the screen?",
+          "branches": [
+            {
+              "id": "feed",
+              "condition": "Search results with posts in a scrolling feed.",
+              "command": {
+                "kind": "swipe",
+                "value": "up",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "A different post is at the top of the feed.",
+              "next": "$done",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "absentSignal": "replyBar"
+            },
+            {
+              "id": "detail",
+              "condition": "A single post page with a back arrow and replies.",
+              "expected": "",
+              "next": "$stop",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "replyBar"
+            },
+            {
+              "id": "login",
+              "condition": "A Log in or Sign up screen for X.",
+              "expected": "",
+              "next": "$stop",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ]
+            }
+          ],
+          "maximumVisits": 3,
+          "requiredScreens": [
+            "foregroundApp"
+          ]
+        }
+      ]
+    }
+  ]
+}

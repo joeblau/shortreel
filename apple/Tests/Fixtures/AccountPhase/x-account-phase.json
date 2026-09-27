@@ -1,0 +1,319 @@
+{
+  "entry" : "start",
+  "id" : "account",
+  "states" : [
+    {
+      "branches" : [
+        {
+          "condition" : "The iPhone Home Screen is visible.",
+          "expected" : "",
+          "id" : "home",
+          "next" : "launcher",
+          "requiredScreens" : [
+            "home"
+          ]
+        },
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "home",
+            "seconds" : 0,
+            "value" : ""
+          },
+          "condition" : "An app is open.",
+          "expected" : "The Home Screen and Dock are visible.",
+          "expectedScreen" : "home",
+          "id" : "app",
+          "next" : "launcher",
+          "requiredScreens" : [
+            "foregroundApp"
+          ]
+        },
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "home",
+            "seconds" : 0,
+            "value" : ""
+          },
+          "condition" : "The App Switcher is open.",
+          "expected" : "The Home Screen and Dock are visible.",
+          "expectedScreen" : "home",
+          "id" : "switcher",
+          "next" : "launcher",
+          "requiredScreens" : [
+            "appSwitcher"
+          ]
+        },
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "tap",
+            "seconds" : 0,
+            "value" : "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow"
+          },
+          "condition" : "An alert with Not now or Don't Allow buttons.",
+          "expected" : "The app or Home Screen is visible.",
+          "id" : "alert",
+          "next" : "start",
+          "requiredScreens" : [
+            "dialog"
+          ],
+          "signal" : "dismissControl"
+        },
+        {
+          "condition" : "A passcode keypad, lock screen, or system authentication prompt is visible.",
+          "expected" : "",
+          "id" : "blocked",
+          "next" : "$stop",
+          "requiredScreens" : [
+            "unknown",
+            "dialog"
+          ],
+          "signal" : "passcode"
+        }
+      ],
+      "id" : "start",
+      "maximumVisits" : 3,
+      "question" : "Which screen is visible on the iPhone?"
+    },
+    {
+      "app" : "X",
+      "branches" : [
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "press",
+            "seconds" : 0,
+            "value" : "search"
+          },
+          "condition" : "X icon absent",
+          "expected" : "System Spotlight search is visible with a focused search field.",
+          "expectedScreen" : "spotlight",
+          "id" : "absent",
+          "next" : "query",
+          "requiredScreens" : [
+            "home"
+          ]
+        }
+      ],
+      "id" : "launcher",
+      "maximumVisits" : 3,
+      "question" : "Is the X app icon visible on the Home Screen or in its Dock?",
+      "requiredScreens" : [
+        "home"
+      ]
+    },
+    {
+      "branches" : [
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "press",
+            "seconds" : 0,
+            "value" : "selectAll"
+          },
+          "condition" : "Spotlight is open with its search field.",
+          "expected" : "The Spotlight search field is focused with the keyboard open.",
+          "expectedKeyboard" : true,
+          "expectedScreen" : "spotlight",
+          "id" : "field",
+          "next" : "replace",
+          "requiredScreens" : [
+            "spotlight"
+          ]
+        }
+      ],
+      "id" : "query",
+      "maximumVisits" : 3,
+      "requiredScreens" : [
+        "spotlight"
+      ]
+    },
+    {
+      "branches" : [
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "typeText",
+            "seconds" : 0,
+            "value" : "X"
+          },
+          "condition" : "The Spotlight search field is ready for typing.",
+          "expected" : "Spotlight contains the query X and shows matching results.",
+          "expectedScreen" : "spotlight",
+          "id" : "selected",
+          "next" : "result",
+          "requiredScreens" : [
+            "spotlight"
+          ]
+        }
+      ],
+      "id" : "replace",
+      "maximumVisits" : 3,
+      "requiredScreens" : [
+        "spotlight"
+      ]
+    },
+    {
+      "app" : "X",
+      "branches" : [
+        {
+          "absentSignal" : "appStoreResult",
+          "command" : {
+            "destination" : "",
+            "kind" : "tap",
+            "seconds" : 0,
+            "value" : "The installed X app result in Spotlight, not a website or App Store suggestion."
+          },
+          "condition" : "Spotlight shows X as an installed app result.",
+          "expected" : "The X app is open in the foreground.",
+          "id" : "installed",
+          "named" : true,
+          "next" : "profile",
+          "requiredScreens" : [
+            "spotlight"
+          ]
+        },
+        {
+          "condition" : "Spotlight lists X only as an App Store download.",
+          "expected" : "",
+          "id" : "missing",
+          "next" : "$stop",
+          "requiredScreens" : [
+            "spotlight"
+          ],
+          "signal" : "appStoreResult"
+        }
+      ],
+      "id" : "result",
+      "maximumVisits" : 3,
+      "requiredScreens" : [
+        "spotlight"
+      ]
+    },
+    {
+      "branches" : [
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "wait",
+            "seconds" : 2,
+            "value" : ""
+          },
+          "condition" : "A centered X logo on a plain screen.",
+          "expected" : "X is on screen.",
+          "id" : "splash",
+          "next" : "profile",
+          "requiredScreens" : [
+            "foregroundApp"
+          ],
+          "signal" : "launchScreen",
+          "video" : false
+        },
+        {
+          "absentSignal" : "ownProfile",
+          "command" : {
+            "destination" : "",
+            "kind" : "tap",
+            "seconds" : 0,
+            "value" : "The signed-in X account avatar at the top left that opens the account side menu"
+          },
+          "condition" : "A timeline or Explore page with a round avatar at the top left.",
+          "expected" : "A side menu with Profile, Premium, Bookmarks, and Lists.",
+          "expectedScreen" : "foregroundApp",
+          "expectedSignal" : "ownProfile",
+          "id" : "avatar",
+          "next" : "verifyAccount",
+          "requiredScreens" : [
+            "foregroundApp"
+          ]
+        },
+        {
+          "condition" : "A side menu with Profile, Premium, Bookmarks, and Lists.",
+          "expected" : "",
+          "id" : "drawer",
+          "next" : "verifyAccount",
+          "requiredScreens" : [
+            "foregroundApp"
+          ],
+          "signal" : "ownProfile"
+        },
+        {
+          "command" : {
+            "destination" : "",
+            "kind" : "tap",
+            "seconds" : 0,
+            "value" : "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow"
+          },
+          "condition" : "A sheet or alert with Not now or Don't Allow buttons.",
+          "expected" : "X is on screen.",
+          "id" : "prompt",
+          "next" : "profile",
+          "requiredScreens" : [
+            "foregroundApp",
+            "dialog"
+          ],
+          "signal" : "dismissControl"
+        },
+        {
+          "absentSignal" : "ownProfile",
+          "command" : {
+            "destination" : "",
+            "kind" : "tap",
+            "seconds" : 0,
+            "value" : "The back arrow at the top left of X"
+          },
+          "condition" : "A results, post, or profile page with a back arrow.",
+          "expected" : "Another X page is visible.",
+          "expectedScreen" : "foregroundApp",
+          "id" : "back",
+          "next" : "profile",
+          "requiredScreens" : [
+            "foregroundApp"
+          ]
+        },
+        {
+          "condition" : "A Log in or Sign up screen for X.",
+          "expected" : "",
+          "id" : "login",
+          "next" : "$stop",
+          "requiredScreens" : [
+            "foregroundApp",
+            "dialog"
+          ]
+        }
+      ],
+      "id" : "profile",
+      "maximumVisits" : 8,
+      "question" : "What is on the X screen?",
+      "requiredScreens" : [
+        "foregroundApp",
+        "dialog"
+      ]
+    },
+    {
+      "accountGate" : true,
+      "branches" : [
+        {
+          "condition" : "The local account check confirms the exact required handle.",
+          "expected" : "",
+          "id" : "matches",
+          "next" : "$done"
+        },
+        {
+          "condition" : "The account handle is not yet readable.",
+          "expected" : "",
+          "id" : "unreadable",
+          "next" : "profile"
+        }
+      ],
+      "id" : "verifyAccount",
+      "maximumVisits" : 3,
+      "question" : "Read the profile header and its exact @handle.",
+      "requiredScreens" : [
+        "foregroundApp"
+      ]
+    }
+  ]
+}

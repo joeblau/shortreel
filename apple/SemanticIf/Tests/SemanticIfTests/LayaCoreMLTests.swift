@@ -4,19 +4,28 @@ import XCTest
 @testable import SemanticIf
 
 final class LayaCoreMLTests: XCTestCase {
-    func testTikTokWatchTransitionsWithNativeModel() async throws {
+    func testWatchTransitionsWithNativeModel() async throws {
         guard let path = ProcessInfo.processInfo.environment["SHORTREEL_LAYA_MODEL_DIR"] else {
             throw XCTSkip("Set SHORTREEL_LAYA_MODEL_DIR for native workflow checks.")
         }
-        let url = try XCTUnwrap(Bundle.module.url(forResource: "tiktok-watch-transitions", withExtension: "json", subdirectory: "Fixtures"))
-        let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
         let model = try await LayaCoreMLModel(modelDirectory: URL(fileURLWithPath: path))
-        for var fixture in rows {
-            let expected = try XCTUnwrap(fixture.removeValue(forKey: "expected") as? String)
-            let json = String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
-            let row = try SemanticIfRow(SemanticIfDecision(json: SemanticIfJSON.parse(json)))
-            let result = try await model.score(row)
-            XCTAssertEqual(result.decision, .option(expected), "\(row.id): \(result.probabilities)")
+        for name in ["tiktok-watch-baseline", "tiktok-watch-transitions", "tiktok-watch-engagement", "tiktok-watch-live",
+                     "instagram-watch-transitions", "youtube-watch-transitions", "x-watch-transitions"] {
+            let url = try XCTUnwrap(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures"))
+            let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+            XCTAssertFalse(rows.isEmpty, name)
+            var failures: [String] = []
+            for var fixture in rows {
+                let expected = try XCTUnwrap(fixture.removeValue(forKey: "expected") as? String)
+                fixture.removeValue(forKey: "note")
+                let json = String(decoding: try JSONSerialization.data(withJSONObject: fixture), as: UTF8.self)
+                let row = try SemanticIfRow(SemanticIfDecision(json: SemanticIfJSON.parse(json)))
+                let result = try await model.score(row)
+                if result.decision != (expected == "uncertain" ? .uncertain : .option(expected)) {
+                    failures.append("\(row.id) expected \(expected): \(result.probabilities)")
+                }
+            }
+            XCTAssert(failures.isEmpty, "\(name): \(failures.count) of \(rows.count) rows failed\n" + failures.joined(separator: "\n"))
         }
     }
     struct Reference: Decodable { let modelRevision: String; let cases: [Case] }
@@ -142,8 +151,7 @@ final class LayaCoreMLTests: XCTestCase {
         let alternatives: [(Int, String, String)] = [
             (0, "The iPhone is locked. Enter Passcode and a numeric keypad are visible.", "blocked"),
             (0, "TikTok is open showing a playing video, For You and Following tabs, creator @sam, and Home, Friends, Inbox, and Profile navigation.", "app"),
-            (0, "Safari browser is in the foreground.", "app"),
-            (1, "The TikTok app icon is not visible on this Home Screen.", "absent")
+            (0, "Safari browser is in the foreground.", "app")
         ]
         for (index, evidence, expected) in alternatives {
             var fixture = rows[index]

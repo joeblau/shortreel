@@ -26,10 +26,12 @@ import ImageIO
             try await Task.sleep(for: .milliseconds(1))
         }
     }
-    static func frame(after: Date, id: UUID = UUID(), source: String = "Phone", stale: Bool = false, malformed: Bool = false) throws -> PhoneScreenFrame {
+    static func frame(after: Date, id: UUID = UUID(), source: String = "Phone", stale: Bool = false, malformed: Bool = false,
+                      shade: Int = 0) throws -> PhoneScreenFrame {
         let context = CGContext(data: nil, width: 8, height: 12, bitsPerComponent: 8, bytesPerRow: 32,
             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
-        context.setFillColor(red: 0.2, green: 0.3, blue: 0.4, alpha: 1)
+        let level = 0.2 + 0.2 * Double(shade % 4)
+        context.setFillColor(red: level, green: level + 0.1, blue: level + 0.2, alpha: 1)
         context.fill(CGRect(x: 0, y: 0, width: 8, height: 12))
         let image = context.makeImage()!
         let data = NSMutableData()
@@ -63,6 +65,7 @@ import ImageIO
         var stepLimit = 30
         var accountOutcome: WarmUpAccountDecision.Outcome = .matches
         var failure: WarmUpFailureDecision?
+        var failureSteps: [(WarmUpScript.StepID, PhoneScreenObservation.State)] = []
         var accountCalls = 0
         var accountObservations: [PhoneScreenObservation] = []
         var budget = WarmUpStepBudget(maxPlannerDecisions: 30, maxSeconds: 30)
@@ -70,11 +73,13 @@ import ImageIO
         var inspectOverride: ((PhoneScreenFrame) async throws -> PhoneScreenObservation)?
         var observeOverride: ((PhoneScreenFrame, String) async throws -> PhoneScreenObservation)?
         var readTextOverride: ((PhoneScreenFrame, String) -> PhonePlaybackTracker.Observation)?
+        var records: [SemanticIfCaptureRecord] = []
+        var probabilities: [String: Double]?
         var budgetOverride: ((WarmUpScript, WarmUpScript.StepID) -> WarmUpStepBudget?)?
         func runner() -> PhoneVisualRunner {
             PhoneVisualRunner(capture: { after in
                 self.captures += 1; self.trace.append("capture")
-                return try await self.captureOverride?(after) ?? TransactionTestSupport.frame(after: after)
+                return try await self.captureOverride?(after) ?? TransactionTestSupport.frame(after: after, shade: self.actions.count)
             }, decide: { goal, frame, history in
                 self.locatorCalls += 1
                 return try await self.locate(goal, frame, history)
@@ -96,8 +101,9 @@ import ImageIO
                 self.accountObservations.append(observation)
                 return .init(outcome: self.accountOutcome, evidence: self.accountOutcome.rawValue,
                     probabilities: [:], margin: 1, threshold: 0.12, promptHash: "fixture")
-            }, classifyFailure: { _, _, step, _ in
-                self.failure ?? .init(stepID: step.rawValue, failureModeID: nil, uncertain: false,
+            }, classifyFailure: { _, observation, _, step, _ in
+                self.failureSteps.append((step, observation.state))
+                return self.failure ?? .init(stepID: step.rawValue, failureModeID: nil, uncertain: false,
                     terminal: false, detection: "", recovery: "", evidence: "none", probabilities: [:], margin: 1, threshold: 0.12, promptHash: "fixture")
             }, stepBudget: { script, step in self.budgetOverride?(script, step) ?? self.budget }, compile: { goal, script, progress in
                 self.trace.append("compile"); self.compileGoals.append(goal)
@@ -105,9 +111,11 @@ import ImageIO
                 return self.plan
             }, classify: { question in
                 self.trace.append("classify"); self.questions.append(question)
-                if let classify = self.classifyOverride { return try await classify(question) }
-                return question.id.hasSuffix(".verify") ? "confirmed" : "go"
-            })
+                let selected: String?
+                if let classify = self.classifyOverride { selected = try await classify(question) }
+                else { selected = question.id.hasSuffix(".verify") ? "confirmed" : "go" }
+                return .init(selected: selected, probabilities: self.probabilities, margin: self.probabilities.map { _ in 0.5 })
+            }, recordDecision: { record, _ in self.records.append(record) })
         }
         @discardableResult func run(workflow: DeviceWorkflow? = nil, script: WarmUpScript? = nil,
                                    checkpoint: @escaping (PhoneTransactionCheckpoint) throws -> Void = { _ in }) async throws -> String {

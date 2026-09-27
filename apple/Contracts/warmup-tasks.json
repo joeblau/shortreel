@@ -96,28 +96,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -147,23 +151,26 @@
                 {
                   "id": "search-not-focused",
                   "detection": "typed text absent from OCR after typeText",
-                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts",
+                  "observable": false
                 },
                 {
                   "id": "query-too-long",
                   "detection": "typed query > 2 words or > 32 chars",
-                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                  "recovery": "selectAll + typeText with the 1–2 word niche term",
+                  "observable": false
                 },
                 {
                   "id": "keyboard-locale",
                   "detection": "typeText rejected for non-US characters",
                   "recovery": "needsInput: persona niche must be plain ASCII",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 10,
-                "maxSeconds": 60
+                "maxPlannerDecisions": 14,
+                "maxSeconds": 210
               }
             },
             {
@@ -189,17 +196,21 @@
                 {
                   "id": "no-suggestions",
                   "detection": "no suggestion rows under the field after 2 frames",
-                  "recovery": "press enter once, then verify the results grid"
+                  "recovery": "press enter once, then verify the results grid",
+                  "observable": false
                 },
                 {
                   "id": "tapped-account-row",
                   "detection": "profile opened instead of grid",
-                  "recovery": "back, re-tap a suggestion row"
+                  "recovery": "back, re-tap a suggestion row",
+                  "observable": true,
+                  "visible": "A profile with following, followers, likes, and Follow or Message buttons.",
+                  "ocrRule": "^followers$"
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 6,
-                "maxSeconds": 40
+                "maxPlannerDecisions": 8,
+                "maxSeconds": 120
               }
             },
             {
@@ -230,23 +241,29 @@
                 {
                   "id": "opened-account-or-ad",
                   "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
-                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail",
+                  "observable": true,
+                  "visible": "Sponsored or Learn more, or a profile with Following, Followers, subscribers, and Follow, Message, or Subscribe.",
+                  "ocrRule": "^(sponsored|promoted|ad)$|^ad\\s*[·•]|^([0-9][0-9.,]*[kmb]? )?followers$|\\b[0-9][0-9.,]*[kmb]? subscribers\\b",
+                  "absentSignal": "resultsTabs"
                 },
                 {
                   "id": "no-qualifying-result",
                   "detection": "results exhausted within step budget",
                   "recovery": "needsInput; never lower a threshold or broaden the query",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "threshold-unreadable",
                   "detection": "heart count not legible in player",
-                  "recovery": "go back; inspect the next relevant result"
+                  "recovery": "go back; inspect the next relevant result",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 14,
-                "maxSeconds": 120
+                "maxPlannerDecisions": 24,
+                "maxSeconds": 360
               }
             },
             {
@@ -275,27 +292,31 @@
                 {
                   "id": "paused",
                   "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
-                  "recovery": "one tap on the observed play control, re-observe"
+                  "recovery": "one tap on the observed play control, re-observe",
+                  "observable": false
                 },
                 {
                   "id": "stalled-wait-loop",
                   "detection": "3 consecutive wait decisions with unchanged timer",
-                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance",
+                  "observable": false
                 },
                 {
                   "id": "too-long",
                   "detection": "readable or estimated total > maximumVideoDurationSeconds",
-                  "recovery": "swipe up exactly once; do not count as viewed; cursor jumps to advance"
+                  "recovery": "swipe up exactly once; do not count as viewed; cursor jumps to advance",
+                  "observable": false
                 },
                 {
                   "id": "navigated-away",
                   "detection": "screen.state != foregroundApp or player chrome missing",
-                  "recovery": "openApp + re-run open step; do not count the item"
+                  "recovery": "openApp + re-run open step; do not count the item",
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 40,
-                "maxSeconds": 240
+                "maxSeconds": 400
               },
               "maximumVideoDurationSeconds": 60,
               "allowsEstimatedDurationSkip": true
@@ -323,17 +344,19 @@
                 {
                   "id": "already-liked",
                   "detection": "heart already filled red before any tap",
-                  "recovery": "skip the like; never tap a filled heart"
+                  "recovery": "skip the like; never tap a filled heart",
+                  "observable": false
                 },
                 {
                   "id": "like-unverified",
                   "detection": "heart not filled red after the tap",
-                  "recovery": "skip without tapping again (a second tap unlikes)"
+                  "recovery": "skip without tapping again (a second tap unlikes)",
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 6,
-                "maxSeconds": 60
+                "maxSeconds": 90
               }
             },
             {
@@ -359,17 +382,19 @@
                 {
                   "id": "already-following",
                   "detection": "no follow plus badge on the creator avatar",
-                  "recovery": "skip the follow"
+                  "recovery": "skip the follow",
+                  "observable": false
                 },
                 {
                   "id": "follow-unverified",
                   "detection": "plus badge still visible after the tap",
-                  "recovery": "skip without tapping again"
+                  "recovery": "skip without tapping again",
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 6,
-                "maxSeconds": 60
+                "maxSeconds": 90
               }
             },
             {
@@ -394,17 +419,21 @@
                 {
                   "id": "same-item",
                   "detection": "identity tokens (caption/author) unchanged after swipe + wait",
-                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)"
+                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)",
+                  "observable": false
                 },
                 {
                   "id": "results-grid",
                   "detection": "grid thumbnails visible instead of player",
-                  "recovery": "run open step again; do not swipe a grid"
+                  "recovery": "run open step again; do not swipe a grid",
+                  "observable": true,
+                  "visible": "Results tabs above a grid of video titles and view counts.",
+                  "ocrRule": "^(top|users|accounts|audio|tags|unwatched)$"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 6,
-                "maxSeconds": 40
+                "maxSeconds": 90
               }
             }
           ],
@@ -456,28 +485,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -507,23 +540,26 @@
                 {
                   "id": "search-not-focused",
                   "detection": "typed text absent from OCR after typeText",
-                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts",
+                  "observable": false
                 },
                 {
                   "id": "query-too-long",
                   "detection": "typed query > 2 words or > 32 chars",
-                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                  "recovery": "selectAll + typeText with the 1–2 word niche term",
+                  "observable": false
                 },
                 {
                   "id": "keyboard-locale",
                   "detection": "typeText rejected for non-US characters",
                   "recovery": "needsInput: persona niche must be plain ASCII",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 10,
-                "maxSeconds": 60
+                "maxPlannerDecisions": 14,
+                "maxSeconds": 210
               }
             },
             {
@@ -549,17 +585,21 @@
                 {
                   "id": "no-suggestions",
                   "detection": "no suggestion rows under the field after 2 frames",
-                  "recovery": "press enter once, then verify the results grid"
+                  "recovery": "press enter once, then verify the results grid",
+                  "observable": false
                 },
                 {
                   "id": "tapped-account-row",
                   "detection": "profile opened instead of grid",
-                  "recovery": "back, re-tap a suggestion row"
+                  "recovery": "back, re-tap a suggestion row",
+                  "observable": true,
+                  "visible": "A profile with following, followers, likes, and Follow or Message buttons.",
+                  "ocrRule": "^followers$"
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 6,
-                "maxSeconds": 40
+                "maxPlannerDecisions": 8,
+                "maxSeconds": 120
               }
             },
             {
@@ -590,23 +630,29 @@
                 {
                   "id": "opened-account-or-ad",
                   "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
-                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail",
+                  "observable": true,
+                  "visible": "Sponsored or Learn more, or a profile with Following, Followers, subscribers, and Follow, Message, or Subscribe.",
+                  "ocrRule": "^(sponsored|promoted|ad)$|^ad\\s*[·•]|^([0-9][0-9.,]*[kmb]? )?followers$|\\b[0-9][0-9.,]*[kmb]? subscribers\\b",
+                  "absentSignal": "resultsTabs"
                 },
                 {
                   "id": "no-qualifying-result",
                   "detection": "results exhausted within step budget",
                   "recovery": "needsInput; never lower a threshold or broaden the query",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "threshold-unreadable",
                   "detection": "heart count not legible in player",
-                  "recovery": "go back; inspect the next relevant result"
+                  "recovery": "go back; inspect the next relevant result",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 14,
-                "maxSeconds": 120
+                "maxPlannerDecisions": 24,
+                "maxSeconds": 360
               }
             },
             {
@@ -634,22 +680,25 @@
                 {
                   "id": "paused",
                   "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
-                  "recovery": "one tap on the observed play control, re-observe"
+                  "recovery": "one tap on the observed play control, re-observe",
+                  "observable": false
                 },
                 {
                   "id": "stalled-wait-loop",
                   "detection": "3 consecutive wait decisions with unchanged timer",
-                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance",
+                  "observable": false
                 },
                 {
                   "id": "navigated-away",
                   "detection": "screen.state != foregroundApp or player chrome missing",
-                  "recovery": "openApp + re-run open step; do not count the item"
+                  "recovery": "openApp + re-run open step; do not count the item",
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 40,
-                "maxSeconds": 240
+                "maxSeconds": 400
               }
             },
             {
@@ -677,24 +726,27 @@
                 {
                   "id": "composer-missing",
                   "detection": "no text field / caption area with OCR send label visible",
-                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                  "recovery": "navigate to the composer once via the documented control; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "media-not-found",
                   "detection": "requested asset not identifiable in picker",
                   "recovery": "needsInput; never substitute assets",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "wrong-target",
                   "detection": "author/handle or thread differs from consumed item",
                   "recovery": "needsInput",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 20,
-                "maxSeconds": 180
+                "maxSeconds": 300
               }
             },
             {
@@ -722,18 +774,20 @@
                   "id": "unlabeled-control",
                   "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
                   "recovery": "fail closed: no input; needsInput with the required label",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "duplicate-tap",
                   "detection": "cursor.submissionSent already true",
                   "recovery": "reject action; verification step only",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 2,
-                "maxSeconds": 20
+                "maxSeconds": 30
               },
               "submitControlLabels": [
                 "Post"
@@ -762,18 +816,22 @@
                   "id": "unconfirmed",
                   "detection": "no published item under persona after 3 fresh frames",
                   "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "error-banner",
                   "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
                   "recovery": "checkpoint uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": true,
+                  "visible": "Couldn't post comment, Something went wrong, Try again, or Tap to retry.",
+                  "ocrRule": "^(couldn't|could not|can't|cannot|unable to|failed to) (post|add|send|upload|share|publish)( (your |the |a |this )?(comment|reply|post|video|photo|reel|story|message)s?)?[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^(comment|reply|post|upload)s? failed[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^something went wrong[.!]?( (please )?try again( later)?[.!]?)?$|^try again later[.!]?$|^tap to retry[.!]?$|\\bwe restrict certain activity\\b"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 8,
-                "maxSeconds": 90
+                "maxSeconds": 120
               }
             }
           ],
@@ -825,28 +883,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -874,24 +936,27 @@
                 {
                   "id": "composer-missing",
                   "detection": "no text field / caption area with OCR send label visible",
-                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                  "recovery": "navigate to the composer once via the documented control; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "media-not-found",
                   "detection": "requested asset not identifiable in picker",
                   "recovery": "needsInput; never substitute assets",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "wrong-target",
                   "detection": "author/handle or thread differs from consumed item",
                   "recovery": "needsInput",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 20,
-                "maxSeconds": 180
+                "maxSeconds": 300
               }
             },
             {
@@ -919,18 +984,20 @@
                   "id": "unlabeled-control",
                   "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
                   "recovery": "fail closed: no input; needsInput with the required label",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "duplicate-tap",
                   "detection": "cursor.submissionSent already true",
                   "recovery": "reject action; verification step only",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 2,
-                "maxSeconds": 20
+                "maxSeconds": 30
               },
               "submitControlLabels": [
                 "Post"
@@ -959,18 +1026,22 @@
                   "id": "unconfirmed",
                   "detection": "no published item under persona after 3 fresh frames",
                   "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "error-banner",
                   "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
                   "recovery": "checkpoint uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": true,
+                  "visible": "Couldn't post comment, Something went wrong, Try again, or Tap to retry.",
+                  "ocrRule": "^(couldn't|could not|can't|cannot|unable to|failed to) (post|add|send|upload|share|publish)( (your |the |a |this )?(comment|reply|post|video|photo|reel|story|message)s?)?[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^(comment|reply|post|upload)s? failed[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^something went wrong[.!]?( (please )?try again( later)?[.!]?)?$|^try again later[.!]?$|^tap to retry[.!]?$|\\bwe restrict certain activity\\b"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 8,
-                "maxSeconds": 90
+                "maxSeconds": 120
               }
             }
           ]
@@ -1028,28 +1099,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -1079,23 +1154,26 @@
                 {
                   "id": "search-not-focused",
                   "detection": "typed text absent from OCR after typeText",
-                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts",
+                  "observable": false
                 },
                 {
                   "id": "query-too-long",
                   "detection": "typed query > 2 words or > 32 chars",
-                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                  "recovery": "selectAll + typeText with the 1–2 word niche term",
+                  "observable": false
                 },
                 {
                   "id": "keyboard-locale",
                   "detection": "typeText rejected for non-US characters",
                   "recovery": "needsInput: persona niche must be plain ASCII",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 10,
-                "maxSeconds": 60
+                "maxPlannerDecisions": 16,
+                "maxSeconds": 240
               }
             },
             {
@@ -1124,18 +1202,23 @@
                 {
                   "id": "opened-account-or-ad",
                   "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
-                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail",
+                  "observable": true,
+                  "visible": "Sponsored or Learn more, or a profile with Following, Followers, subscribers, and Follow, Message, or Subscribe.",
+                  "ocrRule": "^(sponsored|promoted|ad)$|^ad\\s*[·•]|^([0-9][0-9.,]*[kmb]? )?followers$|\\b[0-9][0-9.,]*[kmb]? subscribers\\b",
+                  "absentSignal": "resultsTabs"
                 },
                 {
                   "id": "no-qualifying-result",
                   "detection": "results exhausted within step budget",
                   "recovery": "needsInput; never lower a threshold or broaden the query",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 14,
-                "maxSeconds": 120
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -1164,27 +1247,31 @@
                 {
                   "id": "paused",
                   "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
-                  "recovery": "one tap on the observed play control, re-observe"
+                  "recovery": "one tap on the observed play control, re-observe",
+                  "observable": false
                 },
                 {
                   "id": "stalled-wait-loop",
                   "detection": "3 consecutive wait decisions with unchanged timer",
-                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance",
+                  "observable": false
                 },
                 {
                   "id": "too-long",
                   "detection": "readable or estimated total > maximumVideoDurationSeconds",
-                  "recovery": "swipe up exactly once; do not count as viewed; cursor jumps to advance"
+                  "recovery": "swipe up exactly once; do not count as viewed; cursor jumps to advance",
+                  "observable": false
                 },
                 {
                   "id": "navigated-away",
                   "detection": "screen.state != foregroundApp or player chrome missing",
-                  "recovery": "openApp + re-run open step; do not count the item"
+                  "recovery": "openApp + re-run open step; do not count the item",
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 40,
-                "maxSeconds": 240
+                "maxSeconds": 400
               },
               "maximumVideoDurationSeconds": 60,
               "allowsEstimatedDurationSkip": true
@@ -1211,17 +1298,21 @@
                 {
                   "id": "same-item",
                   "detection": "identity tokens (caption/author) unchanged after swipe + wait",
-                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)"
+                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)",
+                  "observable": false
                 },
                 {
                   "id": "results-grid",
                   "detection": "grid thumbnails visible instead of player",
-                  "recovery": "run open step again; do not swipe a grid"
+                  "recovery": "run open step again; do not swipe a grid",
+                  "observable": true,
+                  "visible": "Results tabs above a grid of video titles and view counts.",
+                  "ocrRule": "^(top|users|accounts|audio|tags|unwatched)$"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 6,
-                "maxSeconds": 40
+                "maxSeconds": 90
               }
             }
           ]
@@ -1272,28 +1363,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -1323,23 +1418,26 @@
                 {
                   "id": "search-not-focused",
                   "detection": "typed text absent from OCR after typeText",
-                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts",
+                  "observable": false
                 },
                 {
                   "id": "query-too-long",
                   "detection": "typed query > 2 words or > 32 chars",
-                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                  "recovery": "selectAll + typeText with the 1–2 word niche term",
+                  "observable": false
                 },
                 {
                   "id": "keyboard-locale",
                   "detection": "typeText rejected for non-US characters",
                   "recovery": "needsInput: persona niche must be plain ASCII",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 10,
-                "maxSeconds": 60
+                "maxPlannerDecisions": 16,
+                "maxSeconds": 240
               }
             },
             {
@@ -1368,18 +1466,23 @@
                 {
                   "id": "opened-account-or-ad",
                   "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
-                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail",
+                  "observable": true,
+                  "visible": "Sponsored or Learn more, or a profile with Following, Followers, subscribers, and Follow, Message, or Subscribe.",
+                  "ocrRule": "^(sponsored|promoted|ad)$|^ad\\s*[·•]|^([0-9][0-9.,]*[kmb]? )?followers$|\\b[0-9][0-9.,]*[kmb]? subscribers\\b",
+                  "absentSignal": "resultsTabs"
                 },
                 {
                   "id": "no-qualifying-result",
                   "detection": "results exhausted within step budget",
                   "recovery": "needsInput; never lower a threshold or broaden the query",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 14,
-                "maxSeconds": 120
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -1407,22 +1510,25 @@
                 {
                   "id": "paused",
                   "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
-                  "recovery": "one tap on the observed play control, re-observe"
+                  "recovery": "one tap on the observed play control, re-observe",
+                  "observable": false
                 },
                 {
                   "id": "stalled-wait-loop",
                   "detection": "3 consecutive wait decisions with unchanged timer",
-                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance",
+                  "observable": false
                 },
                 {
                   "id": "navigated-away",
                   "detection": "screen.state != foregroundApp or player chrome missing",
-                  "recovery": "openApp + re-run open step; do not count the item"
+                  "recovery": "openApp + re-run open step; do not count the item",
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 40,
-                "maxSeconds": 240
+                "maxSeconds": 400
               }
             },
             {
@@ -1450,24 +1556,27 @@
                 {
                   "id": "composer-missing",
                   "detection": "no text field / caption area with OCR send label visible",
-                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                  "recovery": "navigate to the composer once via the documented control; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "media-not-found",
                   "detection": "requested asset not identifiable in picker",
                   "recovery": "needsInput; never substitute assets",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "wrong-target",
                   "detection": "author/handle or thread differs from consumed item",
                   "recovery": "needsInput",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 20,
-                "maxSeconds": 180
+                "maxSeconds": 300
               }
             },
             {
@@ -1495,18 +1604,20 @@
                   "id": "unlabeled-control",
                   "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
                   "recovery": "fail closed: no input; needsInput with the required label",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "duplicate-tap",
                   "detection": "cursor.submissionSent already true",
                   "recovery": "reject action; verification step only",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 2,
-                "maxSeconds": 20
+                "maxSeconds": 30
               },
               "submitControlLabels": [
                 "Post"
@@ -1535,18 +1646,22 @@
                   "id": "unconfirmed",
                   "detection": "no published item under persona after 3 fresh frames",
                   "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "error-banner",
                   "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
                   "recovery": "checkpoint uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": true,
+                  "visible": "Couldn't post comment, Something went wrong, Try again, or Tap to retry.",
+                  "ocrRule": "^(couldn't|could not|can't|cannot|unable to|failed to) (post|add|send|upload|share|publish)( (your |the |a |this )?(comment|reply|post|video|photo|reel|story|message)s?)?[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^(comment|reply|post|upload)s? failed[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^something went wrong[.!]?( (please )?try again( later)?[.!]?)?$|^try again later[.!]?$|^tap to retry[.!]?$|\\bwe restrict certain activity\\b"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 8,
-                "maxSeconds": 90
+                "maxSeconds": 120
               }
             }
           ]
@@ -1597,28 +1712,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -1646,24 +1765,27 @@
                 {
                   "id": "composer-missing",
                   "detection": "no text field / caption area with OCR send label visible",
-                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                  "recovery": "navigate to the composer once via the documented control; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "media-not-found",
                   "detection": "requested asset not identifiable in picker",
                   "recovery": "needsInput; never substitute assets",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "wrong-target",
                   "detection": "author/handle or thread differs from consumed item",
                   "recovery": "needsInput",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 20,
-                "maxSeconds": 180
+                "maxSeconds": 300
               }
             },
             {
@@ -1691,18 +1813,20 @@
                   "id": "unlabeled-control",
                   "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
                   "recovery": "fail closed: no input; needsInput with the required label",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "duplicate-tap",
                   "detection": "cursor.submissionSent already true",
                   "recovery": "reject action; verification step only",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 2,
-                "maxSeconds": 20
+                "maxSeconds": 30
               },
               "submitControlLabels": [
                 "Share",
@@ -1732,18 +1856,22 @@
                   "id": "unconfirmed",
                   "detection": "no published item under persona after 3 fresh frames",
                   "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "error-banner",
                   "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
                   "recovery": "checkpoint uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": true,
+                  "visible": "Couldn't post comment, Something went wrong, Try again, or Tap to retry.",
+                  "ocrRule": "^(couldn't|could not|can't|cannot|unable to|failed to) (post|add|send|upload|share|publish)( (your |the |a |this )?(comment|reply|post|video|photo|reel|story|message)s?)?[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^(comment|reply|post|upload)s? failed[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^something went wrong[.!]?( (please )?try again( later)?[.!]?)?$|^try again later[.!]?$|^tap to retry[.!]?$|\\bwe restrict certain activity\\b"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 8,
-                "maxSeconds": 90
+                "maxSeconds": 120
               }
             }
           ]
@@ -1801,28 +1929,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -1852,23 +1984,26 @@
                 {
                   "id": "search-not-focused",
                   "detection": "typed text absent from OCR after typeText",
-                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts",
+                  "observable": false
                 },
                 {
                   "id": "query-too-long",
                   "detection": "typed query > 2 words or > 32 chars",
-                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                  "recovery": "selectAll + typeText with the 1–2 word niche term",
+                  "observable": false
                 },
                 {
                   "id": "keyboard-locale",
                   "detection": "typeText rejected for non-US characters",
                   "recovery": "needsInput: persona niche must be plain ASCII",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 10,
-                "maxSeconds": 60
+                "maxPlannerDecisions": 16,
+                "maxSeconds": 240
               }
             },
             {
@@ -1897,18 +2032,23 @@
                 {
                   "id": "opened-account-or-ad",
                   "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
-                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail",
+                  "observable": true,
+                  "visible": "Sponsored or Learn more, or a profile with Following, Followers, subscribers, and Follow, Message, or Subscribe.",
+                  "ocrRule": "^(sponsored|promoted|ad)$|^ad\\s*[·•]|^([0-9][0-9.,]*[kmb]? )?followers$|\\b[0-9][0-9.,]*[kmb]? subscribers\\b",
+                  "absentSignal": "resultsTabs"
                 },
                 {
                   "id": "no-qualifying-result",
                   "detection": "results exhausted within step budget",
                   "recovery": "needsInput; never lower a threshold or broaden the query",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 14,
-                "maxSeconds": 120
+                "maxPlannerDecisions": 24,
+                "maxSeconds": 360
               }
             },
             {
@@ -1937,27 +2077,31 @@
                 {
                   "id": "paused",
                   "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
-                  "recovery": "one tap on the observed play control, re-observe"
+                  "recovery": "one tap on the observed play control, re-observe",
+                  "observable": false
                 },
                 {
                   "id": "stalled-wait-loop",
                   "detection": "3 consecutive wait decisions with unchanged timer",
-                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance",
+                  "observable": false
                 },
                 {
                   "id": "too-long",
                   "detection": "readable or estimated total > maximumVideoDurationSeconds",
-                  "recovery": "swipe up exactly once; do not count as viewed; cursor jumps to advance"
+                  "recovery": "swipe up exactly once; do not count as viewed; cursor jumps to advance",
+                  "observable": false
                 },
                 {
                   "id": "navigated-away",
                   "detection": "screen.state != foregroundApp or player chrome missing",
-                  "recovery": "openApp + re-run open step; do not count the item"
+                  "recovery": "openApp + re-run open step; do not count the item",
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 40,
-                "maxSeconds": 240
+                "maxSeconds": 400
               },
               "maximumVideoDurationSeconds": 60,
               "allowsEstimatedDurationSkip": true
@@ -1984,17 +2128,21 @@
                 {
                   "id": "same-item",
                   "detection": "identity tokens (caption/author) unchanged after swipe + wait",
-                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)"
+                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)",
+                  "observable": false
                 },
                 {
                   "id": "results-grid",
                   "detection": "grid thumbnails visible instead of player",
-                  "recovery": "run open step again; do not swipe a grid"
+                  "recovery": "run open step again; do not swipe a grid",
+                  "observable": true,
+                  "visible": "Results tabs above a grid of video titles and view counts.",
+                  "ocrRule": "^(top|users|accounts|audio|tags|unwatched)$"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 6,
-                "maxSeconds": 40
+                "maxSeconds": 90
               }
             }
           ]
@@ -2045,28 +2193,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -2096,23 +2248,26 @@
                 {
                   "id": "search-not-focused",
                   "detection": "typed text absent from OCR after typeText",
-                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts",
+                  "observable": false
                 },
                 {
                   "id": "query-too-long",
                   "detection": "typed query > 2 words or > 32 chars",
-                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                  "recovery": "selectAll + typeText with the 1–2 word niche term",
+                  "observable": false
                 },
                 {
                   "id": "keyboard-locale",
                   "detection": "typeText rejected for non-US characters",
                   "recovery": "needsInput: persona niche must be plain ASCII",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 10,
-                "maxSeconds": 60
+                "maxPlannerDecisions": 16,
+                "maxSeconds": 240
               }
             },
             {
@@ -2141,18 +2296,23 @@
                 {
                   "id": "opened-account-or-ad",
                   "detection": "player absent; profile header or 'Sponsored'/'Ad' label visible",
-                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail"
+                  "recovery": "press back / AssistiveTouch Home, reopen results, pick the next top-row thumbnail",
+                  "observable": true,
+                  "visible": "Sponsored or Learn more, or a profile with Following, Followers, subscribers, and Follow, Message, or Subscribe.",
+                  "ocrRule": "^(sponsored|promoted|ad)$|^ad\\s*[·•]|^([0-9][0-9.,]*[kmb]? )?followers$|\\b[0-9][0-9.,]*[kmb]? subscribers\\b",
+                  "absentSignal": "resultsTabs"
                 },
                 {
                   "id": "no-qualifying-result",
                   "detection": "results exhausted within step budget",
                   "recovery": "needsInput; never lower a threshold or broaden the query",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 14,
-                "maxSeconds": 120
+                "maxPlannerDecisions": 24,
+                "maxSeconds": 360
               }
             },
             {
@@ -2180,22 +2340,25 @@
                 {
                   "id": "paused",
                   "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
-                  "recovery": "one tap on the observed play control, re-observe"
+                  "recovery": "one tap on the observed play control, re-observe",
+                  "observable": false
                 },
                 {
                   "id": "stalled-wait-loop",
                   "detection": "3 consecutive wait decisions with unchanged timer",
-                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance",
+                  "observable": false
                 },
                 {
                   "id": "navigated-away",
                   "detection": "screen.state != foregroundApp or player chrome missing",
-                  "recovery": "openApp + re-run open step; do not count the item"
+                  "recovery": "openApp + re-run open step; do not count the item",
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 40,
-                "maxSeconds": 240
+                "maxSeconds": 400
               }
             },
             {
@@ -2223,24 +2386,27 @@
                 {
                   "id": "composer-missing",
                   "detection": "no text field / caption area with OCR send label visible",
-                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                  "recovery": "navigate to the composer once via the documented control; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "media-not-found",
                   "detection": "requested asset not identifiable in picker",
                   "recovery": "needsInput; never substitute assets",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "wrong-target",
                   "detection": "author/handle or thread differs from consumed item",
                   "recovery": "needsInput",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 20,
-                "maxSeconds": 180
+                "maxSeconds": 300
               }
             },
             {
@@ -2268,18 +2434,20 @@
                   "id": "unlabeled-control",
                   "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
                   "recovery": "fail closed: no input; needsInput with the required label",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "duplicate-tap",
                   "detection": "cursor.submissionSent already true",
                   "recovery": "reject action; verification step only",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 2,
-                "maxSeconds": 20
+                "maxSeconds": 30
               },
               "submitControlLabels": [
                 "Comment",
@@ -2309,18 +2477,22 @@
                   "id": "unconfirmed",
                   "detection": "no published item under persona after 3 fresh frames",
                   "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "error-banner",
                   "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
                   "recovery": "checkpoint uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": true,
+                  "visible": "Couldn't post comment, Something went wrong, Try again, or Tap to retry.",
+                  "ocrRule": "^(couldn't|could not|can't|cannot|unable to|failed to) (post|add|send|upload|share|publish)( (your |the |a |this )?(comment|reply|post|video|photo|reel|story|message)s?)?[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^(comment|reply|post|upload)s? failed[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^something went wrong[.!]?( (please )?try again( later)?[.!]?)?$|^try again later[.!]?$|^tap to retry[.!]?$|\\bwe restrict certain activity\\b"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 8,
-                "maxSeconds": 90
+                "maxSeconds": 120
               }
             }
           ]
@@ -2371,28 +2543,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -2420,24 +2596,27 @@
                 {
                   "id": "composer-missing",
                   "detection": "no text field / caption area with OCR send label visible",
-                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                  "recovery": "navigate to the composer once via the documented control; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "media-not-found",
                   "detection": "requested asset not identifiable in picker",
                   "recovery": "needsInput; never substitute assets",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "wrong-target",
                   "detection": "author/handle or thread differs from consumed item",
                   "recovery": "needsInput",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 20,
-                "maxSeconds": 180
+                "maxSeconds": 300
               }
             },
             {
@@ -2465,18 +2644,20 @@
                   "id": "unlabeled-control",
                   "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
                   "recovery": "fail closed: no input; needsInput with the required label",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "duplicate-tap",
                   "detection": "cursor.submissionSent already true",
                   "recovery": "reject action; verification step only",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 2,
-                "maxSeconds": 20
+                "maxSeconds": 30
               },
               "submitControlLabels": [
                 "Upload",
@@ -2506,18 +2687,22 @@
                   "id": "unconfirmed",
                   "detection": "no published item under persona after 3 fresh frames",
                   "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "error-banner",
                   "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
                   "recovery": "checkpoint uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": true,
+                  "visible": "Couldn't post comment, Something went wrong, Try again, or Tap to retry.",
+                  "ocrRule": "^(couldn't|could not|can't|cannot|unable to|failed to) (post|add|send|upload|share|publish)( (your |the |a |this )?(comment|reply|post|video|photo|reel|story|message)s?)?[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^(comment|reply|post|upload)s? failed[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^something went wrong[.!]?( (please )?try again( later)?[.!]?)?$|^try again later[.!]?$|^tap to retry[.!]?$|\\bwe restrict certain activity\\b"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 8,
-                "maxSeconds": 90
+                "maxSeconds": 120
               }
             }
           ]
@@ -2575,28 +2760,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -2626,23 +2815,26 @@
                 {
                   "id": "search-not-focused",
                   "detection": "typed text absent from OCR after typeText",
-                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts",
+                  "observable": false
                 },
                 {
                   "id": "query-too-long",
                   "detection": "typed query > 2 words or > 32 chars",
-                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                  "recovery": "selectAll + typeText with the 1–2 word niche term",
+                  "observable": false
                 },
                 {
                   "id": "keyboard-locale",
                   "detection": "typeText rejected for non-US characters",
                   "recovery": "needsInput: persona niche must be plain ASCII",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 10,
-                "maxSeconds": 60
+                "maxPlannerDecisions": 16,
+                "maxSeconds": 240
               }
             },
             {
@@ -2669,17 +2861,24 @@
                 {
                   "id": "promoted-or-link",
                   "detection": "'Promoted'/'Ad' label or external link card is the first result",
-                  "recovery": "scroll once; pick the next original post"
+                  "recovery": "scroll once; pick the next original post",
+                  "observable": true,
+                  "visible": "The top post has a Promoted or Ad label, or a From link card.",
+                  "ocrRule": "^(promoted|ad)$|^from [a-z0-9-]+(\\.[a-z0-9-]+)+$"
                 },
                 {
                   "id": "account-only-results",
                   "detection": "only account rows visible",
-                  "recovery": "tap the Latest/Top tab once; re-verify posts"
+                  "recovery": "tap the Latest/Top tab once; re-verify posts",
+                  "observable": true,
+                  "visible": "Several accounts, each with a handle and a Follow button.",
+                  "ocrRule": "^follow$",
+                  "absentSignal": "feedPost"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 10,
-                "maxSeconds": 90
+                "maxSeconds": 150
               }
             },
             {
@@ -2706,22 +2905,25 @@
                 {
                   "id": "paused",
                   "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
-                  "recovery": "one tap on the observed play control, re-observe"
+                  "recovery": "one tap on the observed play control, re-observe",
+                  "observable": false
                 },
                 {
                   "id": "stalled-wait-loop",
                   "detection": "3 consecutive wait decisions with unchanged timer",
-                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance",
+                  "observable": false
                 },
                 {
                   "id": "navigated-away",
-                  "detection": "screen.state != foregroundApp or player chrome missing",
-                  "recovery": "openApp + re-run open step; do not count the item"
+                  "detection": "screen.state != foregroundApp",
+                  "recovery": "openApp + re-run open step; do not count the item",
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 20,
-                "maxSeconds": 120
+                "maxSeconds": 200
               }
             },
             {
@@ -2745,12 +2947,13 @@
                 {
                   "id": "same-item",
                   "detection": "identity tokens (caption/author) unchanged after swipe + wait",
-                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)"
+                  "recovery": "wait 1 s and re-observe once; then needsInput (no second swipe)",
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 6,
-                "maxSeconds": 40
+                "maxSeconds": 90
               }
             }
           ]
@@ -2801,28 +3004,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -2852,23 +3059,26 @@
                 {
                   "id": "search-not-focused",
                   "detection": "typed text absent from OCR after typeText",
-                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts"
+                  "recovery": "tap the observed search field once, re-verify focus on a fresh frame, then retype; max 2 attempts",
+                  "observable": false
                 },
                 {
                   "id": "query-too-long",
                   "detection": "typed query > 2 words or > 32 chars",
-                  "recovery": "selectAll + typeText with the 1–2 word niche term"
+                  "recovery": "selectAll + typeText with the 1–2 word niche term",
+                  "observable": false
                 },
                 {
                   "id": "keyboard-locale",
                   "detection": "typeText rejected for non-US characters",
                   "recovery": "needsInput: persona niche must be plain ASCII",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 10,
-                "maxSeconds": 60
+                "maxPlannerDecisions": 16,
+                "maxSeconds": 240
               }
             },
             {
@@ -2895,17 +3105,24 @@
                 {
                   "id": "promoted-or-link",
                   "detection": "'Promoted'/'Ad' label or external link card is the first result",
-                  "recovery": "scroll once; pick the next original post"
+                  "recovery": "scroll once; pick the next original post",
+                  "observable": true,
+                  "visible": "The top post has a Promoted or Ad label, or a From link card.",
+                  "ocrRule": "^(promoted|ad)$|^from [a-z0-9-]+(\\.[a-z0-9-]+)+$"
                 },
                 {
                   "id": "account-only-results",
                   "detection": "only account rows visible",
-                  "recovery": "tap the Latest/Top tab once; re-verify posts"
+                  "recovery": "tap the Latest/Top tab once; re-verify posts",
+                  "observable": true,
+                  "visible": "Several accounts, each with a handle and a Follow button.",
+                  "ocrRule": "^follow$",
+                  "absentSignal": "feedPost"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 10,
-                "maxSeconds": 90
+                "maxSeconds": 150
               }
             },
             {
@@ -2932,22 +3149,25 @@
                 {
                   "id": "paused",
                   "detection": "playback timer static across 2 frames >= 3 s apart and play glyph visible",
-                  "recovery": "one tap on the observed play control, re-observe"
+                  "recovery": "one tap on the observed play control, re-observe",
+                  "observable": false
                 },
                 {
                   "id": "stalled-wait-loop",
                   "detection": "3 consecutive wait decisions with unchanged timer",
-                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance"
+                  "recovery": "runner injects PhoneSearchGuidance.playbackCompletionReview; if still unchanged, treat as advance",
+                  "observable": false
                 },
                 {
                   "id": "navigated-away",
-                  "detection": "screen.state != foregroundApp or player chrome missing",
-                  "recovery": "openApp + re-run open step; do not count the item"
+                  "detection": "screen.state != foregroundApp",
+                  "recovery": "openApp + re-run open step; do not count the item",
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 20,
-                "maxSeconds": 120
+                "maxSeconds": 200
               }
             },
             {
@@ -2975,24 +3195,27 @@
                 {
                   "id": "composer-missing",
                   "detection": "no text field / caption area with OCR send label visible",
-                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                  "recovery": "navigate to the composer once via the documented control; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "media-not-found",
                   "detection": "requested asset not identifiable in picker",
                   "recovery": "needsInput; never substitute assets",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "wrong-target",
                   "detection": "author/handle or thread differs from consumed item",
                   "recovery": "needsInput",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 20,
-                "maxSeconds": 180
+                "maxSeconds": 300
               }
             },
             {
@@ -3020,18 +3243,20 @@
                   "id": "unlabeled-control",
                   "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
                   "recovery": "fail closed: no input; needsInput with the required label",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "duplicate-tap",
                   "detection": "cursor.submissionSent already true",
                   "recovery": "reject action; verification step only",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 2,
-                "maxSeconds": 20
+                "maxSeconds": 30
               },
               "submitControlLabels": [
                 "Reply",
@@ -3061,18 +3286,22 @@
                   "id": "unconfirmed",
                   "detection": "no published item under persona after 3 fresh frames",
                   "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "error-banner",
                   "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
                   "recovery": "checkpoint uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": true,
+                  "visible": "Couldn't post comment, Something went wrong, Try again, or Tap to retry.",
+                  "ocrRule": "^(couldn't|could not|can't|cannot|unable to|failed to) (post|add|send|upload|share|publish)( (your |the |a |this )?(comment|reply|post|video|photo|reel|story|message)s?)?[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^(comment|reply|post|upload)s? failed[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^something went wrong[.!]?( (please )?try again( later)?[.!]?)?$|^try again later[.!]?$|^tap to retry[.!]?$|\\bwe restrict certain activity\\b"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 8,
-                "maxSeconds": 90
+                "maxSeconds": 120
               }
             }
           ]
@@ -3123,28 +3352,32 @@
                   "id": "signed-out",
                   "detection": "screen.state == foregroundApp and OCR finds 'Log in' / 'Sign up' / 'Continue with'",
                   "recovery": "needsInput: never sign in, sign out, switch accounts, or enter credentials",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-mismatch",
-                  "detection": "OCR handle (case-insensitive, '@' stripped) != persona.handle",
+                  "detection": "own-profile markers visible and the header OCR handle (confidence >= 0.85, case-insensitive, '@' stripped) != persona.handle",
                   "recovery": "needsInput with both handles in the message",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "handle-unreadable",
                   "detection": "profile visible but no '@' token with confidence >= 0.6 after 3 fresh frames",
-                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput"
+                  "recovery": "one AssistiveTouch Home, reopen app, retry profile navigation once; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "wrong-app",
                   "detection": "screen.state == home or another app's chrome",
-                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts"
+                  "recovery": "openApp primitive (Dock icon, else Spotlight) then re-verify; max 2 attempts",
+                  "observable": false
                 }
               ],
               "budget": {
-                "maxPlannerDecisions": 12,
-                "maxSeconds": 90
+                "maxPlannerDecisions": 20,
+                "maxSeconds": 300
               }
             },
             {
@@ -3172,24 +3405,27 @@
                 {
                   "id": "composer-missing",
                   "detection": "no text field / caption area with OCR send label visible",
-                  "recovery": "navigate to the composer once via the documented control; then needsInput"
+                  "recovery": "navigate to the composer once via the documented control; then needsInput",
+                  "observable": false
                 },
                 {
                   "id": "media-not-found",
                   "detection": "requested asset not identifiable in picker",
                   "recovery": "needsInput; never substitute assets",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "wrong-target",
                   "detection": "author/handle or thread differs from consumed item",
                   "recovery": "needsInput",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 20,
-                "maxSeconds": 180
+                "maxSeconds": 300
               }
             },
             {
@@ -3217,18 +3453,20 @@
                   "id": "unlabeled-control",
                   "detection": "PhoneSubmissionGuard finds no recognized submit label near the tap",
                   "recovery": "fail closed: no input; needsInput with the required label",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "duplicate-tap",
                   "detection": "cursor.submissionSent already true",
                   "recovery": "reject action; verification step only",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 2,
-                "maxSeconds": 20
+                "maxSeconds": 30
               },
               "submitControlLabels": [
                 "Post"
@@ -3257,18 +3495,22 @@
                   "id": "unconfirmed",
                   "detection": "no published item under persona after 3 fresh frames",
                   "recovery": "PhoneSubmissionCheckpoint.state = uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": false
                 },
                 {
                   "id": "error-banner",
                   "detection": "OCR 'Try again' / 'Something went wrong' / 'Couldn't post'",
                   "recovery": "checkpoint uncertain; needsInput; never resubmit",
-                  "terminal": true
+                  "terminal": true,
+                  "observable": true,
+                  "visible": "Couldn't post comment, Something went wrong, Try again, or Tap to retry.",
+                  "ocrRule": "^(couldn't|could not|can't|cannot|unable to|failed to) (post|add|send|upload|share|publish)( (your |the |a |this )?(comment|reply|post|video|photo|reel|story|message)s?)?[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^(comment|reply|post|upload)s? failed[.!]?( (please )?(tap to retry|try again( later)?)[.!]?)?$|^something went wrong[.!]?( (please )?try again( later)?[.!]?)?$|^try again later[.!]?$|^tap to retry[.!]?$|\\bwe restrict certain activity\\b"
                 }
               ],
               "budget": {
                 "maxPlannerDecisions": 8,
-                "maxSeconds": 90
+                "maxSeconds": 120
               }
             }
           ]

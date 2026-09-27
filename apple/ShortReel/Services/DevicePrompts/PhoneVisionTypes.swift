@@ -122,6 +122,7 @@ enum PhoneVisionError: LocalizedError {
     case staleFrame
     case sourceChanged
     case limitReached
+    case sessionTimeUp
 
     var errorDescription: String? {
         switch self {
@@ -129,11 +130,12 @@ enum PhoneVisionError: LocalizedError {
         case .staleFrame: "A fresh iPhone screen wasn’t available. Reconnect the USB screen and try again."
         case .sourceChanged: "The screen source changed. Select the screen belonging to this phone and try again."
         case .limitReached: "Stopped at the request limit. Review the phone’s screen before continuing."
+        case .sessionTimeUp: "The session’s time is up. Review the phone’s screen before continuing."
         }
     }
 }
 
-struct PhoneScreenObservation: Decodable, Sendable, Equatable {
+struct PhoneScreenObservation: Codable, Sendable, Equatable {
     enum State: String, Codable, Sendable {
         case home, homeEditing, appSwitcher, foregroundApp, spotlight, assistiveTouch, dialog, unknown
     }
@@ -143,7 +145,7 @@ struct PhoneScreenObservation: Decodable, Sendable, Equatable {
 
     var checkEvidence: String? = nil
     var keyboardVisible: Bool? = nil
-    struct Video: Decodable, Sendable, Equatable {
+    struct Video: Codable, Sendable, Equatable {
         let creator: String
         let caption: String
         let progress: Double?

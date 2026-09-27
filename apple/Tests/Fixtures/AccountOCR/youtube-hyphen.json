@@ -1,0 +1,88 @@
+{
+ "platform": "YouTube",
+ "handle": "joe-blau",
+ "outcome": "matches",
+ "ownProfile": true,
+ "regions": [
+  {
+   "text": "9:41",
+   "confidence": 0.95,
+   "x": 0.11,
+   "y": 0.02,
+   "width": 0.1,
+   "height": 0.019
+  },
+  {
+   "text": "Joe Blau",
+   "confidence": 0.95,
+   "x": 0.26,
+   "y": 0.12,
+   "width": 0.3,
+   "height": 0.03
+  },
+  {
+   "text": "@joe-blau • View channel",
+   "confidence": 0.95,
+   "x": 0.26,
+   "y": 0.16,
+   "width": 0.5,
+   "height": 0.03
+  },
+  {
+   "text": "Switch account",
+   "confidence": 0.95,
+   "x": 0.05,
+   "y": 0.22,
+   "width": 0.3,
+   "height": 0.03
+  },
+  {
+   "text": "History",
+   "confidence": 0.95,
+   "x": 0.08,
+   "y": 0.34,
+   "width": 0.3,
+   "height": 0.03
+  },
+  {
+   "text": "Playlists",
+   "confidence": 0.95,
+   "x": 0.08,
+   "y": 0.42,
+   "width": 0.3,
+   "height": 0.03
+  },
+  {
+   "text": "Home",
+   "confidence": 0.95,
+   "x": 0.06,
+   "y": 0.95,
+   "width": 0.1,
+   "height": 0.012
+  },
+  {
+   "text": "Shorts",
+   "confidence": 0.95,
+   "x": 0.28,
+   "y": 0.95,
+   "width": 0.1,
+   "height": 0.012
+  },
+  {
+   "text": "Subscriptions",
+   "confidence": 0.95,
+   "x": 0.62,
+   "y": 0.95,
+   "width": 0.16,
+   "height": 0.012
+  },
+  {
+   "text": "You",
+   "confidence": 0.95,
+   "x": 0.88,
+   "y": 0.95,
+   "width": 0.06,
+   "height": 0.012
+  }
+ ]
+}

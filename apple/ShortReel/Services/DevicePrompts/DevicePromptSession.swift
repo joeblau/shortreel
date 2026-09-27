@@ -256,6 +256,19 @@ final class DevicePromptSession {
                     self.update(id, status: .cancelled, message: self.cancellationMessage)
                     return
                 }
+                // A watch session that verified the account and then used its whole time ended the way the brief asks. Its last
+                // navigation needs no review (Watch never submits content), unless a like or follow tap was still in flight.
+                if case PhoneVisionError.sessionTimeUp = error, let script = warmUpScript, script.activity == .watch,
+                   let index = self.entries.firstIndex(where: { $0.id == id }), (self.entries[index].scriptCheckpoint?.index ?? 0) > 0,
+                   !["like", "follow"].contains(self.entries[index].transactionCheckpoint?.phase ?? "") {
+                    if let last = self.entries[index].transactionCheckpoint {
+                        self.entries[index].transactionCheckpoint = .init(phase: last.phase, state: last.state, branch: last.branch,
+                            status: .completed, input: nil, visits: last.visits)
+                    }
+                    let viewed = self.entries[index].scriptCheckpoint?.itemsCompleted ?? 0
+                    self.update(id, status: .completed, message: "Session time is up after verifying \(viewed) of \(script.itemLimit) item(s).")
+                    return
+                }
                 let prefix = completed > 0 ? "Stopped after \(completed) step\(completed == 1 ? "" : "s"). " : ""
                 self.update(id, status: .failed, message: prefix + error.localizedDescription)
                 if workflow == nil && self.draft.isEmpty && completed == 0 { self.draft = prompt }

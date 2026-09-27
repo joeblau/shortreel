@@ -2,6 +2,7 @@
  "platform": "Instagram",
  "handle": "janedoe",
  "outcome": "signed-out",
+ "ownProfile": false,
  "regions": [
   {
    "text": "Log in to Instagram",

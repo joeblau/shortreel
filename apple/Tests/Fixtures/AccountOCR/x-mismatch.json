@@ -2,6 +2,7 @@
  "platform": "X",
  "handle": "janedoe",
  "outcome": "mismatch",
+ "ownProfile": true,
  "regions": [
   {
    "text": "Jane Doe",

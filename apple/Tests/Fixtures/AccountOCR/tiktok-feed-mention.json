@@ -1,0 +1,128 @@
+{
+ "platform": "TikTok",
+ "handle": "toptopnonstop99",
+ "outcome": "unreadable",
+ "ownProfile": false,
+ "regions": [
+  {
+   "text": "9:41",
+   "confidence": 0.95,
+   "x": 0.11,
+   "y": 0.02,
+   "width": 0.1,
+   "height": 0.019
+  },
+  {
+   "text": "LIVE",
+   "confidence": 0.95,
+   "x": 0.04,
+   "y": 0.065,
+   "width": 0.1,
+   "height": 0.03
+  },
+  {
+   "text": "Following",
+   "confidence": 0.95,
+   "x": 0.3,
+   "y": 0.065,
+   "width": 0.18,
+   "height": 0.03
+  },
+  {
+   "text": "For You",
+   "confidence": 0.95,
+   "x": 0.55,
+   "y": 0.065,
+   "width": 0.16,
+   "height": 0.03
+  },
+  {
+   "text": "25.4K",
+   "confidence": 0.95,
+   "x": 0.86,
+   "y": 0.5,
+   "width": 0.1,
+   "height": 0.03
+  },
+  {
+   "text": "312",
+   "confidence": 0.95,
+   "x": 0.87,
+   "y": 0.58,
+   "width": 0.08,
+   "height": 0.03
+  },
+  {
+   "text": "1,024",
+   "confidence": 0.95,
+   "x": 0.86,
+   "y": 0.66,
+   "width": 0.1,
+   "height": 0.03
+  },
+  {
+   "text": "2,108",
+   "confidence": 0.95,
+   "x": 0.86,
+   "y": 0.74,
+   "width": 0.1,
+   "height": 0.03
+  },
+  {
+   "text": "swingtrader",
+   "confidence": 0.95,
+   "x": 0.04,
+   "y": 0.8,
+   "width": 0.3,
+   "height": 0.03
+  },
+  {
+   "text": "How I swing trade with $500 w/ @marketmike #swingtrading",
+   "confidence": 0.95,
+   "x": 0.04,
+   "y": 0.83,
+   "width": 0.8,
+   "height": 0.03
+  },
+  {
+   "text": "original sound - swingtrader",
+   "confidence": 0.95,
+   "x": 0.04,
+   "y": 0.87,
+   "width": 0.5,
+   "height": 0.03
+  },
+  {
+   "text": "Home",
+   "confidence": 0.95,
+   "x": 0.06,
+   "y": 0.944,
+   "width": 0.08,
+   "height": 0.012
+  },
+  {
+   "text": "Friends",
+   "confidence": 0.95,
+   "x": 0.25,
+   "y": 0.944,
+   "width": 0.1,
+   "height": 0.013
+  },
+  {
+   "text": "Inbox",
+   "confidence": 0.95,
+   "x": 0.66,
+   "y": 0.944,
+   "width": 0.08,
+   "height": 0.012
+  },
+  {
+   "text": "Profile",
+   "confidence": 0.95,
+   "x": 0.86,
+   "y": 0.944,
+   "width": 0.09,
+   "height": 0.012
+  }
+ ]
+}

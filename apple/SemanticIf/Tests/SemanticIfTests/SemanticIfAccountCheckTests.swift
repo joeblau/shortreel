@@ -15,6 +15,7 @@ final class SemanticIfAccountCheckTests: XCTestCase {
         let platform: String
         let handle: String
         let outcome: String
+        let ownProfile: Bool
         let regions: [Region]
         let visualEvidence: String?
     }
@@ -41,10 +42,12 @@ final class SemanticIfAccountCheckTests: XCTestCase {
                 ocrText: fixture.regions.sorted { ($0.y, $0.x) < ($1.y, $1.x) }.map(\.text),
                 visualEvidence: fixture.visualEvidence)
             let result = try await scorer.score(row)
-            let handles = fixture.regions.filter { $0.confidence >= 0.6 }.flatMap { LayaAccountPrompt.handles(in: $0.text) }
+            let readable = fixture.regions.filter { $0.confidence >= 0.6 }
+            let handles = LayaAccountPrompt.headerHandles(readable.map { ($0.text, $0.y) }, platform: fixture.platform)
             XCTAssertEqual(LayaAccountPrompt.outcome(surface: result.decision,
                 expectedHandle: fixture.handle, observedHandles: handles,
-                signInControlsVisible: LayaAccountPrompt.hasSignInControls(fixture.regions.filter { $0.confidence >= 0.6 }.map(\.text))), fixture.outcome,
+                signInControlsVisible: LayaAccountPrompt.hasSignInControls(readable.map(\.text)),
+                ownProfileVisible: fixture.ownProfile), fixture.outcome,
                 "\(name): probabilities \(result.probabilities), margin \(result.margin)")
         }
     }

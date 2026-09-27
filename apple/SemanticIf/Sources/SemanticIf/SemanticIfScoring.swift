@@ -108,14 +108,32 @@ public enum LayaAccountPrompt {
     }
 
     public static func handles(in text: String) -> [String] {
-        let expression = try! NSRegularExpression(pattern: #"(?<![a-zA-Z0-9_])@([a-zA-Z0-9_.]{1,40})(?![a-zA-Z0-9_.])"#)
+        let expression = try! NSRegularExpression(pattern: #"(?<![a-zA-Z0-9_])@([a-zA-Z0-9_.-]{1,40})(?![a-zA-Z0-9_.-])"#)
         let string = text as NSString
         return expression.matches(in: text, range: NSRange(location: 0, length: string.length))
             .map { string.substring(with: $0.range(at: 1)).lowercased() }
     }
 
+    /// Handles in the profile header band, never feed captions or creator rows; Instagram shows a bare top-bar username.
+    public static func headerHandles(_ lines: [(text: String, minY: Double)], platform: String) -> [String] {
+        let header = lines.filter { $0.minY < 0.45 }
+        let handles = header.flatMap { handles(in: $0.text) }
+        guard handles.isEmpty, platform.lowercased() == "instagram" else { return handles }
+        return header.filter { $0.minY < 0.12 }.compactMap { username(in: $0.text) }
+    }
+
+    static func username(in text: String) -> String? {
+        let name = text.replacingOccurrences(of: #"\s+[vV⌄˅▾▼⌵~]$"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"^[^a-zA-Z0-9_]+|[^a-zA-Z0-9_]+$"#, with: "", options: .regularExpression)
+        guard name.range(of: #"^[a-z0-9._]{1,30}$"#, options: .regularExpression) != nil,
+              name.contains(where: \.isLetter) else { return nil }
+        return name
+    }
+
+    /// A non-matching handle is a terminal mismatch only on the signed-in account's own profile page.
     public static func outcome(surface: SemanticIfResult.Decision, expectedHandle: String,
-                               observedHandles: [String], signInControlsVisible: Bool? = nil) -> String? {
+                               observedHandles: [String], signInControlsVisible: Bool? = nil,
+                               ownProfileVisible: Bool? = nil) -> String? {
         if signInControlsVisible == true { return "signed-out" }
         switch surface {
         case .option("signed-out"): return signInControlsVisible == false ? "unreadable" : "signed-out"
@@ -125,7 +143,8 @@ public enum LayaAccountPrompt {
             }
             let handles = Set(observedHandles.map(normalize).filter { !$0.isEmpty })
             guard handles.count == 1, let observed = handles.first else { return "unreadable" }
-            return observed == normalize(expectedHandle) ? "matches" : "mismatch"
+            if observed == normalize(expectedHandle) { return "matches" }
+            return ownProfileVisible == true ? "mismatch" : "unreadable"
         case .option("unknown"), .uncertain: return "unreadable"
         case .option: return nil
         }

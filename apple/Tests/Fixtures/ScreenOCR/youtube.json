@@ -1,0 +1,414 @@
+{
+  "network": "YouTube",
+  "screens": [
+    {
+      "id": "you-page",
+      "note": "YouTube You page.",
+      "matches": [
+        "ownProfile",
+        "tabBar"
+      ],
+      "misses": [
+        "profileMarkers",
+        "launchScreen"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Joe Blau",
+          "confidence": 0.99,
+          "x": 0.28,
+          "y": 0.1,
+          "width": 0.164,
+          "height": 0.016
+        },
+        {
+          "text": "@joeblau • View channel >",
+          "confidence": 0.99,
+          "x": 0.28,
+          "y": 0.13,
+          "width": 0.47,
+          "height": 0.016
+        },
+        {
+          "text": "Switch account",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.18,
+          "width": 0.272,
+          "height": 0.016
+        },
+        {
+          "text": "Google Account",
+          "confidence": 0.99,
+          "x": 0.4,
+          "y": 0.18,
+          "width": 0.272,
+          "height": 0.016
+        },
+        {
+          "text": "History",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.25,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "Home",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.944,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Shorts",
+          "confidence": 0.99,
+          "x": 0.27,
+          "y": 0.944,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "Subscriptions",
+          "confidence": 0.99,
+          "x": 0.62,
+          "y": 0.944,
+          "width": 0.254,
+          "height": 0.016
+        },
+        {
+          "text": "You",
+          "confidence": 0.99,
+          "x": 0.88,
+          "y": 0.944,
+          "width": 0.074,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "music-home",
+      "note": "YouTube Music: not the YouTube app.",
+      "matches": [],
+      "misses": [
+        "tabBar",
+        "ownProfile"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Music",
+          "confidence": 0.99,
+          "x": 0.12,
+          "y": 0.065,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Listen again",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.2,
+          "width": 0.236,
+          "height": 0.016
+        },
+        {
+          "text": "Home",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.944,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Samples",
+          "confidence": 0.99,
+          "x": 0.3,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "Explore",
+          "confidence": 0.99,
+          "x": 0.55,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "Library",
+          "confidence": 0.99,
+          "x": 0.8,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "home-chips",
+      "note": "YouTube Home topic chips are not search result chips.",
+      "matches": [
+        "tabBar"
+      ],
+      "misses": [
+        "resultsTabs"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "YouTube",
+          "confidence": 0.99,
+          "x": 0.12,
+          "y": 0.065,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "All",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.115,
+          "width": 0.074,
+          "height": 0.016
+        },
+        {
+          "text": "Music",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.115,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Live",
+          "confidence": 0.99,
+          "x": 0.3,
+          "y": 0.115,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Recently uploaded",
+          "confidence": 0.99,
+          "x": 0.42,
+          "y": 0.115,
+          "width": 0.326,
+          "height": 0.016
+        },
+        {
+          "text": "Home",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.944,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Shorts",
+          "confidence": 0.99,
+          "x": 0.27,
+          "y": 0.944,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "Subscriptions",
+          "confidence": 0.99,
+          "x": 0.62,
+          "y": 0.944,
+          "width": 0.254,
+          "height": 0.016
+        },
+        {
+          "text": "You",
+          "confidence": 0.99,
+          "x": 0.88,
+          "y": 0.944,
+          "width": 0.074,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "results-chips",
+      "note": "YouTube search results with filter chips.",
+      "matches": [
+        "resultsTabs",
+        "searchFieldText",
+        "inlineTimer"
+      ],
+      "misses": [
+        "tabBar"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "swing trading",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.066,
+          "width": 0.254,
+          "height": 0.016
+        },
+        {
+          "text": "All",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.115,
+          "width": 0.074,
+          "height": 0.016
+        },
+        {
+          "text": "Shorts",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.115,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "Videos",
+          "confidence": 0.99,
+          "x": 0.3,
+          "y": 0.115,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "Unwatched",
+          "confidence": 0.99,
+          "x": 0.46,
+          "y": 0.115,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "12:34",
+          "confidence": 0.99,
+          "x": 0.82,
+          "y": 0.3,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Swing Trading for Beginners",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.33,
+          "width": 0.506,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "search-placeholder",
+      "note": "YouTube search with the placeholder and a recent query row below the field.",
+      "matches": [],
+      "misses": [
+        "searchFieldText"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Search YouTube",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.066,
+          "width": 0.272,
+          "height": 0.016
+        },
+        {
+          "text": "swing trading",
+          "confidence": 0.99,
+          "x": 0.12,
+          "y": 0.14,
+          "width": 0.254,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "sponsored-short",
+      "note": "A sponsored Short with an Install CTA.",
+      "matches": [
+        "adLabel"
+      ],
+      "misses": [
+        "ownProfile"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Sponsored",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.8,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Install",
+          "confidence": 0.99,
+          "x": 0.8,
+          "y": 0.86,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "@brand",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.84,
+          "width": 0.128,
+          "height": 0.016
+        }
+      ]
+    }
+  ]
+}

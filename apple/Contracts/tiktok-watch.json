@@ -7,150 +7,231 @@
       "states": [
         {
           "id": "home",
-          "question": "What kind of screen is this?",
+          "question": "Which TikTok page is showing?",
           "branches": [
             {
               "id": "profile",
-              "condition": "A social media profile page.",
-              "next": "feed",
-              "expected": "The TikTok video feed is visible.",
+              "condition": "A profile page with Following, Followers, and Likes counts.",
               "command": {
                 "kind": "tap",
-                "value": "The TikTok Home tab at the bottom left",
+                "value": "The Home tab at the bottom left of TikTok",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "The For You video feed is visible.",
+              "next": "feed",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "profileMarkers",
+              "expectedSignal": "tabBar"
             },
             {
               "id": "feed",
-              "condition": "A full-screen video feed.",
-              "next": "field",
-              "expected": "The TikTok search field is visible.",
+              "condition": "A full-screen video feed with For You and Following tabs.",
               "command": {
                 "kind": "tap",
                 "value": "The magnifying-glass Search button at the top right of TikTok",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "A search page with a search field at the top.",
+              "next": "field",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "tabBar",
+              "absentSignal": "profileMarkers"
             },
             {
               "id": "search",
-              "condition": "A search page with a search text field.",
+              "condition": "A search page with a search field and suggestions.",
+              "expected": "",
               "next": "field",
-              "expected": ""
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "absentSignal": "tabBar"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "TikTok is on screen.",
+              "next": "home",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
             },
             {
               "id": "login",
-              "condition": "A login or sign-up screen.",
+              "condition": "A Log in or Sign up screen for TikTok.",
+              "expected": "",
               "next": "$stop",
-              "expected": ""
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ]
             }
           ],
           "maximumVisits": 6,
           "requiredScreens": [
-            "foregroundApp"
+            "foregroundApp",
+            "dialog"
           ]
         },
         {
           "id": "feed",
-          "question": "What kind of screen is this?",
+          "question": "Which TikTok page is showing?",
           "branches": [
             {
               "id": "feed",
-              "condition": "A full-screen video feed.",
-              "next": "field",
-              "expected": "The TikTok search field is visible.",
+              "condition": "A full-screen video feed with For You and Following tabs.",
               "command": {
                 "kind": "tap",
                 "value": "The magnifying-glass Search button at the top right of TikTok",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "A search page with a search field at the top.",
+              "next": "field",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "tabBar",
+              "absentSignal": "profileMarkers"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "TikTok is on screen.",
+              "next": "feed",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
             },
             {
               "id": "login",
-              "condition": "A login or sign-up screen.",
+              "condition": "A Log in or Sign up screen for TikTok.",
+              "expected": "",
               "next": "$stop",
-              "expected": ""
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ]
             }
           ],
           "maximumVisits": 6,
           "requiredScreens": [
-            "foregroundApp"
+            "foregroundApp",
+            "dialog"
           ]
         },
         {
           "id": "field",
-          "question": "What is the state of the search field?",
+          "question": "Is the search field focused?",
           "branches": [
             {
-              "id": "empty",
-              "condition": "Focused search field with only gray placeholder text, keyboard open.",
-              "next": "$done",
-              "expected": "The search field contains {{query}} and suggested searches are visible.",
-              "command": {
-                "kind": "typeText",
-                "value": "{{query}}",
-                "destination": "",
-                "seconds": 0
-              },
-              "expectedScreen": "foregroundApp",
-              "keyboard": true
-            },
-            {
-              "id": "text",
-              "condition": "Focused search field containing a typed query, keyboard open.",
-              "next": "replace",
-              "expected": "All text in the search field is selected.",
+              "id": "focused",
+              "condition": "A focused search field with the keyboard open.",
               "command": {
                 "kind": "press",
                 "value": "selectAll",
                 "destination": "",
                 "seconds": 0
               },
+              "expected": "The search field is focused with the keyboard open.",
+              "next": "replace",
               "expectedScreen": "foregroundApp",
-              "keyboard": true
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": true,
+              "expectedKeyboard": true
             },
             {
               "id": "unfocused",
-              "condition": "Search field with the keyboard hidden.",
-              "next": "field",
-              "expected": "The search field is focused and the keyboard is visible.",
+              "condition": "A search field with the keyboard hidden.",
               "command": {
                 "kind": "tap",
                 "value": "The TikTok search text field at the top of the screen",
                 "destination": "",
                 "seconds": 0
               },
+              "expected": "The search field is focused and the keyboard is visible.",
+              "next": "field",
               "expectedScreen": "foregroundApp",
-              "keyboard": false
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": false,
+              "expectedKeyboard": true
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "TikTok is on screen.",
+              "next": "field",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
             }
           ],
           "maximumVisits": 6,
           "requiredScreens": [
-            "foregroundApp"
+            "foregroundApp",
+            "dialog"
           ],
           "check": "query"
         },
         {
           "id": "replace",
-          "question": "Is the search text selected?",
+          "question": "Is the search field ready for typing?",
           "branches": [
             {
-              "id": "selected",
-              "condition": "All search text is selected.",
-              "next": "$done",
-              "expected": "The search field contains {{query}} and suggested searches are visible.",
+              "id": "ready",
+              "condition": "A focused search field ready for typing.",
               "command": {
                 "kind": "typeText",
                 "value": "{{query}}",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "The search field contains {{query}} and suggested searches are visible.",
+              "next": "$done",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
             }
           ],
           "maximumVisits": 6,
@@ -171,82 +252,155 @@
           "branches": [
             {
               "id": "suggestions",
-              "condition": "Suggested search queries.",
-              "next": "results",
-              "expected": "Search results for the selected suggestion are visible.",
+              "condition": "Rows of suggested searches.",
               "command": {
                 "kind": "tap",
-                "value": "The first relevant search suggestion among the TOP THREE rows for {{query}}; use its displayed wording, not an account row",
+                "value": "The first search suggestion for {{query}} among the top three rows; use its displayed wording, not an account, #hashtag, or sound row",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "A results page with Top, Videos, and Users tabs is visible.",
+              "next": "results",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "absentSignal": "resultsTabs",
+              "expectedSignal": "resultsTabs"
             },
             {
               "id": "results",
-              "condition": "Video search results.",
+              "condition": "Results tabs above a grid of videos.",
+              "expected": "",
               "next": "results",
-              "expected": ""
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "resultsTabs"
             },
             {
-              "id": "loading",
-              "condition": "A loading indicator.",
-              "next": "suggestions",
-              "expected": "The suggested search queries are visible.",
+              "id": "spinner",
+              "condition": "A spinner or loading indicator.",
               "command": {
                 "kind": "wait",
                 "value": "",
                 "destination": "",
                 "seconds": 1
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "Rows of suggested searches are visible.",
+              "next": "suggestions",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "absentSignal": "resultsTabs"
+            },
+            {
+              "id": "empty",
+              "condition": "An empty white area.",
+              "command": {
+                "kind": "press",
+                "value": "enter",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "A results page with Top, Videos, and Users tabs is visible.",
+              "next": "results",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": true,
+              "absentSignal": "resultsTabs",
+              "expectedSignal": "resultsTabs"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "TikTok is on screen.",
+              "next": "suggestions",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
             }
           ],
           "maximumVisits": 6,
           "requiredScreens": [
-            "foregroundApp"
+            "foregroundApp",
+            "dialog"
           ]
         },
         {
           "id": "results",
-          "question": "What search results are visible?",
+          "question": "What kind of page is this?",
           "branches": [
             {
-              "id": "videos",
-              "condition": "A grid of videos with the Videos tab selected.",
-              "next": "$done",
-              "expected": ""
-            },
-            {
-              "id": "top",
-              "condition": "Search results with the Top tab selected.",
-              "next": "$done",
-              "expected": "A grid of videos with the Videos tab selected is visible.",
+              "id": "tabs",
+              "condition": "Search results with Top, Videos, and Users tabs.",
               "command": {
                 "kind": "tap",
-                "value": "The Videos tab at the top of the TikTok search results",
+                "value": "The Videos tab in the tab row at the top of the TikTok search results",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "The Videos tab is selected and a grid of videos is visible.",
+              "next": "$done",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "resultsTabs",
+              "expectedSignal": "resultsTabs",
+              "expectedTab": "Videos"
             },
             {
               "id": "profile",
-              "condition": "A social media profile page.",
-              "next": "suggestions",
-              "expected": "The suggested search queries are visible.",
+              "condition": "A creator's profile with a Message button and bio.",
               "command": {
                 "kind": "tap",
                 "value": "The back arrow at the upper left",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "Search results or suggested searches are visible.",
+              "next": "suggestions",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "profileMarkers"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "TikTok is on screen.",
+              "next": "results",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
             }
           ],
           "maximumVisits": 6,
           "requiredScreens": [
-            "foregroundApp"
+            "foregroundApp",
+            "dialog"
           ]
         }
       ]
@@ -260,77 +414,164 @@
           "question": "What kind of screen is this?",
           "branches": [
             {
-              "id": "results",
-              "condition": "A grid of video search results.",
-              "next": "player0",
-              "expected": "A full-screen video player is visible.",
+              "id": "grid",
+              "condition": "Two columns of video thumbnails in the results.",
               "command": {
                 "kind": "tap",
                 "value": "The video thumbnail in the first row, left column of the TikTok Videos search results for {{query}}",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
-            }
-          ],
-          "maximumVisits": 6,
-          "requiredScreens": [
-            "foregroundApp"
-          ]
-        },
-        {
-          "id": "player0",
-          "question": "Describe the video player and read the number next to the HEART icon as \"Heart count: <number>\". Identify any ad label.",
-          "branches": [
+              "expected": "A full-screen video player is visible.",
+              "next": "player0",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "expectedVideo": true,
+              "absentSignal": "profileMarkers"
+            },
             {
-              "id": "qualified",
+              "id": "player",
               "condition": "A full-screen video player.",
-              "next": "$done",
-              "expected": ""
+              "expected": "",
+              "next": "player0",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true
             },
             {
-              "id": "below",
-              "condition": "A video with too few likes.",
-              "next": "grid1",
-              "expected": "The video search results grid is visible.",
-              "command": {
-                "kind": "tap",
-                "value": "The back arrow at the upper left of the video player",
-                "destination": "",
-                "seconds": 0
-              },
-              "expectedScreen": "foregroundApp"
-            },
-            {
-              "id": "threshold-unreadable",
-              "condition": "A video with unreadable likes.",
-              "next": "grid1",
-              "expected": "The video search results grid is visible.",
-              "command": {
-                "kind": "tap",
-                "value": "The back arrow at the upper left of the video player",
-                "destination": "",
-                "seconds": 0
-              },
-              "expectedScreen": "foregroundApp"
-            },
-            {
-              "id": "opened-account-or-ad",
-              "condition": "An advertisement or account profile.",
-              "next": "grid1",
-              "expected": "The video search results grid is visible.",
+              "id": "profile",
+              "condition": "A profile page with Followers and Following counts.",
               "command": {
                 "kind": "tap",
                 "value": "The back arrow at the upper left",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid0",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "profileMarkers",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "TikTok is on screen.",
+              "next": "grid0",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
             }
           ],
           "maximumVisits": 6,
           "requiredScreens": [
-            "foregroundApp"
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "player0",
+          "question": "Is a video, an ad, a LIVE, or a profile open? Read the number next to the HEART icon as \"Heart count: <number>\" and name any Sponsored or Ad label.",
+          "branches": [
+            {
+              "id": "qualified",
+              "condition": "A full-screen video player.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
+            },
+            {
+              "id": "below",
+              "condition": "A video with too few likes.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left of the video player",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "threshold-unreadable",
+              "condition": "A video with unreadable likes.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left of the video player",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "opened-account-or-ad",
+              "condition": "An advertisement, LIVE, or account profile.",
+              "command": {
+                "kind": "tap",
+                "value": "The close X at the top right of a LIVE, or else the back arrow at the upper left; never the host avatar or a Follow button",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The TikTok video player is visible.",
+              "next": "player0",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "dialog"
+              ],
+              "signal": "dismissControl",
+              "expectedVideo": true
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
           ],
           "check": "popularVideo"
         },
@@ -339,77 +580,164 @@
           "question": "What kind of screen is this?",
           "branches": [
             {
-              "id": "results",
-              "condition": "A grid of video search results.",
-              "next": "player1",
-              "expected": "A full-screen video player is visible.",
+              "id": "grid",
+              "condition": "Two columns of video thumbnails in the results.",
               "command": {
                 "kind": "tap",
                 "value": "The video thumbnail in the first row, right column of the TikTok Videos search results for {{query}}",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
-            }
-          ],
-          "maximumVisits": 6,
-          "requiredScreens": [
-            "foregroundApp"
-          ]
-        },
-        {
-          "id": "player1",
-          "question": "Describe the video player and read the number next to the HEART icon as \"Heart count: <number>\". Identify any ad label.",
-          "branches": [
+              "expected": "A full-screen video player is visible.",
+              "next": "player1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "expectedVideo": true,
+              "absentSignal": "profileMarkers"
+            },
             {
-              "id": "qualified",
+              "id": "player",
               "condition": "A full-screen video player.",
-              "next": "$done",
-              "expected": ""
+              "expected": "",
+              "next": "player1",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true
             },
             {
-              "id": "below",
-              "condition": "A video with too few likes.",
-              "next": "grid2",
-              "expected": "The video search results grid is visible.",
-              "command": {
-                "kind": "tap",
-                "value": "The back arrow at the upper left of the video player",
-                "destination": "",
-                "seconds": 0
-              },
-              "expectedScreen": "foregroundApp"
-            },
-            {
-              "id": "threshold-unreadable",
-              "condition": "A video with unreadable likes.",
-              "next": "grid2",
-              "expected": "The video search results grid is visible.",
-              "command": {
-                "kind": "tap",
-                "value": "The back arrow at the upper left of the video player",
-                "destination": "",
-                "seconds": 0
-              },
-              "expectedScreen": "foregroundApp"
-            },
-            {
-              "id": "opened-account-or-ad",
-              "condition": "An advertisement or account profile.",
-              "next": "grid2",
-              "expected": "The video search results grid is visible.",
+              "id": "profile",
+              "condition": "A profile page with Followers and Following counts.",
               "command": {
                 "kind": "tap",
                 "value": "The back arrow at the upper left",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "profileMarkers",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "TikTok is on screen.",
+              "next": "grid1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
             }
           ],
           "maximumVisits": 6,
           "requiredScreens": [
-            "foregroundApp"
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "player1",
+          "question": "Is a video, an ad, a LIVE, or a profile open? Read the number next to the HEART icon as \"Heart count: <number>\" and name any Sponsored or Ad label.",
+          "branches": [
+            {
+              "id": "qualified",
+              "condition": "A full-screen video player.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
+            },
+            {
+              "id": "below",
+              "condition": "A video with too few likes.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left of the video player",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "threshold-unreadable",
+              "condition": "A video with unreadable likes.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left of the video player",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "opened-account-or-ad",
+              "condition": "An advertisement, LIVE, or account profile.",
+              "command": {
+                "kind": "tap",
+                "value": "The close X at the top right of a LIVE, or else the back arrow at the upper left; never the host avatar or a Follow button",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The TikTok video player is visible.",
+              "next": "player1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "dialog"
+              ],
+              "signal": "dismissControl",
+              "expectedVideo": true
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
           ],
           "check": "popularVideo"
         },
@@ -418,77 +746,164 @@
           "question": "What kind of screen is this?",
           "branches": [
             {
-              "id": "results",
-              "condition": "A grid of video search results.",
-              "next": "player2",
-              "expected": "A full-screen video player is visible.",
+              "id": "grid",
+              "condition": "Two columns of video thumbnails in the results.",
               "command": {
                 "kind": "tap",
                 "value": "The video thumbnail in the second row, left column of the TikTok Videos search results for {{query}}",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
-            }
-          ],
-          "maximumVisits": 6,
-          "requiredScreens": [
-            "foregroundApp"
-          ]
-        },
-        {
-          "id": "player2",
-          "question": "Describe the video player and read the number next to the HEART icon as \"Heart count: <number>\". Identify any ad label.",
-          "branches": [
+              "expected": "A full-screen video player is visible.",
+              "next": "player2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "expectedVideo": true,
+              "absentSignal": "profileMarkers"
+            },
             {
-              "id": "qualified",
+              "id": "player",
               "condition": "A full-screen video player.",
-              "next": "$done",
-              "expected": ""
+              "expected": "",
+              "next": "player2",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true
             },
             {
-              "id": "below",
-              "condition": "A video with too few likes.",
-              "next": "grid3",
-              "expected": "The video search results grid is visible.",
-              "command": {
-                "kind": "tap",
-                "value": "The back arrow at the upper left of the video player",
-                "destination": "",
-                "seconds": 0
-              },
-              "expectedScreen": "foregroundApp"
-            },
-            {
-              "id": "threshold-unreadable",
-              "condition": "A video with unreadable likes.",
-              "next": "grid3",
-              "expected": "The video search results grid is visible.",
-              "command": {
-                "kind": "tap",
-                "value": "The back arrow at the upper left of the video player",
-                "destination": "",
-                "seconds": 0
-              },
-              "expectedScreen": "foregroundApp"
-            },
-            {
-              "id": "opened-account-or-ad",
-              "condition": "An advertisement or account profile.",
-              "next": "grid3",
-              "expected": "The video search results grid is visible.",
+              "id": "profile",
+              "condition": "A profile page with Followers and Following counts.",
               "command": {
                 "kind": "tap",
                 "value": "The back arrow at the upper left",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "profileMarkers",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "TikTok is on screen.",
+              "next": "grid2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
             }
           ],
           "maximumVisits": 6,
           "requiredScreens": [
-            "foregroundApp"
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "player2",
+          "question": "Is a video, an ad, a LIVE, or a profile open? Read the number next to the HEART icon as \"Heart count: <number>\" and name any Sponsored or Ad label.",
+          "branches": [
+            {
+              "id": "qualified",
+              "condition": "A full-screen video player.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
+            },
+            {
+              "id": "below",
+              "condition": "A video with too few likes.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left of the video player",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "threshold-unreadable",
+              "condition": "A video with unreadable likes.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left of the video player",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "opened-account-or-ad",
+              "condition": "An advertisement, LIVE, or account profile.",
+              "command": {
+                "kind": "tap",
+                "value": "The close X at the top right of a LIVE, or else the back arrow at the upper left; never the host avatar or a Follow button",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The TikTok video player is visible.",
+              "next": "player2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "dialog"
+              ],
+              "signal": "dismissControl",
+              "expectedVideo": true
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
           ],
           "check": "popularVideo"
         },
@@ -497,77 +912,164 @@
           "question": "What kind of screen is this?",
           "branches": [
             {
-              "id": "results",
-              "condition": "A grid of video search results.",
-              "next": "player3",
-              "expected": "A full-screen video player is visible.",
+              "id": "grid",
+              "condition": "Two columns of video thumbnails in the results.",
               "command": {
                 "kind": "tap",
                 "value": "The video thumbnail in the second row, right column of the TikTok Videos search results for {{query}}",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
-            }
-          ],
-          "maximumVisits": 6,
-          "requiredScreens": [
-            "foregroundApp"
-          ]
-        },
-        {
-          "id": "player3",
-          "question": "Describe the video player and read the number next to the HEART icon as \"Heart count: <number>\". Identify any ad label.",
-          "branches": [
+              "expected": "A full-screen video player is visible.",
+              "next": "player3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "expectedVideo": true,
+              "absentSignal": "profileMarkers"
+            },
             {
-              "id": "qualified",
+              "id": "player",
               "condition": "A full-screen video player.",
-              "next": "$done",
-              "expected": ""
+              "expected": "",
+              "next": "player3",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true
             },
             {
-              "id": "below",
-              "condition": "A video with too few likes.",
-              "next": "scroll",
-              "expected": "The video search results grid is visible.",
-              "command": {
-                "kind": "tap",
-                "value": "The back arrow at the upper left of the video player",
-                "destination": "",
-                "seconds": 0
-              },
-              "expectedScreen": "foregroundApp"
-            },
-            {
-              "id": "threshold-unreadable",
-              "condition": "A video with unreadable likes.",
-              "next": "scroll",
-              "expected": "The video search results grid is visible.",
-              "command": {
-                "kind": "tap",
-                "value": "The back arrow at the upper left of the video player",
-                "destination": "",
-                "seconds": 0
-              },
-              "expectedScreen": "foregroundApp"
-            },
-            {
-              "id": "opened-account-or-ad",
-              "condition": "An advertisement or account profile.",
-              "next": "scroll",
-              "expected": "The video search results grid is visible.",
+              "id": "profile",
+              "condition": "A profile page with Followers and Following counts.",
               "command": {
                 "kind": "tap",
                 "value": "The back arrow at the upper left",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "grid3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "profileMarkers",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "TikTok is on screen.",
+              "next": "grid3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
             }
           ],
           "maximumVisits": 6,
           "requiredScreens": [
-            "foregroundApp"
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "player3",
+          "question": "Is a video, an ad, a LIVE, or a profile open? Read the number next to the HEART icon as \"Heart count: <number>\" and name any Sponsored or Ad label.",
+          "branches": [
+            {
+              "id": "qualified",
+              "condition": "A full-screen video player.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
+            },
+            {
+              "id": "below",
+              "condition": "A video with too few likes.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left of the video player",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "scroll",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "threshold-unreadable",
+              "condition": "A video with unreadable likes.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left of the video player",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "scroll",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "opened-account-or-ad",
+              "condition": "An advertisement, LIVE, or account profile.",
+              "command": {
+                "kind": "tap",
+                "value": "The close X at the top right of a LIVE, or else the back arrow at the upper left; never the host avatar or a Follow button",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "scroll",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The TikTok video player is visible.",
+              "next": "player3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "dialog"
+              ],
+              "signal": "dismissControl",
+              "expectedVideo": true
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
           ],
           "check": "popularVideo"
         },
@@ -576,22 +1078,65 @@
           "question": "What kind of screen is this?",
           "branches": [
             {
-              "id": "results",
-              "condition": "A grid of video search results.",
-              "next": "grid0",
-              "expected": "More video search results are visible.",
+              "id": "grid",
+              "condition": "Two columns of video thumbnails in the results.",
               "command": {
                 "kind": "swipe",
                 "value": "up",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "A new set of video thumbnails is visible in the results grid.",
+              "next": "grid0",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "expectedVideo": false,
+              "absentSignal": "profileMarkers"
+            },
+            {
+              "id": "player",
+              "condition": "A full-screen video player.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left of the video player",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Video thumbnails in a two-column results grid are visible.",
+              "next": "scroll",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true,
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "TikTok is on screen.",
+              "next": "scroll",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
             }
           ],
           "maximumVisits": 2,
           "requiredScreens": [
-            "foregroundApp"
+            "foregroundApp",
+            "dialog"
           ]
         }
       ]
@@ -607,58 +1152,83 @@
             {
               "id": "playing",
               "condition": "A playing video.",
-              "next": "playback",
-              "expected": "The video player is visible.",
               "command": {
                 "kind": "wait",
                 "value": "",
                 "destination": "",
                 "seconds": 3
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "The video player is visible.",
+              "next": "playback",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
             },
             {
               "id": "paused",
               "condition": "A paused video with a play button.",
-              "next": "playback",
-              "expected": "The video is playing.",
               "command": {
                 "kind": "tap",
                 "value": "The play triangle on the current TikTok video",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "The video is playing.",
+              "next": "playback",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
             },
             {
               "id": "complete",
               "condition": "The video has completed.",
+              "expected": "",
               "next": "$done",
-              "expected": ""
+              "requiredScreens": [
+                "foregroundApp"
+              ]
             },
             {
               "id": "too-long",
               "condition": "The video exceeds the duration limit.",
-              "next": "$done",
-              "expected": "A different full-screen video is visible.",
               "command": {
                 "kind": "swipe",
                 "value": "up",
                 "destination": "",
                 "seconds": 0
               },
-              "expectedScreen": "foregroundApp"
+              "expected": "A different full-screen video is visible.",
+              "next": "$done",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
             },
             {
-              "id": "navigated-away",
-              "condition": "A screen without a video player.",
-              "next": "$stop",
-              "expected": ""
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The TikTok video player is visible.",
+              "next": "playback",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "dialog"
+              ],
+              "signal": "dismissControl",
+              "expectedVideo": true
             }
           ],
           "maximumVisits": 40,
           "requiredScreens": [
-            "foregroundApp"
+            "foregroundApp",
+            "dialog"
           ],
           "check": "playback"
         }
@@ -670,26 +1240,26 @@
       "states": [
         {
           "id": "heart",
-          "question": "What does the heart (like) button on the right side of the current TikTok video look like?",
+          "question": "What color is the heart button on the right rail?",
           "branches": [
             {
               "id": "unliked",
               "condition": "An outlined white heart button on the video player.",
-              "next": "$done",
-              "expected": "The heart button on the current video is filled red.",
               "command": {
                 "kind": "tap",
                 "value": "The heart (like) button on the right edge of the TikTok video player, below the creator avatar",
                 "destination": "",
                 "seconds": 0
               },
+              "expected": "The heart button on the current video is filled red.",
+              "next": "$done",
               "expectedScreen": "foregroundApp"
             },
             {
               "id": "liked",
               "condition": "A filled red heart button on the video player.",
-              "next": "$done",
-              "expected": ""
+              "expected": "",
+              "next": "$done"
             }
           ],
           "maximumVisits": 3,
@@ -706,26 +1276,26 @@
       "states": [
         {
           "id": "badge",
-          "question": "Is there a plus (+) follow badge under the creator's avatar on the right side of the video?",
+          "question": "What is attached to the creator's avatar on the right rail?",
           "branches": [
             {
               "id": "available",
-              "condition": "A plus (+) follow badge under the creator avatar.",
-              "next": "$done",
-              "expected": "The follow badge under the creator avatar is gone or shows a checkmark.",
+              "condition": "A red plus (+) badge on the creator avatar.",
               "command": {
                 "kind": "tap",
                 "value": "The small plus (+) follow badge directly under the creator's round avatar on the right edge of the TikTok video player",
                 "destination": "",
                 "seconds": 0
               },
+              "expected": "A checkmark or plain avatar replaced the plus badge.",
+              "next": "$done",
               "expectedScreen": "foregroundApp"
             },
             {
               "id": "following",
-              "condition": "A creator avatar with a checkmark or without a badge.",
-              "next": "$done",
-              "expected": ""
+              "condition": "A plain avatar, alone or with a checkmark.",
+              "expected": "",
+              "next": "$done"
             }
           ],
           "maximumVisits": 3,
@@ -742,32 +1312,32 @@
       "states": [
         {
           "id": "player",
-          "question": "What kind of screen is this?",
+          "question": "Is a full-screen video playing, or a results grid?",
           "branches": [
             {
               "id": "ready",
               "condition": "A full-screen video player.",
-              "next": "$done",
-              "expected": "A different full-screen video is visible.",
               "command": {
                 "kind": "swipe",
                 "value": "up",
                 "destination": "",
                 "seconds": 0
               },
+              "expected": "A different full-screen video is visible.",
+              "next": "$done",
               "expectedScreen": "foregroundApp"
             },
             {
               "id": "alreadySent",
               "condition": "The next video is already visible.",
-              "next": "$done",
-              "expected": ""
+              "expected": "",
+              "next": "$done"
             },
             {
               "id": "results-grid",
               "condition": "A grid of video results.",
-              "next": "$stop",
-              "expected": ""
+              "expected": "",
+              "next": "$stop"
             }
           ],
           "maximumVisits": 3,

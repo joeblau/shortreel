@@ -1,0 +1,1174 @@
+{
+  "version": 1,
+  "phases": [
+    {
+      "id": "search",
+      "entry": "start",
+      "states": [
+        {
+          "id": "start",
+          "question": "What is on the YouTube screen?",
+          "branches": [
+            {
+              "id": "profile",
+              "condition": "The You page with the channel name and View channel.",
+              "command": {
+                "kind": "tap",
+                "value": "The Home tab at the bottom left of YouTube",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The YouTube Home feed is visible.",
+              "next": "feed",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "ownProfile",
+              "expectedSignal": "tabBar"
+            },
+            {
+              "id": "feed",
+              "condition": "Video thumbnails in a Home or Subscriptions feed.",
+              "command": {
+                "kind": "tap",
+                "value": "The magnifying-glass Search icon in the top bar of YouTube, not the cast or bell icon",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "A search field at the top of YouTube.",
+              "next": "field",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "tabBar",
+              "absentSignal": "ownProfile"
+            },
+            {
+              "id": "search",
+              "condition": "A search page with a text field at the top.",
+              "expected": "",
+              "next": "field",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "absentSignal": "tabBar"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "start",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            },
+            {
+              "id": "loading",
+              "condition": "A splash logo or loading spinner.",
+              "command": {
+                "kind": "wait",
+                "value": "",
+                "destination": "",
+                "seconds": 1.5
+              },
+              "expected": "YouTube is on screen.",
+              "next": "start",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "launchScreen",
+              "video": false
+            },
+            {
+              "id": "login",
+              "condition": "A Log in or Sign up screen for YouTube.",
+              "expected": "",
+              "next": "$stop",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ]
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "feed",
+          "question": "What is on the YouTube screen?",
+          "branches": [
+            {
+              "id": "feed",
+              "condition": "Video thumbnails in a Home or Subscriptions feed.",
+              "command": {
+                "kind": "tap",
+                "value": "The magnifying-glass Search icon in the top bar of YouTube, not the cast or bell icon",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "A search field at the top of YouTube.",
+              "next": "field",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "tabBar",
+              "absentSignal": "ownProfile"
+            },
+            {
+              "id": "search",
+              "condition": "A search page with a text field at the top.",
+              "expected": "",
+              "next": "field",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "absentSignal": "tabBar"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "feed",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            },
+            {
+              "id": "login",
+              "condition": "A Log in or Sign up screen for YouTube.",
+              "expected": "",
+              "next": "$stop",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ]
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "field",
+          "question": "Is the search field focused?",
+          "branches": [
+            {
+              "id": "focused",
+              "condition": "A focused search field with the keyboard open.",
+              "command": {
+                "kind": "press",
+                "value": "selectAll",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The search field is focused with the keyboard open.",
+              "next": "replace",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": true,
+              "expectedKeyboard": true
+            },
+            {
+              "id": "unfocused",
+              "condition": "A search field with the keyboard hidden.",
+              "command": {
+                "kind": "tap",
+                "value": "The Search YouTube text field at the top of the screen",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The search field is focused and the keyboard is visible.",
+              "next": "field",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": false,
+              "expectedKeyboard": true
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "field",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ],
+          "check": "query"
+        },
+        {
+          "id": "replace",
+          "question": "Is the search field ready for typing?",
+          "branches": [
+            {
+              "id": "ready",
+              "condition": "A focused search field ready for typing.",
+              "command": {
+                "kind": "typeText",
+                "value": "{{query}}",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The search field contains {{query}} and suggestions are listed below.",
+              "next": "submit",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp"
+          ],
+          "check": "query"
+        },
+        {
+          "id": "submit",
+          "question": "What is below the search field?",
+          "branches": [
+            {
+              "id": "suggestions",
+              "condition": "Suggested searches listed below the typed query.",
+              "command": {
+                "kind": "press",
+                "value": "enter",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Search results for {{query}} with filter chips are visible.",
+              "next": "$done",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": true,
+              "expectedSignal": "resultsTabs"
+            },
+            {
+              "id": "results",
+              "condition": "Search results with filter chips and videos.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "keyboard": false,
+              "signal": "resultsTabs"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp"
+          ],
+          "check": "query"
+        }
+      ]
+    },
+    {
+      "id": "open",
+      "entry": "chips",
+      "states": [
+        {
+          "id": "chips",
+          "question": "Which filter chips are shown?",
+          "branches": [
+            {
+              "id": "chips",
+              "condition": "A row of filter chips above the search results.",
+              "command": {
+                "kind": "tap",
+                "value": "The Shorts filter chip in the row of chips under the YouTube search bar",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "Short thumbnails in a two-column grid.",
+              "next": "grid0",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "resultsTabs",
+              "expectedSignal": "resultsTabs"
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "chips",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "grid0",
+          "question": "What kind of screen is this?",
+          "branches": [
+            {
+              "id": "grid",
+              "condition": "A grid of vertical Short thumbnails with view counts.",
+              "command": {
+                "kind": "tap",
+                "value": "The top-left Short thumbnail in the Shorts results for {{query}}, not a Sponsored card",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "A full-screen video player is visible.",
+              "next": "player0",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "expectedVideo": true
+            },
+            {
+              "id": "player",
+              "condition": "A full-screen video player.",
+              "expected": "",
+              "next": "player0",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true
+            },
+            {
+              "id": "profile",
+              "condition": "A profile page with Followers and Following counts.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "grid0",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "profileMarkers",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "grid0",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "player0",
+          "question": "Is a Short, an ad, or a channel open?",
+          "branches": [
+            {
+              "id": "player",
+              "condition": "A full-screen vertical Shorts player.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true,
+              "absentSignal": "adLabel"
+            },
+            {
+              "id": "sponsored",
+              "condition": "An Ad or Sponsored badge with a Shop now or Install button.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "grid1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "adLabel",
+              "expectedVideo": false
+            },
+            {
+              "id": "channel",
+              "condition": "A channel page with Subscribe and a Videos tab.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "grid1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "absentSignal": "adLabel",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "player0",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "grid1",
+          "question": "What kind of screen is this?",
+          "branches": [
+            {
+              "id": "grid",
+              "condition": "A grid of vertical Short thumbnails with view counts.",
+              "command": {
+                "kind": "tap",
+                "value": "The top-right Short thumbnail in the Shorts results for {{query}}, not a Sponsored card",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "A full-screen video player is visible.",
+              "next": "player1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "expectedVideo": true
+            },
+            {
+              "id": "player",
+              "condition": "A full-screen video player.",
+              "expected": "",
+              "next": "player1",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true
+            },
+            {
+              "id": "profile",
+              "condition": "A profile page with Followers and Following counts.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "grid1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "profileMarkers",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "grid1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "player1",
+          "question": "Is a Short, an ad, or a channel open?",
+          "branches": [
+            {
+              "id": "player",
+              "condition": "A full-screen vertical Shorts player.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true,
+              "absentSignal": "adLabel"
+            },
+            {
+              "id": "sponsored",
+              "condition": "An Ad or Sponsored badge with a Shop now or Install button.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "grid2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "adLabel",
+              "expectedVideo": false
+            },
+            {
+              "id": "channel",
+              "condition": "A channel page with Subscribe and a Videos tab.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "grid2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "absentSignal": "adLabel",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "player1",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "grid2",
+          "question": "What kind of screen is this?",
+          "branches": [
+            {
+              "id": "grid",
+              "condition": "A grid of vertical Short thumbnails with view counts.",
+              "command": {
+                "kind": "tap",
+                "value": "The second-row left Short thumbnail in the Shorts results for {{query}}, not a Sponsored card",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "A full-screen video player is visible.",
+              "next": "player2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "expectedVideo": true
+            },
+            {
+              "id": "player",
+              "condition": "A full-screen video player.",
+              "expected": "",
+              "next": "player2",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true
+            },
+            {
+              "id": "profile",
+              "condition": "A profile page with Followers and Following counts.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "grid2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "profileMarkers",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "grid2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "player2",
+          "question": "Is a Short, an ad, or a channel open?",
+          "branches": [
+            {
+              "id": "player",
+              "condition": "A full-screen vertical Shorts player.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true,
+              "absentSignal": "adLabel"
+            },
+            {
+              "id": "sponsored",
+              "condition": "An Ad or Sponsored badge with a Shop now or Install button.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "grid3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "adLabel",
+              "expectedVideo": false
+            },
+            {
+              "id": "channel",
+              "condition": "A channel page with Subscribe and a Videos tab.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "grid3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "absentSignal": "adLabel",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "player2",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "grid3",
+          "question": "What kind of screen is this?",
+          "branches": [
+            {
+              "id": "grid",
+              "condition": "A grid of vertical Short thumbnails with view counts.",
+              "command": {
+                "kind": "tap",
+                "value": "The second-row right Short thumbnail in the Shorts results for {{query}}, not a Sponsored card",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "A full-screen video player is visible.",
+              "next": "player3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "expectedVideo": true
+            },
+            {
+              "id": "player",
+              "condition": "A full-screen video player.",
+              "expected": "",
+              "next": "player3",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true
+            },
+            {
+              "id": "profile",
+              "condition": "A profile page with Followers and Following counts.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "grid3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "profileMarkers",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "grid3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "player3",
+          "question": "Is a Short, an ad, or a channel open?",
+          "branches": [
+            {
+              "id": "player",
+              "condition": "A full-screen vertical Shorts player.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true,
+              "absentSignal": "adLabel"
+            },
+            {
+              "id": "sponsored",
+              "condition": "An Ad or Sponsored badge with a Shop now or Install button.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "scroll",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "signal": "adLabel",
+              "expectedVideo": false
+            },
+            {
+              "id": "channel",
+              "condition": "A channel page with Subscribe and a Videos tab.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "scroll",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "absentSignal": "adLabel",
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "player3",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 6,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        },
+        {
+          "id": "scroll",
+          "question": "What kind of screen is this?",
+          "branches": [
+            {
+              "id": "grid",
+              "condition": "A grid of vertical Short thumbnails with view counts.",
+              "command": {
+                "kind": "swipe",
+                "value": "up",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "New Short thumbnails are visible in the grid.",
+              "next": "grid0",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": false,
+              "expectedVideo": false
+            },
+            {
+              "id": "player",
+              "condition": "A full-screen video player.",
+              "command": {
+                "kind": "tap",
+                "value": "The back arrow at the upper left",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The grid of Short thumbnails is visible.",
+              "next": "scroll",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ],
+              "video": true,
+              "expectedVideo": false
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "YouTube is on screen.",
+              "next": "scroll",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp",
+                "dialog"
+              ],
+              "signal": "dismissControl"
+            }
+          ],
+          "maximumVisits": 2,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "consume",
+      "entry": "playback",
+      "states": [
+        {
+          "id": "playback",
+          "question": "Describe the current video player, creator, caption, play or pause control, and visible elapsed/total playback timer.",
+          "branches": [
+            {
+              "id": "playing",
+              "condition": "A playing video.",
+              "command": {
+                "kind": "wait",
+                "value": "",
+                "destination": "",
+                "seconds": 3
+              },
+              "expected": "The video player is visible.",
+              "next": "playback",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
+            },
+            {
+              "id": "paused",
+              "condition": "A paused video with a play button.",
+              "command": {
+                "kind": "tap",
+                "value": "The center of the paused Short, where the large play icon is shown",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The video is playing.",
+              "next": "playback",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
+            },
+            {
+              "id": "complete",
+              "condition": "The video has completed.",
+              "expected": "",
+              "next": "$done",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
+            },
+            {
+              "id": "too-long",
+              "condition": "The video exceeds the duration limit.",
+              "command": {
+                "kind": "swipe",
+                "value": "up",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The next Short plays in the full-screen player.",
+              "next": "$done",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "foregroundApp"
+              ]
+            },
+            {
+              "id": "prompt",
+              "condition": "A sheet or alert with Not now or Don't Allow buttons.",
+              "command": {
+                "kind": "tap",
+                "value": "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The YouTube video player is visible.",
+              "next": "playback",
+              "expectedScreen": "foregroundApp",
+              "requiredScreens": [
+                "dialog"
+              ],
+              "signal": "dismissControl",
+              "expectedVideo": true
+            }
+          ],
+          "maximumVisits": 40,
+          "requiredScreens": [
+            "foregroundApp",
+            "dialog"
+          ],
+          "check": "playback"
+        }
+      ]
+    },
+    {
+      "id": "advance",
+      "entry": "player",
+      "states": [
+        {
+          "id": "player",
+          "question": "Is a full-screen video playing, or a results grid?",
+          "branches": [
+            {
+              "id": "ready",
+              "condition": "A full-screen Shorts player.",
+              "command": {
+                "kind": "swipe",
+                "value": "up",
+                "destination": "",
+                "seconds": 0
+              },
+              "expected": "The next Short plays in the full-screen player.",
+              "next": "$done",
+              "expectedScreen": "foregroundApp"
+            },
+            {
+              "id": "alreadySent",
+              "condition": "The next video is already visible.",
+              "expected": "",
+              "next": "$done"
+            },
+            {
+              "id": "results-grid",
+              "condition": "A grid of Short thumbnails.",
+              "expected": "",
+              "next": "$stop"
+            }
+          ],
+          "maximumVisits": 3,
+          "requiredScreens": [
+            "foregroundApp"
+          ],
+          "check": "advance"
+        }
+      ]
+    }
+  ]
+}

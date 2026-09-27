@@ -1,0 +1,503 @@
+{
+  "network": "Instagram",
+  "screens": [
+    {
+      "id": "own-profile",
+      "note": "Instagram own profile: Edit/Share profile, icon-only tab bar.",
+      "matches": [
+        "ownProfile",
+        "profileMarkers"
+      ],
+      "misses": [
+        "tabBar",
+        "launchScreen"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "toptopnonstop99",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.07,
+          "width": 0.29,
+          "height": 0.016
+        },
+        {
+          "text": "posts",
+          "confidence": 0.99,
+          "x": 0.36,
+          "y": 0.17,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "followers",
+          "confidence": 0.99,
+          "x": 0.55,
+          "y": 0.17,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "following",
+          "confidence": 0.99,
+          "x": 0.78,
+          "y": 0.17,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Trading every day",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.22,
+          "width": 0.326,
+          "height": 0.016
+        },
+        {
+          "text": "Edit profile",
+          "confidence": 0.99,
+          "x": 0.1,
+          "y": 0.28,
+          "width": 0.236,
+          "height": 0.016
+        },
+        {
+          "text": "Share profile",
+          "confidence": 0.99,
+          "x": 0.55,
+          "y": 0.28,
+          "width": 0.254,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "feed-mention",
+      "note": "Instagram feed post that mentions the live handle.",
+      "matches": [],
+      "misses": [
+        "ownProfile",
+        "tabBar",
+        "adLabel"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Instagram",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.065,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "creator1",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.14,
+          "width": 0.164,
+          "height": 0.016
+        },
+        {
+          "text": "Liked by friend and others",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.7,
+          "width": 0.488,
+          "height": 0.016
+        },
+        {
+          "text": "creator1 great chat with @toptopnonstop99",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.73,
+          "width": 0.758,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "search-cancel",
+      "note": "Instagram search with typed text: the search bar Cancel is not a dismiss control.",
+      "matches": [
+        "searchFieldText"
+      ],
+      "misses": [
+        "dismissControl",
+        "resultsTabs"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "cat videos",
+          "confidence": 0.99,
+          "x": 0.12,
+          "y": 0.066,
+          "width": 0.2,
+          "height": 0.016
+        },
+        {
+          "text": "Cancel",
+          "confidence": 0.99,
+          "x": 0.84,
+          "y": 0.066,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "cat videos funny",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.14,
+          "width": 0.308,
+          "height": 0.016
+        },
+        {
+          "text": "cat videos cute",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.19,
+          "width": 0.29,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "search-placeholder",
+      "note": "Instagram focused search with the Meta AI placeholder.",
+      "matches": [],
+      "misses": [
+        "searchFieldText",
+        "dismissControl"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Ask Meta AI or Search",
+          "confidence": 0.99,
+          "x": 0.12,
+          "y": 0.066,
+          "width": 0.398,
+          "height": 0.016
+        },
+        {
+          "text": "Cancel",
+          "confidence": 0.99,
+          "x": 0.84,
+          "y": 0.066,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "Recent",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.14,
+          "width": 0.128,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "results",
+      "note": "Instagram search results tabs.",
+      "matches": [
+        "resultsTabs",
+        "searchFieldText"
+      ],
+      "misses": [
+        "adLabel"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "cat videos",
+          "confidence": 0.99,
+          "x": 0.12,
+          "y": 0.066,
+          "width": 0.2,
+          "height": 0.016
+        },
+        {
+          "text": "For you",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.118,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "Accounts",
+          "confidence": 0.99,
+          "x": 0.26,
+          "y": 0.118,
+          "width": 0.164,
+          "height": 0.016
+        },
+        {
+          "text": "Reels",
+          "confidence": 0.99,
+          "x": 0.5,
+          "y": 0.118,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Audio",
+          "confidence": 0.99,
+          "x": 0.7,
+          "y": 0.118,
+          "width": 0.11,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "sponsored-reel",
+      "note": "A sponsored Reel with a Shop now CTA.",
+      "matches": [
+        "adLabel"
+      ],
+      "misses": [
+        "liveBadge"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Reels",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.065,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "brandname",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.8,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Sponsored",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.82,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Shop now",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.88,
+          "width": 0.164,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "notification-prompt",
+      "note": "Instagram's notification prompt.",
+      "matches": [
+        "dismissControl"
+      ],
+      "misses": [
+        "searchFieldText"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Turn on Notifications",
+          "confidence": 0.99,
+          "x": 0.2,
+          "y": 0.5,
+          "width": 0.398,
+          "height": 0.016
+        },
+        {
+          "text": "Turn On",
+          "confidence": 0.99,
+          "x": 0.4,
+          "y": 0.62,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "Not Now",
+          "confidence": 0.99,
+          "x": 0.41,
+          "y": 0.68,
+          "width": 0.146,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "story",
+      "matches": [
+        "replyBar"
+      ],
+      "misses": [
+        "adLabel",
+        "ownProfile",
+        "dismissControl"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.1,
+          "y": 0.02,
+          "width": 0.14,
+          "height": 0.02
+        },
+        {
+          "text": "creator1 3h",
+          "confidence": 0.99,
+          "x": 0.15,
+          "y": 0.07,
+          "width": 0.3,
+          "height": 0.02
+        },
+        {
+          "text": "Send message",
+          "confidence": 0.99,
+          "x": 0.05,
+          "y": 0.93,
+          "width": 0.5,
+          "height": 0.02
+        }
+      ]
+    },
+    {
+      "id": "sparse-feed",
+      "note": "A home feed where Vision read only three lines is not a launch screen.",
+      "matches": [],
+      "misses": [
+        "launchScreen"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Instagram",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.065,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Your story",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.14,
+          "width": 0.2,
+          "height": 0.016
+        },
+        {
+          "text": "creator1",
+          "confidence": 0.99,
+          "x": 0.2,
+          "y": 0.2,
+          "width": 0.164,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "splash",
+      "note": "The Instagram launch screen.",
+      "matches": [
+        "launchScreen"
+      ],
+      "misses": [
+        "tabBar"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "from",
+          "confidence": 0.99,
+          "x": 0.45,
+          "y": 0.9,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Meta",
+          "confidence": 0.99,
+          "x": 0.44,
+          "y": 0.92,
+          "width": 0.092,
+          "height": 0.016
+        }
+      ]
+    }
+  ]
+}

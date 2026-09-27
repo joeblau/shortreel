@@ -1,0 +1,58 @@
+[
+  {
+    "expected" : "confirmed",
+    "id" : "account.launcher.verify",
+    "options" : [
+      {
+        "description" : "The YouTube app is open in the foreground.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "YouTube Home feed with topic chips under the top bar, video thumbnails, and the bottom tabs."
+  },
+  {
+    "expected" : "confirmed",
+    "id" : "search.feed.verify",
+    "options" : [
+      {
+        "description" : "A search field at the top of YouTube.",
+        "id" : "confirmed"
+      },
+      {
+        "description" : "The expected result is not yet visible, or is ambiguous.",
+        "id" : "pending"
+      },
+      {
+        "description" : "The input failed or an error or unexpected screen is visible.",
+        "id" : "failed"
+      }
+    ],
+    "question" : "Which condition is clearly supported by the current screen evidence?",
+    "state" : "A search field at the top shows Search YouTube with recent searches below and the keyboard open."
+  },
+  {
+    "expected" : "player",
+    "id" : "advance.player",
+    "options" : [
+      {
+        "description" : "A full-screen video player.",
+        "id" : "player"
+      },
+      {
+        "description" : "A different or unreadable screen.",
+        "id" : "unknown"
+      }
+    ],
+    "question" : "What is visible on the screen?",
+    "state" : "A vertical Short is playing with like, dislike, comment, and share icons on the right."
+  }
+]

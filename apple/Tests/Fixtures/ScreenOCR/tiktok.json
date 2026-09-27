@@ -1,0 +1,1514 @@
+{
+  "network": "TikTok",
+  "screens": [
+    {
+      "id": "feed-caption-mention",
+      "note": "A For You video whose caption mentions the live handle: not the own profile.",
+      "matches": [
+        "tabBar"
+      ],
+      "misses": [
+        "ownProfile",
+        "profileMarkers",
+        "adLabel",
+        "liveBadge",
+        "resultsTabs",
+        "launchScreen",
+        "dismissControl",
+        "replyBar"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "LIVE",
+          "confidence": 0.99,
+          "x": 0.05,
+          "y": 0.065,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Following",
+          "confidence": 0.99,
+          "x": 0.3,
+          "y": 0.065,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "For You",
+          "confidence": 0.99,
+          "x": 0.55,
+          "y": 0.065,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "25.4K",
+          "confidence": 0.99,
+          "x": 0.86,
+          "y": 0.5,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "1,203",
+          "confidence": 0.99,
+          "x": 0.87,
+          "y": 0.58,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "5,120",
+          "confidence": 0.99,
+          "x": 0.87,
+          "y": 0.66,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "@creator1",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.8,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Swing trading setup with @toptopnonstop99 today",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.83,
+          "width": 0.866,
+          "height": 0.016
+        },
+        {
+          "text": "original sound - creator1",
+          "confidence": 0.99,
+          "x": 0.08,
+          "y": 0.87,
+          "width": 0.47,
+          "height": 0.016
+        },
+        {
+          "text": "Home",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.944,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Friends",
+          "confidence": 0.99,
+          "x": 0.25,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "+",
+          "confidence": 0.99,
+          "x": 0.47,
+          "y": 0.923,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "Inbox",
+          "confidence": 0.99,
+          "x": 0.66,
+          "y": 0.944,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Profile",
+          "confidence": 0.99,
+          "x": 0.86,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "search-typed",
+      "note": "TikTok search page with a typed query and suggestions below the field.",
+      "matches": [
+        "searchFieldText"
+      ],
+      "misses": [
+        "resultsTabs",
+        "tabBar",
+        "dismissControl",
+        "noResults"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "swing trading",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.066,
+          "width": 0.254,
+          "height": 0.016
+        },
+        {
+          "text": "Search",
+          "confidence": 0.99,
+          "x": 0.84,
+          "y": 0.066,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "swing trading strategy",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.14,
+          "width": 0.416,
+          "height": 0.016
+        },
+        {
+          "text": "swing trading for beginners",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.19,
+          "width": 0.506,
+          "height": 0.016
+        },
+        {
+          "text": "Q",
+          "confidence": 0.99,
+          "x": 0.05,
+          "y": 0.62,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "W",
+          "confidence": 0.99,
+          "x": 0.15,
+          "y": 0.62,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "E",
+          "confidence": 0.99,
+          "x": 0.25,
+          "y": 0.62,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "R",
+          "confidence": 0.99,
+          "x": 0.35,
+          "y": 0.62,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "T",
+          "confidence": 0.99,
+          "x": 0.45,
+          "y": 0.62,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "Y",
+          "confidence": 0.99,
+          "x": 0.55,
+          "y": 0.62,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "U",
+          "confidence": 0.99,
+          "x": 0.65,
+          "y": 0.62,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "I",
+          "confidence": 0.99,
+          "x": 0.75,
+          "y": 0.62,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "O",
+          "confidence": 0.99,
+          "x": 0.85,
+          "y": 0.62,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "P",
+          "confidence": 0.99,
+          "x": 0.95,
+          "y": 0.62,
+          "width": 0.038,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "search-placeholder",
+      "note": "TikTok search page showing only the placeholder: suggestion rows sit below the field band.",
+      "matches": [],
+      "misses": [
+        "searchFieldText",
+        "resultsTabs"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Search",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.066,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "Search",
+          "confidence": 0.99,
+          "x": 0.84,
+          "y": 0.066,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "You may like",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.14,
+          "width": 0.236,
+          "height": 0.016
+        },
+        {
+          "text": "halloween costumes",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.19,
+          "width": 0.344,
+          "height": 0.016
+        },
+        {
+          "text": "easy dinner ideas",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.24,
+          "width": 0.326,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "results-videos",
+      "note": "TikTok results with the Top/Videos row; the LIVE tab is not a LIVE room.",
+      "matches": [
+        "resultsTabs",
+        "searchFieldText"
+      ],
+      "misses": [
+        "liveBadge",
+        "tabBar",
+        "adLabel"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "swing trading",
+          "confidence": 0.99,
+          "x": 0.14,
+          "y": 0.066,
+          "width": 0.254,
+          "height": 0.016
+        },
+        {
+          "text": "Top",
+          "confidence": 0.99,
+          "x": 0.05,
+          "y": 0.112,
+          "width": 0.074,
+          "height": 0.016
+        },
+        {
+          "text": "Videos",
+          "confidence": 0.99,
+          "x": 0.18,
+          "y": 0.112,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "Users",
+          "confidence": 0.99,
+          "x": 0.36,
+          "y": 0.112,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Sounds",
+          "confidence": 0.99,
+          "x": 0.52,
+          "y": 0.112,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "Shop",
+          "confidence": 0.99,
+          "x": 0.7,
+          "y": 0.112,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "LIVE",
+          "confidence": 0.99,
+          "x": 0.84,
+          "y": 0.112,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "12.3K",
+          "confidence": 0.99,
+          "x": 0.08,
+          "y": 0.5,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Swing trading basics for beginners",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.53,
+          "width": 0.632,
+          "height": 0.016
+        },
+        {
+          "text": "8,044",
+          "confidence": 0.99,
+          "x": 0.58,
+          "y": 0.5,
+          "width": 0.11,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "sponsored-video",
+      "note": "A sponsored feed video with a Learn more CTA.",
+      "matches": [
+        "adLabel",
+        "tabBar"
+      ],
+      "misses": [
+        "liveBadge",
+        "ownProfile"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Following",
+          "confidence": 0.99,
+          "x": 0.3,
+          "y": 0.065,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "For You",
+          "confidence": 0.99,
+          "x": 0.55,
+          "y": 0.065,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "@brandname",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.78,
+          "width": 0.2,
+          "height": 0.016
+        },
+        {
+          "text": "Sponsored",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.81,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Learn more",
+          "confidence": 0.99,
+          "x": 0.3,
+          "y": 0.87,
+          "width": 0.2,
+          "height": 0.016
+        },
+        {
+          "text": "Home",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.944,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Friends",
+          "confidence": 0.99,
+          "x": 0.25,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "+",
+          "confidence": 0.99,
+          "x": 0.47,
+          "y": 0.923,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "Inbox",
+          "confidence": 0.99,
+          "x": 0.66,
+          "y": 0.944,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Profile",
+          "confidence": 0.99,
+          "x": 0.86,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "sign-up-cta",
+      "note": "A feed video with a Sign up button: must not count as an ad (it collides with the sign-in stop).",
+      "matches": [
+        "tabBar"
+      ],
+      "misses": [
+        "adLabel"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Following",
+          "confidence": 0.99,
+          "x": 0.3,
+          "y": 0.065,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "For You",
+          "confidence": 0.99,
+          "x": 0.55,
+          "y": 0.065,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "@appmaker",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.8,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Join the waitlist for our new app",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.83,
+          "width": 0.614,
+          "height": 0.016
+        },
+        {
+          "text": "Sign up",
+          "confidence": 0.99,
+          "x": 0.4,
+          "y": 0.88,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "Home",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.944,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Friends",
+          "confidence": 0.99,
+          "x": 0.25,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "+",
+          "confidence": 0.99,
+          "x": 0.47,
+          "y": 0.923,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "Inbox",
+          "confidence": 0.99,
+          "x": 0.66,
+          "y": 0.944,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Profile",
+          "confidence": 0.99,
+          "x": 0.86,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "live-preview",
+      "note": "A LIVE stream preview in the feed.",
+      "matches": [
+        "liveBadge",
+        "tabBar"
+      ],
+      "misses": [
+        "adLabel",
+        "resultsTabs"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Following",
+          "confidence": 0.99,
+          "x": 0.3,
+          "y": 0.065,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "For You",
+          "confidence": 0.99,
+          "x": 0.55,
+          "y": 0.065,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "LIVE",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.76,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "@streamer",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.79,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "1.2K",
+          "confidence": 0.99,
+          "x": 0.8,
+          "y": 0.12,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Tap to watch LIVE",
+          "confidence": 0.99,
+          "x": 0.3,
+          "y": 0.86,
+          "width": 0.326,
+          "height": 0.016
+        },
+        {
+          "text": "Home",
+          "confidence": 0.99,
+          "x": 0.06,
+          "y": 0.944,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Friends",
+          "confidence": 0.99,
+          "x": 0.25,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "+",
+          "confidence": 0.99,
+          "x": 0.47,
+          "y": 0.923,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "Inbox",
+          "confidence": 0.99,
+          "x": 0.66,
+          "y": 0.944,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Profile",
+          "confidence": 0.99,
+          "x": 0.86,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "notification-sheet",
+      "note": "An in-app notification prompt with a Not now control.",
+      "matches": [
+        "dismissControl"
+      ],
+      "misses": [
+        "passcode",
+        "launchScreen"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "Turn on notifications",
+          "confidence": 0.99,
+          "x": 0.2,
+          "y": 0.55,
+          "width": 0.398,
+          "height": 0.016
+        },
+        {
+          "text": "Get notified when friends post",
+          "confidence": 0.99,
+          "x": 0.12,
+          "y": 0.6,
+          "width": 0.56,
+          "height": 0.016
+        },
+        {
+          "text": "Turn on",
+          "confidence": 0.99,
+          "x": 0.4,
+          "y": 0.7,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "Not now",
+          "confidence": 0.99,
+          "x": 0.41,
+          "y": 0.76,
+          "width": 0.146,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "splash",
+      "note": "The TikTok launch splash: only the logo.",
+      "matches": [
+        "launchScreen"
+      ],
+      "misses": [
+        "tabBar",
+        "ownProfile"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "TikTok",
+          "confidence": 0.99,
+          "x": 0.38,
+          "y": 0.48,
+          "width": 0.128,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "other-profile",
+      "note": "Another creator's profile with Follow and Message and no Profile tab.",
+      "matches": [
+        "profileMarkers"
+      ],
+      "misses": [
+        "ownProfile"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.1,
+          "height": 0.019
+        },
+        {
+          "text": "creator1",
+          "confidence": 0.99,
+          "x": 0.4,
+          "y": 0.07,
+          "width": 0.164,
+          "height": 0.016
+        },
+        {
+          "text": "@creator1",
+          "confidence": 0.99,
+          "x": 0.4,
+          "y": 0.2,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Following",
+          "confidence": 0.99,
+          "x": 0.08,
+          "y": 0.25,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Followers",
+          "confidence": 0.99,
+          "x": 0.4,
+          "y": 0.25,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Likes",
+          "confidence": 0.99,
+          "x": 0.72,
+          "y": 0.25,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Follow",
+          "confidence": 0.99,
+          "x": 0.25,
+          "y": 0.3,
+          "width": 0.128,
+          "height": 0.016
+        },
+        {
+          "text": "Message",
+          "confidence": 0.99,
+          "x": 0.55,
+          "y": 0.3,
+          "width": 0.146,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "feed-header-only",
+      "note": "For You feed whose white tab labels Vision missed over video; the feed header still proves the tab bar.",
+      "matches": [
+        "tabBar"
+      ],
+      "misses": [
+        "ownProfile",
+        "launchScreen",
+        "dismissControl"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "LIVE",
+          "confidence": 0.99,
+          "x": 0.05,
+          "y": 0.065,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Following",
+          "confidence": 0.99,
+          "x": 0.3,
+          "y": 0.065,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "For You",
+          "confidence": 0.99,
+          "x": 0.55,
+          "y": 0.065,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "25.4K",
+          "confidence": 0.99,
+          "x": 0.86,
+          "y": 0.5,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "@creator0",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.8,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Morning market recap for swing traders",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.83,
+          "width": 0.704,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "feed-labels-half-confidence",
+      "note": "Tab labels read at Vision's quantized 0.5 confidence still count as the tab bar.",
+      "matches": [
+        "tabBar"
+      ],
+      "misses": [
+        "ownProfile",
+        "launchScreen"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "25.4K",
+          "confidence": 0.99,
+          "x": 0.86,
+          "y": 0.5,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "@creator0",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.8,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Morning market recap for swing traders",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.83,
+          "width": 0.704,
+          "height": 0.016
+        },
+        {
+          "text": "Home",
+          "confidence": 0.5,
+          "x": 0.06,
+          "y": 0.944,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Friends",
+          "confidence": 0.5,
+          "x": 0.25,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "+",
+          "confidence": 0.5,
+          "x": 0.47,
+          "y": 0.923,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "Inbox",
+          "confidence": 0.5,
+          "x": 0.66,
+          "y": 0.944,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Profile",
+          "confidence": 0.5,
+          "x": 0.86,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "feed-labels-unread",
+      "note": "Neither the header nor the tab labels were read: the tab bar is not proven.",
+      "matches": [],
+      "misses": [
+        "tabBar"
+      ],
+      "regions": [
+        {
+          "text": "9:41",
+          "confidence": 0.99,
+          "x": 0.11,
+          "y": 0.02,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "25.4K",
+          "confidence": 0.99,
+          "x": 0.86,
+          "y": 0.5,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "@creator0",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.8,
+          "width": 0.182,
+          "height": 0.016
+        },
+        {
+          "text": "Morning market recap for swing traders",
+          "confidence": 0.99,
+          "x": 0.04,
+          "y": 0.83,
+          "width": 0.704,
+          "height": 0.016
+        },
+        {
+          "text": "Home",
+          "confidence": 0.3,
+          "x": 0.06,
+          "y": 0.944,
+          "width": 0.092,
+          "height": 0.016
+        },
+        {
+          "text": "Friends",
+          "confidence": 0.3,
+          "x": 0.25,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        },
+        {
+          "text": "+",
+          "confidence": 0.3,
+          "x": 0.47,
+          "y": 0.923,
+          "width": 0.038,
+          "height": 0.016
+        },
+        {
+          "text": "Inbox",
+          "confidence": 0.3,
+          "x": 0.66,
+          "y": 0.944,
+          "width": 0.11,
+          "height": 0.016
+        },
+        {
+          "text": "Profile",
+          "confidence": 0.3,
+          "x": 0.86,
+          "y": 0.944,
+          "width": 0.146,
+          "height": 0.016
+        }
+      ]
+    },
+    {
+      "id": "live-feed",
+      "note": "Live SR1 For You feed: tab labels read at y~0.94 over video; the top bar OCR merges into one row.",
+      "matches": [
+        "tabBar"
+      ],
+      "misses": [
+        "dismissControl",
+        "passcode",
+        "adLabel",
+        "liveBadge",
+        "resultsTabs",
+        "profileMarkers",
+        "ownProfile",
+        "launchScreen"
+      ],
+      "regions": [
+        {
+          "confidence": 1,
+          "height": 0.018750000000000044,
+          "text": "9:41\\",
+          "width": 0.13513513513513514,
+          "x": 0.11486486469138057,
+          "y": 0.029687499974662135
+        },
+        {
+          "confidence": 1,
+          "height": 0.017187500000000022,
+          "text": "LIVE",
+          "width": 0.06756756756756757,
+          "x": 0.04054054042792793,
+          "y": 0.09218749990451391
+        },
+        {
+          "confidence": 1,
+          "height": 0.0234375,
+          "text": "an Francisco Following Shop For You Q",
+          "width": 0.8243243243243243,
+          "x": 0.13175676040540543,
+          "y": 0.08906249988281245
+        },
+        {
+          "confidence": 1,
+          "height": 0.020192308723926522,
+          "text": "SLASH",
+          "width": 0.09059251321328653,
+          "x": 0.06767151892183997,
+          "y": 0.20942307647844804
+        },
+        {
+          "confidence": 1,
+          "height": 0.009375000000000022,
+          "text": "FREE GIFT",
+          "width": 0.11486486486486486,
+          "x": 0.037162161998361996,
+          "y": 0.2453124999857954
+        },
+        {
+          "confidence": 1,
+          "height": 0.025971543788909868,
+          "text": "Post and forget.",
+          "width": 0.35564636539768524,
+          "x": 0.323921123107376,
+          "y": 0.2728408490326597
+        },
+        {
+          "confidence": 1,
+          "height": 0.012499999999999956,
+          "text": "1.2M",
+          "width": 0.07432432432432434,
+          "x": 0.8783783782939188,
+          "y": 0.5671874999479167
+        },
+        {
+          "confidence": 1,
+          "height": 0.014062500000000089,
+          "text": "15.8K",
+          "width": 0.08783783783783783,
+          "x": 0.8716216214864864,
+          "y": 0.6437499999648437
+        },
+        {
+          "confidence": 1,
+          "height": 0.014826665818691187,
+          "text": "93.6K",
+          "width": 0.08839600150649607,
+          "x": 0.8713425396173001,
+          "y": 0.7199304170650903
+        },
+        {
+          "confidence": 1,
+          "height": 0.014682537317275979,
+          "text": "36.5K",
+          "width": 0.09165428780220652,
+          "x": 0.8680242072822435,
+          "y": 0.7965649813120891
+        },
+        {
+          "confidence": 1,
+          "height": 0.018107011914253235,
+          "text": "Farzaan",
+          "width": 0.14913317963883682,
+          "x": 0.033541516932480996,
+          "y": 0.8089152438793871
+        },
+        {
+          "confidence": 1,
+          "height": 0.017187500000000022,
+          "text": "#farzyspeaks",
+          "width": 0.2466216216216216,
+          "x": 0.033783783598777324,
+          "y": 0.839062499986359
+        },
+        {
+          "confidence": 1,
+          "height": 0.017187500000000022,
+          "text": "J Contains: Stay Until Dawn...",
+          "width": 0.49324324324324326,
+          "x": 0.03378378357565156,
+          "y": 0.868749999992327
+        },
+        {
+          "confidence": 1,
+          "height": 0.009518024325370855,
+          "text": "Home",
+          "width": 0.07778279845779007,
+          "x": 0.06752751909948498,
+          "y": 0.9374284877581015
+        },
+        {
+          "confidence": 1,
+          "height": 0.01143478974699974,
+          "text": "Friends",
+          "width": 0.09485765405603358,
+          "x": 0.25324684847823326,
+          "y": 0.9372513551063572
+        },
+        {
+          "confidence": 1,
+          "height": 0.009374999999999911,
+          "text": "Inbox",
+          "width": 0.07432432432432423,
+          "x": 0.6587837834766586,
+          "y": 0.9374999999573863
+        },
+        {
+          "confidence": 1,
+          "height": 0.012499999999999956,
+          "text": "Profile",
+          "width": 0.08445945945945943,
+          "x": 0.8479729729971042,
+          "y": 0.9359374999107143
+        }
+      ]
+    },
+    {
+      "id": "live-viewer-history-sheet",
+      "note": "Live SR1 'Viewer history turned on' sheet over the own profile: icon-only close X, a toggle and Save; the Profile tab label is hidden.",
+      "matches": [
+        "profileMarkers"
+      ],
+      "misses": [
+        "tabBar",
+        "dismissControl",
+        "passcode",
+        "adLabel",
+        "liveBadge",
+        "resultsTabs",
+        "ownProfile",
+        "launchScreen"
+      ],
+      "regions": [
+        {
+          "confidence": 1,
+          "height": 0.015625,
+          "text": "9:41:",
+          "width": 0.10810810810810807,
+          "x": 0.11486486464864866,
+          "y": 0.028124999968749953
+        },
+        {
+          "confidence": 1,
+          "height": 0.029687499999999978,
+          "text": "toptopnonstop99 -",
+          "width": 0.6182432432432432,
+          "x": 0.04054054039225301,
+          "y": 0.1453124999886689
+        },
+        {
+          "confidence": 1,
+          "height": 0.015625,
+          "text": "@toptopnonstop99",
+          "width": 0.28378378378378377,
+          "x": 0.040540540375741625,
+          "y": 0.18281249999047255
+        },
+        {
+          "confidence": 1,
+          "height": 0.014062500000000089,
+          "text": "What's up?",
+          "width": 0.15202702702702686,
+          "x": 0.7601351349662162,
+          "y": 0.1406249999836482
+        },
+        {
+          "confidence": 0.5,
+          "height": 0.018948096036911055,
+          "text": "9.38%",
+          "width": 0.07292456240267364,
+          "x": 0.8846426416610145,
+          "y": 0.20288808695877147
+        },
+        {
+          "confidence": 1,
+          "height": 0.0169250428676605,
+          "text": "Following",
+          "width": 0.15022690231735641,
+          "x": 0.03643876305894589,
+          "y": 0.24261359683364503
+        },
+        {
+          "confidence": 1,
+          "height": 0.014722198247909546,
+          "text": "Followers",
+          "width": 0.14556210749858137,
+          "x": 0.24309732417420613,
+          "y": 0.24342015083416568
+        },
+        {
+          "confidence": 1,
+          "height": 0.014062499999999978,
+          "text": "Likes",
+          "width": 0.08108108108108109,
+          "x": 0.4459459456362613,
+          "y": 0.24374999994140623
+        },
+        {
+          "confidence": 1,
+          "height": 0.018749999999999933,
+          "text": "Trading crypto, stocks, and commodities all day every day",
+          "width": 0.8783783783783784,
+          "x": 0.040540540376028195,
+          "y": 0.28437499999592397
+        },
+        {
+          "confidence": 1,
+          "height": 0.01326061561703673,
+          "text": "on Bloxwap",
+          "width": 0.17938515946671768,
+          "x": 0.04038832321490109,
+          "y": 0.30481080091469437
+        },
+        {
+          "confidence": 1,
+          "height": 0.018750000000000044,
+          "text": "А",
+          "width": 0.043918918918918914,
+          "x": 0.47635135116835586,
+          "y": 0.346874999921875
+        },
+        {
+          "confidence": 1,
+          "height": 0.029595589637756436,
+          "text": "89",
+          "width": 0.08008744265582113,
+          "x": 0.6790540545113091,
+          "y": 0.46893382276660733
+        },
+        {
+          "confidence": 1,
+          "height": 0.014062500000000089,
+          "text": "Share",
+          "width": 0.11824324324324323,
+          "x": 0.24999999907094597,
+          "y": 0.5109374998828125
+        },
+        {
+          "confidence": 1,
+          "height": 0.014062500000000089,
+          "text": "ra run vided",
+          "width": 0.23310810810810811,
+          "x": 0.36148648635851754,
+          "y": 0.5109374999786931
+        },
+        {
+          "confidence": 1,
+          "height": 0.015625,
+          "text": "recorded rece",
+          "width": 0.2770270270270271,
+          "x": 0.32432432415540535,
+          "y": 0.5328124999644887
+        },
+        {
+          "confidence": 1,
+          "height": 0.03232708871364587,
+          "text": "Viewer history turned on",
+          "width": 0.7539438814730257,
+          "x": 0.12470287010510246,
+          "y": 0.68108857365628
+        },
+        {
+          "confidence": 1,
+          "height": 0.022752611339092343,
+          "text": "• Others will see you viewed their profile,",
+          "width": 0.7708507744041649,
+          "x": 0.08085314033415555,
+          "y": 0.7335748627039023
+        },
+        {
+          "confidence": 1,
+          "height": 0.018750000000000044,
+          "text": "and people you follow will see you viewed",
+          "width": 0.7398648648648647,
+          "x": 0.15202702659559902,
+          "y": 0.7562499999873311
+        },
+        {
+          "confidence": 1,
+          "height": 0.018980666995048523,
+          "text": "their posts.",
+          "width": 0.20731905344370247,
+          "x": 0.15149615807306907,
+          "y": 0.7752245658107778
+        },
+        {
+          "confidence": 1,
+          "height": 0.017187500000000022,
+          "text": "• You can also see who viewed your profile",
+          "width": 0.8006756756756757,
+          "x": 0.08108108092434381,
+          "y": 0.8156249999958683
+        },
+        {
+          "confidence": 1,
+          "height": 0.018750000000000044,
+          "text": "and which tollowers viewed your posts.",
+          "width": 0.6993243243243243,
+          "x": 0.15202702686089253,
+          "y": 0.8359374999948489
+        },
+        {
+          "confidence": 1,
+          "height": 0.018750000000000044,
+          "text": "• Turn this off now or any time in Settings/",
+          "width": 0.793918918918919,
+          "x": 0.08108108092977466,
+          "y": 0.873437499995557
+        },
+        {
+          "confidence": 1,
+          "height": 0.018618008494377114,
+          "text": "HViewer historys",
+          "width": 0.28789190343908366,
+          "x": 0.060529993531342655,
+          "y": 0.9363295562136166
+        },
+        {
+          "confidence": 1,
+          "height": 0.009374999999999911,
+          "text": "Inbox",
+          "width": 0.07094594594594594,
+          "x": 0.6655405403716217,
+          "y": 0.9437499999753289
+        }
+      ]
+    }
+  ]
+}
