@@ -23,7 +23,8 @@ import Foundation
         try await runnerOwnedFailures()
         try await accountRecoveries()
         try await interruptDismissal()
-        print("Transaction runner tests passed (replay, locator isolation, frames, durability, uncertainty, cancellation, budgets, deterministic launcher, account phase, diagnostic, signal gates, short-circuit, postconditions, non-video items, capture journal, runner-owned failures, account recoveries, interrupt dismissal)")
+        try await agentGesture()
+        print("Transaction runner tests passed (agent gesture, replay, locator isolation, frames, durability, uncertainty, cancellation, budgets, deterministic launcher, account phase, diagnostic, signal gates, short-circuit, postconditions, non-video items, capture journal, runner-owned failures, account recoveries, interrupt dismissal)")
     }
     static func deterministicReplay() async throws {
         var traces: [[String]] = []
@@ -804,6 +805,35 @@ import Foundation
         }
         try await T.rejects { _ = try await toggling.run(workflow: .warmUp, script: instagram) }
         try T.expect(toggling.actions == [.tap(0.5, 0.5)], "A runner-owned recovery ignored its contract attempt limit and toggled playback again")
+    }
+
+    /// Live 2026-09-27: "swipe up to show next video" compiled to negated conditions Laya scored below "unknown" three times.
+    static func agentGesture() async throws {
+        try T.expect(PhoneTransactionCompiler.gesture("swipe up to show next video").map { $0.direction == .up && $0.video } == true
+            && PhoneTransactionCompiler.gesture("Swipe left").map { $0.direction == .left && !$0.video } == true
+            && PhoneTransactionCompiler.gesture("scroll down").map { $0.direction == .up } == true
+            && PhoneTransactionCompiler.gesture("swipe up and like it") == nil && PhoneTransactionCompiler.gesture("swipe up then tap follow") == nil,
+            "Gesture requests were parsed wrongly, or a multi-action request became a lone swipe")
+        let rig = T.Rig(); rig.plan = try PhoneTransactionCompiler.builtIn(goal: "swipe up to show next video", script: nil)!
+        rig.observeOverride = { _, _ in
+            .init(state: .foregroundApp, appCardsVisible: false, evidence: "TikTok video player shows a trading chart.",
+                video: .init(creator: "Pat Trading", caption: "Swing trading step by step", progress: 0.2, durationSeconds: nil, playing: true))
+        }
+        rig.classifyOverride = { question in throw T.Failure.assertion("A lone swipe asked Laya \(question.id)") }
+        let result = try await rig.run()
+        try T.expect(result.contains("completed") && rig.actions == [.swipe(.up)] && rig.questions.isEmpty,
+            "The swipe request was not one deterministic swipe confirmed by the playing video: \(rig.actions)")
+        typealias Branch = PhoneTransactionPlan.Branch
+        let compiled = PhoneTransactionPlan(version: 1, phases: [.init(id: "advance", entry: "inspect", states: [
+            .init(id: "inspect", maximumVisits: 3, branches: [
+                Branch(id: "videoVisible", condition: "A single video is visible in a vertical video feed, with identifiable creator or caption and no overlay or loading indicator.",
+                    command: .init(kind: .swipe, value: "up", destination: "", seconds: 0), expected: "A different video is visible.", next: "$done"),
+                Branch(id: "loading", condition: "A loading indicator is visible over a vertical video feed.", command: nil, expected: "", next: "inspect"),
+                Branch(id: "unsupported", condition: "Neither an unobstructed identifiable video nor a loading vertical video feed is visible.",
+                    command: nil, expected: "", next: "$stop")])])])
+        try T.expect(PhoneTransactionCompiler.negatedConditions(compiled).count == 2
+            && PhoneTransactionCompiler.negatedConditions(rig.plan).isEmpty,
+            "The live compiled plan's negated conditions were not caught for a rewrite")
     }
 
     /// The live TikTok "Viewer history turned on" sheet: only an icon close control, over the profile the Profile tap opened.

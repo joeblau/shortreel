@@ -589,7 +589,7 @@ final class DeviceManager {
                     progress("Using the built-in app-opening workflow…")
                     return builtIn
                 }
-                let generate: @MainActor @Sendable (String, String, String?) async throws -> PhoneTransactionPlan = { prompt, instructions, phase in
+                let request: @MainActor @Sendable (String, String, String?) async throws -> PhoneTransactionPlan = { prompt, instructions, phase in
                     let data: Data
                     do {
                         switch provider {
@@ -605,6 +605,15 @@ final class DeviceManager {
                         throw PhoneVisionError.unavailable("Workflow preparation timed out before any phone input. Check the selected provider's connection and try again.")
                     }
                     return try JSONDecoder().decode(PhoneTransactionPlan.self, from: data)
+                }
+                // Negated conditions read as their opposite to the classifier, so a plan that uses them is rewritten once.
+                let generate: @MainActor @Sendable (String, String, String?) async throws -> PhoneTransactionPlan = { prompt, instructions, phase in
+                    let plan = try await request(prompt, instructions, phase)
+                    let negated = PhoneTransactionCompiler.negatedConditions(plan)
+                    guard !negated.isEmpty else { return plan }
+                    progress("Rewording the workflow's conditions…")
+                    return try await request(prompt + "\nREWRITE these conditions as positive statements of what IS visible; negation is misread:\n"
+                        + negated.joined(separator: "\n"), instructions, phase)
                 }
                 if let script {
                     if script.activity == .watch,

@@ -208,7 +208,11 @@ enum PhoneTransactionCompiler {
         branch conditions (max 220 characters each). Each state has a specific classification question,
         such as "Is the TikTok app icon visible?", with concise answer conditions. Name branches after
         observed facts or yes/no, not future commands: branch IDs are also read by the classifier.
-        Use concrete visible facts, never instructions as conditions. Branch IDs must be UNIQUE within
+        Use concrete visible facts, never instructions as conditions. The classifier matches words, not
+        meaning: write each condition as one short positive statement of what IS visible (at most 15 words).
+        Never use negation or exclusion in conditions (no, not, neither, nor, without, unless, except, absent,
+        missing, none); describe the other screen instead. Competing conditions in one state must not share
+        their main nouns. Branch IDs must be UNIQUE within
         each state. Combine multiple surfaces for the same failure ID into one condition and route to a
         separate recovery state to distinguish those surfaces; never repeat the failure ID in one state.
         A branch may perform ONE fixed command, then its expected visible postcondition must be verified
@@ -298,11 +302,45 @@ extension PhoneTransactionCompiler {
     static let watchQuerySchema = Data(#"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"],"additionalProperties":false}"#.utf8)
 
     static func builtIn(goal: String, script: WarmUpScript?) throws -> PhoneTransactionPlan? {
+        if script == nil, let gesture = gesture(goal) { return try gesturePlan(gesture.direction, video: gesture.video) }
         guard script == nil, let parsed = try? DevicePromptPlanner.plan(goal), parsed.actions.count == 1,
               case .openApp(let app) = parsed.actions[0], app.count <= 60 else { return nil }
         let plan = PhoneTransactionPlan(version: 1, phases: [.init(id: "openApp", entry: "start", states: launchStates(app: app, opened: "$done"))])
         try plan.validate()
         return plan
+    }
+
+    /// A lone swipe, optionally with its purpose ("swipe up to show the next video"). Scrolling moves content, so it swipes opposite.
+    static func gesture(_ goal: String) -> (direction: PhoneSwipeDirection, video: Bool)? {
+        let text = goal.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let match = text.range(of: #"(?i)^(swipe|scroll)\s+(up|down|left|right)(\s+(to|for)\s+[\p{L}\p{N}' ,-]{1,80})?[.!]?$"#,
+                                     options: .regularExpression) else { return nil }
+        let words = text[match].lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
+        guard var direction = PhoneSwipeDirection(rawValue: words[1]) else { return nil }
+        if words[0] == "scroll" {
+            direction = [PhoneSwipeDirection.up: .down, .down: .up, .left: .right, .right: .left][direction]!
+        }
+        return (direction, text.range(of: #"(?i)\b(video|reel|short|clip|tiktok)s?\b"#, options: .regularExpression) != nil)
+    }
+
+    /// One swipe with no classifier question: the observed screen state decides, and a video purpose is confirmed by a playing video.
+    static func gesturePlan(_ direction: PhoneSwipeDirection, video: Bool) throws -> PhoneTransactionPlan {
+        let swipe = PhoneTransactionPlan.Branch(id: "screen", condition: "The phone screen is visible.",
+            command: .init(kind: .swipe, value: direction.rawValue, destination: "", seconds: 0),
+            expected: video ? "A video is playing." : "The screen shows different content.", next: "$done",
+            requiredScreens: [.foregroundApp, .home], expectedVideo: video ? true : nil)
+        let plan = PhoneTransactionPlan(version: 1, phases: [.init(id: "gesture", entry: "start", states: [
+            .init(id: "start", maximumVisits: 3, branches: [swipe], question: "Which screen is visible?")])])
+        try plan.validate()
+        return plan
+    }
+
+    /// Conditions an LLM wrote with negation, which the lexical classifier reads as their opposite.
+    static func negatedConditions(_ plan: PhoneTransactionPlan) -> [String] {
+        plan.phases.flatMap { phase in phase.states.flatMap { state in state.branches.compactMap { branch in
+            branch.condition.range(of: #"(?i)\b(no|not|neither|nor|without|unless|except|absent|missing|none)\b|n't\b"#,
+                options: .regularExpression) == nil ? nil : "\(phase.id).\(state.id).\(branch.id): \(branch.condition)"
+        } } }
     }
 
     static let dismissTarget = "The Not now, Don't Allow, Ask App Not to Track, Maybe later, No thanks, Skip, Close, Dismiss, or Got it button; never Allow"
