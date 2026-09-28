@@ -135,7 +135,7 @@ struct DeviceSettingsView: View {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(persona.displayName)
-                                            Text("@\(persona.handle)")
+                                            Text("@\(persona.handle) · \(persona.network.displayName)")
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
                                         }
@@ -152,7 +152,7 @@ struct DeviceSettingsView: View {
                             Menu("Bind Agent") {
                                 ForEach(otherAgents, id: \.persistentModelID) { persona in
                                     if persona.isLive {
-                                        Button("\(persona.displayName) (@\(persona.handle))") {
+                                        Button(persona.label) {
                                             deviceManager.bind(device, to: persona)
                                         }
                                     }

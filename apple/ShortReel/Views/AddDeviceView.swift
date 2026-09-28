@@ -87,7 +87,7 @@ struct AddDeviceView: View {
             Picker("Bind to persona", selection: $boundPersona) {
                 Text("None").tag(nil as Persona?)
                 ForEach(personas.filter(\.isLive), id: \.persistentModelID) { persona in
-                    Text("@\(persona.handle)").tag(persona as Persona?)
+                    Text("@\(persona.handle) · \(persona.network.displayName)").tag(persona as Persona?)
                 }
             }
             .disabled(discovery.pairingAddress != nil || pairedDevice != nil)

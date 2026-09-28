@@ -97,7 +97,7 @@ if (signingIdentity) {
 
 console.log("→ Quitting any running ShortReel");
 if ((await $`pgrep -x ShortReel`.quiet().nothrow()).exitCode === 0) {
-  await $`osascript -e 'tell application "ShortReel" to quit'`.quiet();
+  await $`osascript -e 'tell application "ShortReel" to quit'`.quiet().nothrow();
 }
 const quitDeadline = Date.now() + 10_000;
 while ((await $`pgrep -x ShortReel`.quiet().nothrow()).exitCode === 0) {

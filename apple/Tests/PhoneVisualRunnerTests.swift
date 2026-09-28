@@ -24,7 +24,8 @@ import Foundation
         try await accountRecoveries()
         try await interruptDismissal()
         try await agentGesture()
-        print("Transaction runner tests passed (agent gesture, replay, locator isolation, frames, durability, uncertainty, cancellation, budgets, deterministic launcher, account phase, diagnostic, signal gates, short-circuit, postconditions, non-video items, capture journal, runner-owned failures, account recoveries, interrupt dismissal)")
+        try await agentWatchThenSwipe()
+        print("Transaction runner tests passed (agent gesture, agent watch then swipe, replay, locator isolation, frames, durability, uncertainty, cancellation, budgets, deterministic launcher, account phase, diagnostic, signal gates, short-circuit, postconditions, non-video items, capture journal, runner-owned failures, account recoveries, interrupt dismissal)")
     }
     static func deterministicReplay() async throws {
         var traces: [[String]] = []
@@ -277,13 +278,16 @@ import Foundation
             && store.records.last?.selected == "missing" && store.records.last?.source == .shortCircuit,
             "An App Store download row was tapped or the missing stop needed Laya")
         let alert = T.Rig(); alert.plan = try PhoneTransactionCompiler.builtIn(goal: "open TikTok", script: nil)!
+        alert.locate = { _, _, _ in .action(.tap(0.26, 0.558), reason: "Located") }
         alert.observeOverride = { _, _ in
             .init(state: alert.actions.isEmpty ? .dialog : alert.actions.count == 1 ? .home : .foregroundApp, appCardsVisible: false,
                 evidence: alert.actions.isEmpty ? "An alert asks to allow notifications." : "Home Screen with TikTok in the Dock.")
         }
         alert.readTextOverride = { frame, platform in
             .init(sourceID: frame.sourceID, capturedAt: frame.capturedAt, platform: platform,
-                regions: alert.actions.isEmpty ? regions([("“TikTok” Would Like to Send You Notifications", 0.4), ("Don't Allow", 0.55), ("Allow", 0.55)]) : [])
+                regions: alert.actions.isEmpty ? regions([("“TikTok” Would Like to Send You Notifications", 0.4)])
+                    + [.init(text: "Don't Allow", confidence: 0.99, bounds: CGRect(x: 0.18, y: 0.55, width: 0.16, height: 0.016)),
+                       .init(text: "Allow", confidence: 0.99, bounds: CGRect(x: 0.66, y: 0.55, width: 0.1, height: 0.016))] : [])
         }
         alert.classifyOverride = { $0.id.hasSuffix(".verify") ? "confirmed" : "unknown" }
         _ = try await alert.run()
@@ -418,6 +422,7 @@ import Foundation
             (.foregroundApp, "The TikTok For You feed with the bottom tab bar.", feedText),
             (.foregroundApp, "The TikTok profile with Following, Followers, and Likes.", profileText)]
         let launched = T.Rig(); launched.plan = plan(account)
+        launched.locate = { goal, _, _ in .action(goal.contains("Not now") ? .tap(0.35, 0.768) : .tap(0.5, 0.5), reason: "Located") }
         launched.budgetOverride = { store.step(scriptIdentifier: $0.identifier, stepID: $1.rawValue)?.budget }
         func current() -> (PhoneScreenObservation.State, String, [PhonePlaybackTracker.TextRegion]) {
             screens[min(launched.captures, screens.count) - 1]
@@ -432,7 +437,7 @@ import Foundation
         let decided = launched.records.map { "\($0.state).\($0.selected ?? "-")" }
         try T.expect(decided == ["start.home", "launcher.present", "launcher.confirmed", "profile.splash", "profile.-", "profile.prompt",
                                  "profile.confirmed", "profile.tabs", "profile.confirmed", "verifyAccount.matches"]
-            && launched.actions == [.tap(0.5, 0.5), .tap(0.5, 0.5), .tap(0.5, 0.5)] && launched.captures == 7
+            && launched.actions == [.tap(0.5, 0.5), .tap(0.35, 0.768), .tap(0.5, 0.5)] && launched.captures == 7
             && launched.questions.map(\.id) == ["account.launcher.verify", "account.profile.verify", "search.start"],
             "Splash, sheet, and tabs did not lead to the account check within the account budget: \(decided)")
 
@@ -623,8 +628,15 @@ import Foundation
             do { _ = try await rig.run() } catch is T.Failure { throw T.Failure.assertion("Unexpected test failure") } catch {}
             return rig
         }
-        for branch in [PhoneTransactionPlan.Branch(id: "go", condition: "Ready", command: tap, expected: "A player", next: "$done", expectedVideo: true),
-                       .init(id: "go", condition: "Ready", command: tap, expected: "Typing", next: "$done", expectedKeyboard: true),
+        let open = PhoneTransactionPlan.Branch(id: "go", condition: "Ready", command: tap, expected: "A player", next: "$done", expectedVideo: true)
+        let opening = try await verify(open, unchanged: true)
+        try T.expect(opening.actions == [.tap(0.5, 0.5), .tap(0.5, 0.5)]
+            && !opening.questions.contains { $0.id.hasSuffix(".verify") } && !opening.records.contains { $0.selected == "confirmed" },
+            "A tap that left the same page on screen was not tapped again exactly once, or was confirmed: \(opening.actions)")
+        let elsewhere = try await verify(open)
+        try T.expect(elsewhere.actions == [.tap(0.5, 0.5)],
+            "A tap that changed the page without opening a video was repeated on the new page: \(elsewhere.actions)")
+        for branch in [PhoneTransactionPlan.Branch(id: "go", condition: "Ready", command: tap, expected: "Typing", next: "$done", expectedKeyboard: true),
                        .init(id: "go", condition: "Ready", command: tap, expected: "Results", next: "$done", expectedSignal: .resultsTabs)] {
             let rig = try await verify(branch)
             try T.expect(rig.actions == [.tap(0.5, 0.5)] && !rig.questions.contains { $0.id.hasSuffix(".verify") }
@@ -834,6 +846,57 @@ import Foundation
         try T.expect(PhoneTransactionCompiler.negatedConditions(compiled).count == 2
             && PhoneTransactionCompiler.negatedConditions(rig.plan).isEmpty,
             "The live compiled plan's negated conditions were not caught for a rewrite")
+    }
+
+    /// Live 2026-09-27: "when the vidoe is done, sipe up to show the next video" compiled to Replay/Pause-control conditions that
+    /// TikTok never shows, so no frame could be verified.
+    static func agentWatchThenSwipe() async throws {
+        for (goal, direction) in [("when the vidoe is done, sipe up to show the next video", PhoneSwipeDirection.up),
+                                  ("After the video ends, swipe up", .up), ("watch this video to the end then swipe up to show the next one", .up),
+                                  ("swipe up when the video is done", .up), ("scroll down once the video finishes", .up)] {
+            try T.expect(PhoneTransactionCompiler.watchThenSwipe(goal) == direction, "\(goal) was not read as watch, then swipe \(direction)")
+        }
+        for goal in ["when the video is done, like it", "when the video is done, swipe up and follow", "swipe up", "open TikTok"] {
+            try T.expect(PhoneTransactionCompiler.watchThenSwipe(goal) == nil, "\(goal) was read as watch, then swipe")
+        }
+        try T.expect(PhoneTransactionCompiler.watchThenSwipe("scroll up to show the next video when the video is done") == .up
+            && PhoneTransactionCompiler.watchThenSwipe("when video 3 is done, swipe up") == nil
+            && PhoneTransactionCompiler.watchThenSwipe("once the video ends, swipe down") == .down,
+            "A 'next video' request swiped backward, or a counted request became a single watch")
+        typealias Reading = (creator: String, progress: Double?, playing: Bool?)
+        func watch(_ frames: [Reading?], goal: String = "when the vidoe is done, sipe up to show the next video",
+                   duration: Double? = nil) async throws -> (T.Rig, String) {
+            let rig = T.Rig(); rig.plan = try PhoneTransactionCompiler.builtIn(goal: goal, script: nil)!
+            rig.observeOverride = { _, _ in
+                guard let reading = frames[min(rig.captures, frames.count) - 1] else {
+                    return .init(state: .foregroundApp, appCardsVisible: false, evidence: "A photo post with a caption.")
+                }
+                return .init(state: .foregroundApp, appCardsVisible: false, evidence: "TikTok video player with a progress bar.",
+                    video: .init(creator: reading.creator.isEmpty ? "" : "@creator\(reading.creator)",
+                        caption: reading.creator.isEmpty ? "" : "Swing trading setup \(reading.creator == "A" ? "one" : "two") explained",
+                        progress: reading.progress, durationSeconds: duration, playing: reading.playing))
+            }
+            rig.classifyOverride = { question in throw T.Failure.assertion("Watching, then swiping asked Laya \(question.id)") }
+            var outcome = ""
+            do { outcome = try await rig.run() } catch let failure as T.Failure { throw failure } catch { outcome = "stopped: \(error.localizedDescription)" }
+            return (rig, outcome)
+        }
+        let (full, fullResult) = try await watch([("A", 0.3, true), ("A", 0.6, true), ("A", 0.95, true), ("A", 0.02, true), ("A", 0.1, true), ("B", 0.05, true)])
+        try T.expect(fullResult.contains("completed") && full.actions == [.swipe(.up)] && full.captures == 6,
+            "The request did not wait for the observed loop, then send one swipe confirmed by the next video: \(full.actions) \(fullResult)")
+        let (short, shortResult) = try await watch([("A", 0.4, true), ("A", 0.9, true), ("", 0.3, true), ("A", 0.7, true), ("B", 0.1, true)])
+        try T.expect(shortResult.contains("completed") && short.actions == [.swipe(.up)],
+            "A short clip whose loop fell between samples, with an unreadable caption on the loop frame, was never finished: \(shortResult)")
+        let (long, longResult) = try await watch([("A", 0.02, true), ("A", 0.03, true), ("A", 0.04, true)], duration: 400)
+        try T.expect(long.actions.isEmpty && longResult.contains("minutes long"), "A long video was swiped or failed vaguely: \(longResult)")
+        let (paused, pausedResult) = try await watch([("A", 0.4, false), ("A", 0.4, false), ("A", 0.4, false)])
+        try T.expect(paused.actions.isEmpty && pausedResult.contains("stayed paused"), "A paused video was tapped or failed vaguely: \(pausedResult)")
+        let (photo, photoResult) = try await watch([nil, nil, nil, nil])
+        try T.expect(photo.actions.isEmpty && photoResult.contains("isn't showing a playing video"), "A photo post failed vaguely: \(photoResult)")
+        let (stuck, stuckResult) = try await watch([("A", 0.5, true), ("A", 0.9, true), ("A", 0.05, true), ("A", 0.1, true), ("A", 0.12, true),
+                                                    ("A", 0.15, true), ("A", 0.18, true)], goal: "once the video ends, swipe down")
+        try T.expect(stuck.actions == [.swipe(.down)] && !stuckResult.contains("completed"),
+            "A swipe that left the same video on screen was reported as verified: \(stuckResult)")
     }
 
     /// The live TikTok "Viewer history turned on" sheet: only an icon close control, over the profile the Profile tap opened.

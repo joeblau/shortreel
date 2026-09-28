@@ -324,7 +324,7 @@ struct DeviceStageView: View {
             Picker("Profile", selection: $warmUpPersona) {
                 Text("None").tag(Persona?.none)
                 ForEach(personas.filter { $0.isLive && $0.isActive }, id: \.persistentModelID) { persona in
-                    Text("\(persona.displayName) (@\(persona.handle))").tag(Persona?.some(persona))
+                    Text(persona.label).tag(Persona?.some(persona))
                 }
             }
             .onChange(of: warmUpPersona) { _, _ in applyWarmUpDefaults() }

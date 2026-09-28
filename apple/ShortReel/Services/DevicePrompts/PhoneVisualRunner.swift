@@ -147,6 +147,8 @@ final class PhoneVisualRunner {
         onProgress("Preparing workflow…")
         let plan = try await beforeDeadline(preparationDeadline) { try await compile(goal, warmUpScript, onProgress) }
         try plan.validate(script: warmUpScript)
+        // Templated watch plans and built-in watch requests read focused checkEvidence and the local playhead tracker.
+        let watching = plan.watchQuery != nil || plan.phases.contains { $0.states.contains { $0.check == .playback } }
         try checkAvailability(deadline: preparationDeadline)
         let deadline = ContinuousClock.now + .seconds(duration)
         sessionDeadline = deadline
@@ -177,6 +179,7 @@ final class PhoneVisualRunner {
         var repeatedInputs = 0
         var playback = PhonePlaybackTracker()
         var visualPlayback = PhoneVideoProgressTracker()
+        visualPlayback.unscripted = warmUpScript == nil
         var dwell = PhoneWatchDwell()
         var sawReplay = false
         var submission: PhoneSubmissionCheckpoint?
@@ -211,6 +214,10 @@ final class PhoneVisualRunner {
                 branch: branch, status: status, input: input ?? (status == .verifying ? pendingInput : nil), visits: visits))
         }
         var restarts = 0
+        var resumes = 0
+        var videoOnScreen = false
+        var identityOnScreen = Set<String>()
+        var retapped = Set<String>()
         var dismissals = 0
         var mismatch: String?
         func resetPhase() {
@@ -249,10 +256,45 @@ final class PhoneVisualRunner {
                 try checkpoint(.observing)
                 return
             }
+            // Once the watch loop has a video playing, recovery stays in the feed and never searches again: a swipe that did not
+            // move is sent again, anything else keeps watching the video on screen. Without a video on screen the run stops.
+            if var active = cursor, active.script.activity == .watch, active.script.usesVideo,
+               [.consume, .advance].contains(active.step.id) {
+                // The item on screen is counted once: a video already watched moves on, a swipe that visibly reached a new video watches
+                // it, and a swipe that did not move is sent again.
+                let swiped = pending?.command?.kind == .swipe
+                let lastSwipe = steps.last { if case .swipe = $0.input { true } else { false } }
+                let reachedNext = swiped && lastSwipe?.screenChanged == true
+                    && !(pendingIdentity.count >= 2 && identityOnScreen.count >= 2 && PhoneWatchChecks.sameItem(identityOnScreen, pendingIdentity))
+                let target: WarmUpScript.StepID = active.step.id == .consume || reachedNext ? .consume : .advance
+                guard videoOnScreen, resumes < Self.maximumResumes,
+                      let next = plan.phases.firstIndex(where: { $0.id == target.rawValue }) else {
+                    try checkpoint(.observing)
+                    throw PhonePromptPlanningError.needsClarification((videoOnScreen ? "The feed did not move past the video on screen"
+                        : "The feed stopped showing a video") + " after \(active.itemsCompleted) watched item(s) (\(error.localizedDescription)) Search is not repeated during a watch loop; check the phone, then run again.")
+                }
+                resumes += 1
+                active.resume(at: target)
+                let swipeMissed = target == .advance
+                cursor = active
+                try onScriptCheckpoint(active.checkpoint)
+                onStep(.init(id: UUID(), number: number, action: !swipeMissed ? "Kept watching" : swiped ? "Swiping to the next video again" : "Moving to the next video",
+                    detail: "Recovery \(resumes) of \(Self.maximumResumes) after: \(error.localizedDescription) A video is on screen, so search is not repeated.",
+                    capturedAt: frame.capturedAt, decisionSource: "Semantic If recovery"))
+                phaseIndex = next
+                resetPhase()
+                advanceVerified = false
+                previousInput = nil
+                previousPixels = nil
+                repeatedInputs = 0
+                try checkpoint(.observing)
+                return
+            }
             guard var active = cursor, restarts < Self.maximumRestarts, submission == nil, !active.submissionSent,
                   ![.prepareSubmission, .submit, .verifySubmission].contains(active.step.id),
                   plan.phases.first?.id == WarmUpScript.StepID.account.rawValue else { throw error }
             restarts += 1
+            retapped = []
             onProgress("Restarting from Home…")
             pendingInput = PhonePromptAction.home.modelInputDescription
             try checkpoint(.dispatching, branch: "restart", input: pendingInput)
@@ -335,6 +377,8 @@ final class PhoneVisualRunner {
             }
             try checkAvailability(deadline: operationDeadline)
             try checkFrameAge(frame)
+            videoOnScreen = observation.video != nil
+            identityOnScreen = PhoneWatchChecks.identity(of: observation, text: text, network: warmUpScript?.network)
             if let last = steps.indices.last, steps[last].input != nil, steps[last].screenChanged == nil {
                 if let before = steps[last].beforeFrame {
                     steps[last].screenChanged = !Self.sameScreen(Self.screenFingerprint(before.cgImage), Self.screenFingerprint(frame.cgImage))
@@ -343,7 +387,7 @@ final class PhoneVisualRunner {
             }
             let screenText = text.regions.map(\.text).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                 .joined(separator: "\n")
-            let evidence = plan.watchQuery != nil
+            let evidence = watching
                 ? (observation.checkEvidence ?? observation.evidence)
                 : observation.evidence + (screenText.isEmpty ? "" : "\nOCR:\n" + screenText)
             let signals = PhoneScreenSignal.matching(text.regions, network: warmUpScript?.network)
@@ -362,8 +406,8 @@ final class PhoneVisualRunner {
             let handlesDialog = state.branches.contains { branch in
                 branch.command != nil && branch.requiredScreens?.contains(.dialog) == true && (branch.signal.map { signals.contains($0) } ?? true)
             }
-            if observation.state == .dialog, let active = cursor, dismissals < Self.maximumDismissals, submission == nil,
-               ![.prepareSubmission, .submit, .verifySubmission].contains(active.step.id), !signals.contains(.passcode),
+            if observation.state == .dialog, dismissals < Self.maximumDismissals, submission == nil,
+               cursor.map({ ![.prepareSubmission, .submit, .verifySubmission].contains($0.step.id) }) ?? watching, !signals.contains(.passcode),
                pending?.signal != .dismissControl, pending?.expectedScreen != .dialog,
                pending?.expectedSignal.map({ signals.contains($0) }) != true,
                !handlesDialog || (pending != nil && pending?.command?.kind != .wait) {
@@ -414,11 +458,11 @@ final class PhoneVisualRunner {
             }
             var context = evidence
             var playbackEvidence: PhonePlaybackEvidence?
-            if cursor?.step.id == .consume, cursor?.script.usesVideo == true {
+            if cursor.map({ $0.step.id == .consume && $0.script.usesVideo }) ?? (watching && phase.id == "consume") {
                 let measured = playback.observe(text)
                 let identity = PhoneWatchChecks.identity(of: observation, text: text, network: warmUpScript?.network)
                 let visual = visualPlayback.observe(observation.video, identity: identity, at: frame.capturedAt)
-                let result = plan.watchQuery != nil
+                let result = watching
                     ? PhonePlaybackEvidence(summary: measured.summary + "\n" + visual.summary,
                         replayCandidate: measured.replayCandidate || visual.replayCandidate,
                         durationSeconds: measured.durationSeconds ?? visual.durationSeconds,
@@ -426,7 +470,12 @@ final class PhoneVisualRunner {
                     : measured
                 playbackEvidence = result
                 sawReplay = sawReplay || result.replayCandidate
-                if let limit = cursor?.script.maximumVideoDurationSeconds,
+                if cursor == nil, let duration = result.durationSeconds, duration > 240 {
+                    throw PhonePromptPlanningError.needsClarification("This video is about \(Int((Double(duration) / 60).rounded())) minutes long, longer than one request can watch. Swipe on the phone, or ask again on a shorter video.")
+                }
+                // Without a script, only a video whose playhead is unreadable completes by playing through its length.
+                if cursor == nil, observation.video?.progress != nil { dwell.reset() }
+                if let limit = cursor.map({ $0.script.maximumVideoDurationSeconds }) ?? 240,
                    dwell.observe(identity: identity, playing: observation.video?.playing, at: frame.capturedAt,
                        duration: result.durationSeconds, limit: limit) {
                     sawReplay = true
@@ -474,7 +523,7 @@ final class PhoneVisualRunner {
             var unoffered = false
             let comparesItem = pending?.command?.kind == .swipe && (phase.id == "consume" || phase.id == "advance")
             if let pending {
-                let verificationEvidence = plan.watchQuery != nil && !comparesItem ? evidence : context + "\nBefore input:\n" + pendingEvidence
+                let verificationEvidence = watching && !comparesItem ? evidence : context + "\nBefore input:\n" + pendingEvidence
                 question = .init(id: "\(phase.id).\(state.id).verify", evidence: verificationEvidence,
                     options: [.init(id: "confirmed", description: pending.expected),
                               .init(id: "pending", description: "The expected result is not yet visible, or is ambiguous."),
@@ -536,18 +585,18 @@ final class PhoneVisualRunner {
                let visualQuestion = PhoneWatchChecks.question(id: question.id, check: check, evidence: evidence, video: observation.video) {
                 question = visualQuestion
             }
-            let verifyingWatchSwipe = plan.watchQuery != nil && warmUpScript?.usesVideo == true && comparesItem
+            let verifyingWatchSwipe = watching && (warmUpScript?.usesVideo ?? true) && comparesItem
             if verifyingWatchSwipe,
                let visualQuestion = PhoneWatchChecks.question(id: question.id, check: .advance, evidence: evidence, video: observation.video) {
                 question = visualQuestion
             }
             let declared = pending.map { $0.expectedVideo != nil || $0.expectedKeyboard != nil || $0.expectedSignal != nil || $0.expectedTab != nil } ?? false
-            let verifyingWatchPlayback = plan.watchQuery != nil && pending != nil && state.check == .playback && !verifyingWatchSwipe && !declared
+            let verifyingWatchPlayback = watching && pending != nil && state.check == .playback && !verifyingWatchSwipe && !declared
             if verifyingWatchPlayback,
                let visualQuestion = PhoneWatchChecks.question(id: question.id, check: .playback, evidence: evidence, video: observation.video) {
                 question = visualQuestion
             }
-            if plan.watchQuery != nil, observation.video != nil, question.options.contains(where: { $0.id == "player" }) {
+            if watching, observation.video != nil, question.options.contains(where: { $0.id == "player" }) {
                 question = .init(id: question.id, evidence: question.evidence,
                     options: question.options.filter { !["results", "profile"].contains($0.id) }, question: question.question)
             }
@@ -563,7 +612,7 @@ final class PhoneVisualRunner {
             } ?? false
             let decidedCheck: PhoneTransactionPlan.State.Check? = verifyingWatchPlayback ? .playback : pending == nil ? state.check : nil
             let currentIdentity = PhoneWatchChecks.identity(of: observation, text: text, network: warmUpScript?.network)
-            let nextPost = comparesItem && plan.watchQuery != nil && (warmUpScript?.usesVideo == false || observation.video != nil)
+            let nextPost = comparesItem && watching && (warmUpScript?.usesVideo == false || observation.video != nil)
                 && pendingIdentity.count >= 2 && currentIdentity.count >= 2 && !PhoneWatchChecks.sameItem(currentIdentity, pendingIdentity)
             let typedQuery = pending?.command.flatMap { $0.kind == .typeText && ($0.value == plan.watchQuery || cursor?.step.id == .search) ? $0.value : nil }
             let typedVisible = typedQuery.map { PhoneWatchChecks.queryVisible($0, in: text) }
@@ -636,7 +685,7 @@ final class PhoneVisualRunner {
                 if typedVisible == false { selected = nil }
                 if comparesItem {
                     let sameItem = pendingIdentity.count >= 2 && PhoneWatchChecks.sameItem(currentIdentity, pendingIdentity)
-                    if sameItem || (plan.watchQuery != nil && (pendingIdentity.count < 2 || currentIdentity.count < 2)) {
+                    if sameItem || (watching && (pendingIdentity.count < 2 || currentIdentity.count < 2)) {
                         selected = nil
                     } else if plan.watchQuery != nil, selected == "confirmed" { advanceVerified = true }
                 }
@@ -647,6 +696,23 @@ final class PhoneVisualRunner {
                     verificationAttempts += 1
                     if awaiting.command?.kind == .home, observation.state != .home, verificationAttempts < 3 {
                         try await beforeDeadline(operationDeadline) { [self] in try await perform(.home) }
+                        after = Date()
+                        continue
+                    }
+                    // A tap meant to open a video that left the same page on screen is tapped again from its state, as a person
+                    // would, within the state's visits; taps that toggle or publish (like, follow, submit) are never repeated.
+                    // Only once per state, and only while the same page is provably still there (unchanged or showing its result tabs).
+                    if verificationAttempts >= 2, awaiting.command?.kind == .tap, awaiting.expectedVideo == true, observation.video == nil,
+                       !retapped.contains("\(phase.id).\(state.id)"),
+                       pendingPixels.map({ Self.sameScreen($0, Self.screenFingerprint(frame.cgImage)) }) == true || signals.contains(.resultsTabs),
+                       state.requiredScreens?.contains(observation.state) ?? true, state.check != .like, state.check != .follow,
+                       cursor.map({ ![.prepareSubmission, .submit, .verifySubmission].contains($0.step.id) }) ?? true {
+                        retapped.insert("\(phase.id).\(state.id)")
+                        pending = nil
+                        pendingInput = nil
+                        pendingPixels = nil
+                        verificationAttempts = 0
+                        try checkpoint(.observing)
                         after = Date()
                         continue
                     }
@@ -668,6 +734,9 @@ final class PhoneVisualRunner {
                 guard let selected, selected != "unknown" else {
                     recordUnverifiedObservation()
                     uncertainAttempts += 1
+                    if uncertainAttempts >= 3, cursor == nil, state.check == .playback, observation.video == nil {
+                        throw PhonePromptPlanningError.needsClarification("The phone isn't showing a playing video to watch to the end.")
+                    }
                     guard uncertainAttempts < 3 else {
                         try await restart(after: PhoneTransactionError.uncertain, number: number, frame: frame)
                         continue
@@ -703,6 +772,8 @@ final class PhoneVisualRunner {
                     let action: PhonePromptAction?
                     do {
                         action = try command.resolved(using: decision)
+                        if case .tap(let x, let y) = action, branch.signal == .dismissControl,
+                           !PhoneWatchChecks.safeDismissTap(x: x, y: y, regions: text.regions) { throw PhoneTransactionError.invalidLocation }
                         // Taps toggle Follow and Subscribe; only the engagement steps may touch them.
                         if case .tap(let x, let y) = action, state.check != .like, state.check != .follow,
                            PhoneWatchChecks.nearFollow(x: x, y: y, regions: text.regions) { throw PhoneTransactionError.invalidLocation }
@@ -746,10 +817,18 @@ final class PhoneVisualRunner {
                             let proposed = action
                             try await beforeDeadline(operationDeadline) { [self] in try await validateSubmissionAction(proposed, frame, final) }
                         }
-                        if action == .swipe(.up), phase.id == "consume" || phase.id == "advance" {
+                        if case .swipe = action, phase.id == "consume" || phase.id == "advance" {
                             let identity = PhoneWatchChecks.identity(of: observation, text: text, network: warmUpScript?.network)
-                            if plan.watchQuery != nil {
+                            if watching {
                                 guard identity.count >= 2 else {
+                                    // Without the current item's identity the next one cannot be verified; look again before swiping.
+                                    if cursor == nil, uncertainAttempts < 2 {
+                                        recordUnverifiedObservation()
+                                        uncertainAttempts += 1
+                                        try await beforeDeadline(operationDeadline) { try await Task.sleep(for: .seconds(1)) }
+                                        after = Date()
+                                        continue
+                                    }
                                     try await restart(after: PhoneTransactionError.uncertain, number: number, frame: frame)
                                     continue
                                 }
@@ -805,6 +884,7 @@ final class PhoneVisualRunner {
                 if !cursorMoved, var active = cursor {
                     if active.step.id == .account, account?.outcome != .matches { throw PhoneTransactionError.uncertain }
                     if active.step.id == .consume, active.script.usesVideo, !sawReplay { throw PhoneTransactionError.uncertain }
+                    if active.step.id == .consume { resumes = 0 }
                     if active.step.id == .prepareSubmission { try recordSubmission(.preparing) }
                     if active.step.id == .verifySubmission { try recordSubmission(.confirmed) }
                     try active.finishStep()
@@ -844,6 +924,7 @@ final class PhoneVisualRunner {
     }
 
     static let maximumRestarts = 2
+    static let maximumResumes = 4
     static let maximumDismissals = 4
 
     /// Failure modes the runner reads from its own state and the structured observation instead of asking Laya.

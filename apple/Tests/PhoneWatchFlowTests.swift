@@ -306,11 +306,12 @@ import Foundation
         var undismissable = flow.frames[sheet]
         undismissable.text.removeAll { $0.0 == "No thanks" }
         let blocked = try await failing(flow, store: store, from: sheet + 1, show: undismissable, closable: false)
-        let afterSheet = blocked.actions.drop { $0 != .home }
-        try T.expect(!afterSheet.isEmpty && afterSheet.allSatisfy { $0 == .home } && !blocked.records.contains { $0.selected == "prompt" },
-            "YouTube: a sheet without a dismiss control was tapped instead of restarting from Home")
+        try T.expect(!blocked.actions.contains(.home) && !blocked.records.contains { $0.selected == "prompt" || $0.selected == "dismiss" }
+            && blocked.actions.filter { if case .typeText = $0 { true } else { false } }.count == 1,
+            "YouTube: a sheet without a dismiss control was tapped, or the watch loop went back to Home and search: \(blocked.actions)")
         try await engagementGuards(store: store)
         try await longVideoSkip(store: store)
+        try await captionlessAdvance(store: store)
         try units()
         print("Watch flow passed for TikTok, Instagram, YouTube, and X: account → search → open → consume → advance with contract budgets, ads and LIVE skipped, captionless items, playback sheets, like + follow")
     }
@@ -338,9 +339,10 @@ import Foundation
             "A missing query allowed browsing instead of restarting from Home")
         let swiped = flow.frames.lastIndex { $0.video?.caption.hasSuffix("number 1") == true && $0.video?.progress == 0.1 }! + 2
         let same = try await failing(flow, store: store, from: swiped, show: flow.frames[swiped - 2])
-        let afterSwipe = same.actions.drop { $0 != .swipe(.up) }.dropFirst()
-        try T.expect(same.actions.filter { $0 == .swipe(.up) }.count == 1 && same.questions.contains { $0.id == "advance.player.verify" }
-            && afterSwipe.first == .home, "An unchanged item was counted or caused a second swipe")
+        try T.expect(same.actions.filter { $0 == .swipe(.up) }.count == 1 + PhoneVisualRunner.maximumResumes
+            && !same.actions.contains(.home) && same.actions.filter { if case .typeText = $0 { true } else { false } }.count == 1
+            && same.questions.contains { $0.id == "advance.player.verify" } && !same.questions.contains { $0.id.hasPrefix("consume.") && same.captures > 200 },
+            "A swipe that did not move was not sent again in place, or the run went back to Home and search: \(same.actions)")
     }
 
     /// Live run 2026-09-27: a video judged too long after more consume checks than the advance budget allows must still verify its skip swipe.
@@ -364,6 +366,20 @@ import Foundation
         try T.expect(run.result.contains("Verified 1 item(s)") && run.rig.actions.filter { $0 == .swipe(.up) }.count == 1
             && run.rig.records.contains { $0.phase == "consume" && $0.pending == "too-long" && $0.selected == "confirmed" },
             "A long video skipped after more consume checks than the advance budget stopped at the request limit: \(run.result)")
+    }
+
+    /// Review 2026-09-27: an advance frame whose creator and caption are unreadable must not re-watch and recount the finished item.
+    static func captionlessAdvance(store: WarmUpContractStore) async throws {
+        let base = tikTok()
+        let advance = base.frames.lastIndex { $0.video?.caption.hasSuffix("number 1") == true && $0.video?.progress == 0.1 }!
+        var frames = base.frames
+        frames.insert(Frame(evidence: "A full-screen video is playing with the right-side icon rail.", text: [("9:41", 0.02)],
+            video: .init(creator: "", caption: "", progress: 0.1, durationSeconds: 10, playing: true)), at: advance)
+        let flow = Flow(script: base.script, query: base.query, frames: frames, answers: base.answers)
+        let run = try await run(flow, store: store)
+        try T.expect(run.result.contains("Verified 2 item(s)") && run.rig.actions.filter { $0 == .swipe(.up) }.count == 1
+            && !run.rig.actions.contains(.home),
+            "An unreadable advance frame re-watched and recounted the finished video, or went back to Home: \(run.result) \(run.rig.actions)")
     }
 
     static func engagementGuards(store: WarmUpContractStore) async throws {

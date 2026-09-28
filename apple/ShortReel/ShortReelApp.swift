@@ -52,6 +52,7 @@ struct ShortReelApp: App {
 final class ShortReelAppDelegate: NSObject, NSApplicationDelegate {
     var shutdown: (() async -> Void)?
     private var terminating = false
+    private var replied = false
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let shutdown else { return .terminateNow }
@@ -59,9 +60,19 @@ final class ShortReelAppDelegate: NSObject, NSApplicationDelegate {
             terminating = true
             Task {
                 await shutdown()
-                sender.reply(toApplicationShouldTerminate: true)
+                finishTermination(sender)
+            }
+            Task {
+                try? await Task.sleep(for: .seconds(5))
+                finishTermination(sender)
             }
         }
         return .terminateLater
+    }
+
+    private func finishTermination(_ sender: NSApplication) {
+        guard !replied else { return }
+        replied = true
+        sender.reply(toApplicationShouldTerminate: true)
     }
 }

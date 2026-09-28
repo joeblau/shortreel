@@ -582,6 +582,10 @@ final class DeviceManager {
                 if builtIn == nil, provider != .codex && provider != .claude {
                     throw PhonePromptPlanningError.needsClarification("Choose Codex or Claude to prepare this workflow.")
                 }
+                // Watching to the end reads the observer's structured video fields, which only Codex and Claude report.
+                if builtIn?.phases.contains(where: { $0.states.contains { $0.check == .playback } }) == true, provider != .codex && provider != .claude {
+                    throw PhonePromptPlanningError.needsClarification("Choose Codex or Claude to watch a video to the end.")
+                }
                 progress(self.semanticIfState == .ready ? "Preparing workflow…" : "Loading Laya for screen classification…")
                 _ = try await self.requiredSemanticIfScorer()
                 try Task.checkCancellation()
