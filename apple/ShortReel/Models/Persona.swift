@@ -47,6 +47,9 @@ final class Persona {
         set { networkRawValue = newValue.rawValue }
     }
 
+    /// Name, handle, and network: one person can hold the same handle on several networks.
+    var label: String { "\(displayName) (@\(handle)) · \(network.displayName)" }
+
     var boundDeviceName: String {
         guard let device, device.isLive else { return "" }
         return device.name

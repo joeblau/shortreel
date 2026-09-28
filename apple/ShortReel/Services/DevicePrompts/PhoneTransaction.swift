@@ -121,7 +121,8 @@ struct PhoneTransactionPlan: Codable, Equatable, Sendable {
             guard name(phase.id), (1...40).contains(phase.states.count), ids.count == phase.states.count,
                   ids.contains(phase.entry) else { throw PhoneTransactionError.invalidPlan }
             for state in phase.states {
-                if state.check != nil, watchQuery == nil { throw PhoneTransactionError.invalidPlan }
+                // Only a built-in request (no script) may watch playback without a templated watch query.
+                if let check = state.check, watchQuery == nil, check != .playback || script != nil { throw PhoneTransactionError.invalidPlan }
                 guard state.requiredScreens?.isEmpty != true else { throw PhoneTransactionError.invalidPlan }
                 if state.accountGate == true {
                     guard phase.id == "account", Set(state.branches.map(\.id)) == ["matches", "unreadable"],
@@ -302,6 +303,7 @@ extension PhoneTransactionCompiler {
     static let watchQuerySchema = Data(#"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"],"additionalProperties":false}"#.utf8)
 
     static func builtIn(goal: String, script: WarmUpScript?) throws -> PhoneTransactionPlan? {
+        if script == nil, let direction = watchThenSwipe(goal) { return try watchThenSwipePlan(direction) }
         if script == nil, let gesture = gesture(goal) { return try gesturePlan(gesture.direction, video: gesture.video) }
         guard script == nil, let parsed = try? DevicePromptPlanner.plan(goal), parsed.actions.count == 1,
               case .openApp(let app) = parsed.actions[0], app.count <= 60 else { return nil }
@@ -331,6 +333,87 @@ extension PhoneTransactionCompiler {
             requiredScreens: [.foregroundApp, .home], expectedVideo: video ? true : nil)
         let plan = PhoneTransactionPlan(version: 1, phases: [.init(id: "gesture", entry: "start", states: [
             .init(id: "start", maximumVisits: 3, branches: [swipe], question: "Which screen is visible?")])])
+        try plan.validate()
+        return plan
+    }
+
+    /// "When the video is done, swipe up to show the next video" and its common rewordings, tolerating one-letter typos
+    /// ("vidoe", "sipe"). Playback completion needs the local playhead tracker; a classifier cannot see TikTok's silent loop.
+    static func watchThenSwipe(_ goal: String) -> PhoneSwipeDirection? {
+        let vocabulary = ["video", "swipe", "scroll", "done", "over", "finished", "finishes", "ends", "ended", "complete", "completes",
+                          "completed", "watch", "next", "show", "until", "when", "after", "once", "then", "playing"]
+        let words = goal.lowercased().components(separatedBy: CharacterSet.letters.inverted).filter { !$0.isEmpty }.map { word in
+            guard word.count >= 4, !vocabulary.contains(word) else { return word }
+            return vocabulary.filter { $0.count >= 4 && editDistance(word, $0) <= 1 }.min { editDistance(word, $0) < editDistance(word, $1) } ?? word
+        }
+        let text = words.joined(separator: " ")
+        let item = "(the |this |current |the current )?video"
+        let ends = "(is done|is over|is finished|is complete|is completed|ends|ended|finishes|completes|has finished|has ended|is done playing|finishes playing)"
+        let move = "(swipe|scroll) (up|down)( to (show|see|get|load|play|go to) (the )?next (video|one))?"
+        let patterns = ["^(when|after|once) \(item) \(ends)( then)? \(move)$",
+                        "^(watch|play|finish) \(item) (to the end|to completion|until it ends|until it is done|until the end|fully|all the way through)( and| then| and then)? \(move)$",
+                        "^\(move) (when|after|once) \(item) \(ends)$"]
+        // Counts and ordinals ("video 3", "swipe up 5") ask for more than one watch; the general planner handles them.
+        guard goal.rangeOfCharacter(from: .decimalDigits) == nil,
+              patterns.contains(where: { text.range(of: $0, options: .regularExpression) != nil }),
+              let gesture = text.range(of: "(swipe|scroll) (up|down)", options: .regularExpression) else { return nil }
+        if text.contains("next video") || text.contains("next one") { return .up }
+        let parts = text[gesture].split(separator: " ").map(String.init)
+        guard let direction = PhoneSwipeDirection(rawValue: parts[1]) else { return nil }
+        return parts[0] == "scroll" ? (direction == .up ? .down : .up) : direction
+    }
+
+    /// Optimal string alignment distance: insertions, deletions, substitutions, and adjacent transpositions.
+    static func editDistance(_ lhs: String, _ rhs: String) -> Int {
+        let a = Array(lhs), b = Array(rhs)
+        guard !a.isEmpty, !b.isEmpty else { return max(a.count, b.count) }
+        var d = Array(repeating: Array(repeating: 0, count: b.count + 1), count: a.count + 1)
+        for i in 0...a.count { d[i][0] = i }
+        for j in 0...b.count { d[0][j] = j }
+        for i in 1...a.count {
+            for j in 1...b.count {
+                let cost = a[i - 1] == b[j - 1] ? 0 : 1
+                d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+                if i > 1, j > 1, a[i - 1] == b[j - 2], a[i - 2] == b[j - 1] { d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1) }
+            }
+        }
+        return d[a.count][b.count]
+    }
+
+    /// The watch script's playback check, then one swipe confirmed by a different playing video. The plan never taps the video:
+    /// the playhead tracker decides completion, the observer's video reading decides playing or paused, and the swipe goes out
+    /// on the frame that shows completion. A still-paused video, a LIVE stream, or a post without video stops with a clear reason.
+    static func watchThenSwipePlan(_ direction: PhoneSwipeDirection) throws -> PhoneTransactionPlan {
+        typealias Branch = PhoneTransactionPlan.Branch
+        func command(_ kind: PhoneTransactionPlan.Command.Kind, _ value: String = "", seconds: Double = 0) -> PhoneTransactionPlan.Command {
+            .init(kind: kind, value: value, destination: "", seconds: seconds)
+        }
+        func playing(_ next: String) -> Branch {
+            Branch(id: "playing", condition: "A playing video.", command: command(.wait, seconds: 1), expected: "The video player is visible.",
+                next: next, expectedScreen: .foregroundApp, requiredScreens: [.foregroundApp])
+        }
+        let complete = Branch(id: "complete", condition: "The video has completed.", command: command(.swipe, direction.rawValue),
+            expected: "A different video is playing.", next: "$done", expectedScreen: .foregroundApp, requiredScreens: [.foregroundApp],
+            video: true, expectedVideo: true)
+        let live = Branch(id: "live", condition: "The current post is a LIVE stream, which never ends. Swipe to a video, then ask again.",
+            command: nil, expected: "", next: "$stop", requiredScreens: [.foregroundApp], signal: .liveBadge)
+        let question = "Describe the current video player, creator, caption, play or pause control, and playback progress."
+        let playback = PhoneTransactionPlan.State(id: "playback", maximumVisits: 40, branches: [
+            playing("playback"),
+            Branch(id: "paused", condition: "A paused video.", command: command(.wait, seconds: 2), expected: "The video player is visible.",
+                next: "resume", expectedScreen: .foregroundApp, requiredScreens: [.foregroundApp]),
+            complete, live,
+            Branch(id: "prompt", condition: "A sheet or alert with Not now or Don't Allow buttons.", command: command(.tap, dismissTarget),
+                expected: "The video player is visible.", next: "playback", expectedScreen: .foregroundApp, requiredScreens: [.dialog],
+                signal: .dismissControl, expectedVideo: true)
+        ], question: question, requiredScreens: [.foregroundApp, .dialog], check: .playback)
+        let resume = PhoneTransactionPlan.State(id: "resume", maximumVisits: 2, branches: [
+            playing("playback"),
+            Branch(id: "paused", condition: "The video stayed paused. Resume it on the phone, then ask again.", command: nil, expected: "",
+                next: "$stop", requiredScreens: [.foregroundApp]),
+            complete, live
+        ], question: question, requiredScreens: [.foregroundApp], check: .playback)
+        let plan = PhoneTransactionPlan(version: 1, phases: [.init(id: "consume", entry: "playback", states: [playback, resume])])
         try plan.validate()
         return plan
     }

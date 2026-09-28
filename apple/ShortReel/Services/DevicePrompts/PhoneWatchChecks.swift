@@ -221,8 +221,12 @@ struct PhoneVideoProgressTracker {
     mutating func reset() { previous = nil; advanced = false; estimates = []; rate = nil; origin = nil }
 
     /// `identity` defaults to the observer's creator and caption; captionless items pass their OCR identity.
+    /// Outside a scripted warm-up nobody seeks, so any large playhead drop on the same playing item is its loop.
+    var unscripted = false
+
     mutating func observe(_ video: PhoneScreenObservation.Video?, identity: Set<String>? = nil, at date: Date) -> PhonePlaybackEvidence {
-        let identity = identity ?? video?.identity ?? []
+        var identity = identity ?? video?.identity ?? []
+        if unscripted, identity.count < 2, video?.progress != nil, let previous { identity = previous.identity }
         guard let video, video.isValid, identity.count >= 2 else {
             reset()
             return .init(summary: "No readable video identity and playhead position.", replayCandidate: false)
@@ -249,8 +253,8 @@ struct PhoneVideoProgressTracker {
         let seconds = date.timeIntervalSince(previous.date)
         // Observations arrive seconds apart, so the last reading before a loop can be well short of the end:
         // the playhead's own rate must have carried it past the end before it reset near the beginning.
-        if advanced, progress <= 0.2, before - progress >= 0.5,
-           before >= 0.9 || rate.map({ before + $0 * seconds >= 0.95 }) == true {
+        if (unscripted && before - progress >= 0.25) || advanced && progress <= 0.2 && before - progress >= 0.5
+            && (before >= 0.9 || rate.map({ before + $0 * seconds >= 0.95 }) == true) {
             advanced = false; rate = nil; origin = nil
             return .init(summary: "The same creator and caption advanced to the end, then the playhead reset near the beginning.",
                 replayCandidate: true, durationSeconds: readableDuration)

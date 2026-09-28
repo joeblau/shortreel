@@ -308,6 +308,15 @@ struct WarmUpScriptCursor: Sendable {
         isComplete = false
     }
 
+    /// Continues the watch loop on the item on screen, keeping completed items; never after a submission.
+    mutating func resume(at step: WarmUpScript.StepID) {
+        guard !submissionSent, let target = script.steps.firstIndex(where: { $0.id == step }) else { return }
+        index = target
+        advanceSent = false
+        engagementSent = false
+        isComplete = false
+    }
+
     private mutating func skipUnscheduledEngagement() {
         while index < script.steps.count - 1,
               (step.id == .like && !likeDue) || (step.id == .follow && !followDue) {
